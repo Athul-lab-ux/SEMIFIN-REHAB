@@ -1,0 +1,111 @@
+<!-- RehabOpt AR — AI Assistant Widget (included in all pages) -->
+<link rel="stylesheet" href="/static/css/ai_assistant.css" />
+
+<!-- Launcher Button -->
+<button id="ai-launcher-btn" class="ai-launcher" title="Chat with RehabOpt AI">💬</button>
+
+<!-- Chat Drawer -->
+<div id="ai-drawer" class="ai-drawer">
+  <!-- Header -->
+  <div class="ai-header">
+    <div class="ai-header-left">
+      <div class="ai-header-dot"></div>
+      <div>
+        <div class="ai-header-title">RehabOpt AI</div>
+        <div class="ai-header-sub">Clinical rehabilitation assistant</div>
+      </div>
+    </div>
+    <button id="ai-close-btn" class="ai-close-btn">✕</button>
+  </div>
+
+  <!-- Quota Bar -->
+  <div class="ai-quota-area">
+    <div class="ai-quota-bar-track">
+      <div class="ai-quota-bar-fill" id="ai-quota-bar"></div>
+    </div>
+    <div class="ai-quota-text" id="ai-quota-text">20 of 20 messages left today</div>
+  </div>
+
+  <!-- Quota Exceeded Banner -->
+  <div id="ai-quota-banner" class="ai-quota-banner">
+    <span class="quota-icon">⏳</span>
+    <div>
+      <strong>Daily AI limit reached</strong>
+      <span class="quota-sub">You've used all 20 messages. Resets tomorrow.</span>
+    </div>
+  </div>
+
+  <!-- Messages -->
+  <div id="ai-chat-messages" class="ai-messages">
+    <div class="ai-welcome">
+      <div class="ai-welcome-icon">🤖</div>
+      <strong style="color:#ff9a3c;">RehabOpt AI</strong><br>
+      Ask about exercises, pain, recovery progress, or upload a medical file.<br>
+      <span style="color:#444;">Powered by Gemini • Zero-leak security</span>
+    </div>
+  </div>
+
+  <!-- Attachments Preview -->
+  <div id="ai-attachments-preview" class="ai-attachments-preview"></div>
+
+  <!-- Input Area -->
+  <div class="ai-input-area">
+    <div class="ai-input-bar">
+      <textarea id="ai-chat-input" rows="1"
+        placeholder="Ask about exercises, pain, or upload scan..."></textarea>
+      <button id="ai-send-btn" class="ai-send-btn" title="Send">↑</button>
+    </div>
+    <div class="ai-actions">
+      <!-- Plus Menu -->
+      <div style="position:relative;">
+        <button id="ai-plus-btn" class="ai-action-btn" title="Add attachment">+</button>
+        <div id="ai-plus-menu" class="ai-plus-menu">
+          <button class="ai-plus-option" id="opt-upload">
+            <span class="opt-icon">📎</span>
+            Upload Medical File
+          </button>
+          <button class="ai-plus-option" id="opt-telemetry">
+            <span class="opt-icon">📊</span>
+            Attach Session Telemetry
+          </button>
+          <button class="ai-plus-option" id="opt-clear">
+            <span class="opt-icon">⚡</span>
+            Clear Chat History
+          </button>
+        </div>
+      </div>
+
+      <!-- Voice -->
+      <button id="btn-voice" class="ai-action-btn" title="Voice input">🎙</button>
+
+      <!-- Model Selector -->
+      <div class="ai-model-selector">
+        <button id="ai-model-pill" class="ai-model-pill">
+          <span class="ai-model-dot"></span>
+          <span id="active-model-label">Gemini 3.7 Flash</span>
+          <span style="font-size:8px;">▼</span>
+        </button>
+        <div id="ai-model-dropdown" class="ai-model-dropdown">
+          <button class="ai-model-option active" data-model="gemini-3.7-flash" data-label="Gemini 3.7 Flash">
+            ● Gemini 3.7 Flash
+            <span class="model-desc">Fast reasoning & clinical Q&A</span>
+          </button>
+          <button class="ai-model-option" data-model="gemini-2.5-pro" data-label="Gemini 2.5 Pro">
+            ● Gemini 2.5 Pro
+            <span class="model-desc">Deep biomechanical analysis</span>
+          </button>
+          <button class="ai-model-option" data-model="gemini-3.6-flash" data-label="Gemini 3.6 Flash">
+            ● Gemini 3.6 Flash
+            <span class="model-desc">High-speed standard responses</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Hidden File Input -->
+<input type="file" id="ai-file-input" accept=".pdf,.png,.jpg,.jpeg" />
+
+<!-- AI Assistant Script -->
+<script src="/static/js/ai_assistant.js"></script>

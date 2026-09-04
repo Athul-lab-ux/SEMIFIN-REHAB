@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>RehabOpt AR — Therapy Drills</title>
+  <link rel="stylesheet" href="/static/css/therapy.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
+</head>
+<body>
+  <!-- PRE-WORKOUT SCREEN -->
+  <div id="pre-workout" class="screen active">
+    <div class="pre-card">
+      <div class="pre-icon">🦾</div>
+      <h1>Elbow Extension</h1>
+      <p class="pre-subtitle">Therapy Drill — Session 1</p>
+
+      <div class="pre-stats">
+        <div class="pre-stat">
+          <span class="ps-val">3</span>
+          <span class="ps-label">Sets</span>
+        </div>
+        <div class="pre-stat">
+          <span class="ps-val">10</span>
+          <span class="ps-label">Reps/Set</span>
+        </div>
+        <div class="pre-stat">
+          <span class="ps-val">135°</span>
+          <span class="ps-label">Target ROM</span>
+        </div>
+      </div>
+
+      <div class="form-guide">
+        <h3>📋 Proper Form Guide</h3>
+        <ol>
+          <li><span class="step-num">1</span> Stand facing camera, arm at side</li>
+          <li><span class="step-num">2</span> Slowly extend elbow to 135°</li>
+          <li><span class="step-num">3</span> Hold peak extension for 1 second</li>
+          <li><span class="step-num">4</span> Return to starting flexed position</li>
+          <li><span class="step-num">5</span> Keep shoulders level — no leaning!</li>
+        </ol>
+      </div>
+
+      <div class="deficit-badge">
+        <span>🩺 Current Profile: </span>
+        <strong id="pre-condition">Hemiparesis</strong>
+      </div>
+
+      <button id="start-workout-btn" class="btn-start">
+        <span class="btn-icon">▶</span> Start Warm-Up
+      </button>
+    </div>
+  </div>
+
+  <!-- WARM-UP COUNTDOWN -->
+  <div id="warmup-screen" class="screen">
+    <div class="warmup-content">
+      <div class="warmup-phase">WARM-UP</div>
+      <div class="warmup-counter" id="warmup-counter">5</div>
+      <p class="warmup-hint">Get into position — arm at your side, elbow bent</p>
+      <div class="warmup-bar">
+        <div class="warmup-fill" id="warmup-fill"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ACTIVE WORKOUT SCREEN -->
+  <div id="workout-screen" class="screen">
+    <!-- Top HUD -->
+    <div class="workout-top-bar">
+      <button id="pause-btn" class="hud-btn">⏸ Pause</button>
+      <div class="workout-title">Elbow Extension</div>
+      <div class="set-info" id="set-info">Set 1/3</div>
+    </div>
+
+    <!-- Camera + Overlay -->
+    <div class="camera-area">
+      <video id="video" autoplay playsinline muted></video>
+      <canvas id="overlay-canvas"></canvas>
+
+      <!-- Angle Arc HUD -->
+      <div class="angle-hud">
+        <svg class="angle-ring" viewBox="0 0 120 120">
+          <circle cx="60" cy="60" r="52" fill="none" stroke="rgba(255,106,0,0.1)" stroke-width="6"/>
+          <circle id="angle-arc" cx="60" cy="60" r="52" fill="none" stroke="#ff6a00" stroke-width="6"
+            stroke-dasharray="326.7" stroke-dashoffset="326.7" stroke-linecap="round"
+            transform="rotate(-90 60 60)"/>
+        </svg>
+        <div class="angle-text">
+          <span class="angle-val" id="angle-display">0°</span>
+          <span class="angle-target">/ 135°</span>
+        </div>
+      </div>
+
+      <!-- Rep Progress (circular) -->
+      <div class="rep-ring-hud">
+        <svg viewBox="0 0 100 100">
+          <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="5"/>
+          <circle id="rep-arc" cx="50" cy="50" r="42" fill="none" stroke="#00ff88" stroke-width="5"
+            stroke-dasharray="263.9" stroke-dashoffset="263.9" stroke-linecap="round"
+            transform="rotate(-90 50 50)"/>
+        </svg>
+        <div class="rep-text">
+          <span class="rep-val" id="rep-display">0</span>
+          <span class="rep-of">/10</span>
+        </div>
+      </div>
+
+      <!-- Timer -->
+      <div class="timer-hud">
+        <span class="timer-icon">⏱</span>
+        <span id="timer-display">00:00</span>
+      </div>
+
+      <!-- Cheat Alert -->
+      <div id="cheat-alert" class="cheat-alert">
+        <div class="cheat-icon">⚠️</div>
+        <div>POSTURE CHEAT DETECTED</div>
+        <div class="cheat-sub">Keep shoulders level!</div>
+      </div>
+
+      <!-- Inactivity Hint -->
+      <div id="hint-banner" class="hint-banner">
+        <div class="hint-arrow">→</div>
+        <span>Extend your arm toward the target</span>
+      </div>
+
+      <!-- Ghost Guide -->
+      <div class="ghost-panel">
+        <div class="ghost-label"> ghost Guide</div>
+        <canvas id="ghost-guide-canvas" width="180" height="160"></canvas>
+      </div>
+
+      <!-- Form Cues -->
+      <div class="form-cues" id="form-cues">
+        <div class="cue" id="cue-step">Bend elbow to start</div>
+      </div>
+    </div>
+
+    <!-- Bottom Set Progress -->
+    <div class="set-progress-bar">
+      <div class="set-dots" id="set-dots">
+        <div class="set-dot active"><span>1</span></div>
+        <div class="set-dot"><span>2</span></div>
+        <div class="set-dot"><span>3</span></div>
+      </div>
+      <div class="set-reps-bar">
+        <div class="set-reps-fill" id="set-reps-fill"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- REST BETWEEN SETS -->
+  <div id="rest-screen" class="screen">
+    <div class="rest-content">
+      <div class="rest-phase">REST</div>
+      <div class="rest-counter" id="rest-counter">30</div>
+      <p class="rest-hint">Take a breath — next set starts automatically</p>
+      <div class="rest-bar">
+        <div class="rest-fill" id="rest-fill"></div>
+      </div>
+      <button id="skip-rest-btn" class="btn-skip">Skip Rest →</button>
+    </div>
+  </div>
+
+  <!-- WORKOUT COMPLETE -->
+  <div id="complete-screen" class="screen">
+    <div class="complete-card">
+      <div class="complete-icon">🎉</div>
+      <h1>Workout Complete!</h1>
+      <p class="complete-sub">Elbow Extension — All Sets Finished</p>
+
+      <div class="complete-stats">
+        <div class="cs-item">
+          <div class="cs-val" id="cs-reps">30</div>
+          <div class="cs-label">Total Reps</div>
+        </div>
+        <div class="cs-item">
+          <div class="cs-val" id="cs-sets">3</div>
+          <div class="cs-label">Sets Done</div>
+        </div>
+        <div class="cs-item">
+          <div class="cs-val" id="cs-rom">0°</div>
+          <div class="cs-label">Peak ROM</div>
+        </div>
+        <div class="cs-item">
+          <div class="cs-val" id="cs-cheats">0</div>
+          <div class="cs-label">Cheats Caught</div>
+        </div>
+        <div class="cs-item">
+          <div class="cs-val" id="cs-time">0:00</div>
+          <div class="cs-label">Duration</div>
+        </div>
+        <div class="cs-item">
+          <div class="cs-val" id="cs-streak">1</div>
+          <div class="cs-label">Day Streak 🔥</div>
+        </div>
+      </div>
+
+      <div class="complete-grade" id="complete-grade">
+        <span class="grade-letter">A</span>
+        <span class="grade-desc">Excellent Form</span>
+      </div>
+
+      <div class="complete-actions">
+        <a href="/dashboard" class="btn-back-dash">← Back to Dashboard</a>
+        <button id="replay-btn" class="btn-replay">🔄 Do Another Set</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="toast"></div>
+
+  {% include '_ai_widget.html' %}
+  <script src="/static/js/kinematics.js"></script>
+  <script src="/static/js/camera.js"></script>
+  <script src="/static/js/streak_manager.js"></script>
+  <script src="/static/js/therapy_engine.js"></script>
+</body>
+</html>

@@ -1,0 +1,288 @@
+/* RehabOpt AR — Clinical Report Card Styles */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+  background: #0a0808;
+  color: #e8ddd0;
+  min-height: 100vh;
+}
+
+#bg-canvas {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+}
+
+.report-container {
+  position: relative;
+  z-index: 1;
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 30px 20px;
+}
+
+/* Header */
+.report-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 28px;
+}
+
+.report-header h1 {
+  font-size: 22px;
+  color: #ff9a3c;
+  font-weight: 700;
+}
+
+.back-btn {
+  padding: 6px 14px;
+  background: rgba(255, 106, 0, 0.1);
+  border: 1px solid rgba(255, 106, 0, 0.2);
+  border-radius: 8px;
+  color: #ff9a3c;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.3s;
+}
+
+.back-btn:hover {
+  background: rgba(255, 106, 0, 0.2);
+}
+
+/* Stats Grid */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 14px;
+  margin-bottom: 28px;
+}
+
+.stat-card {
+  background: rgba(15, 12, 8, 0.7);
+  border: 1px solid rgba(255, 106, 0, 0.1);
+  border-radius: 14px;
+  padding: 18px 16px;
+  text-align: center;
+  backdrop-filter: blur(8px);
+}
+
+.stat-card .icon {
+  font-size: 28px;
+  margin-bottom: 6px;
+}
+
+.stat-card .label {
+  font-size: 10px;
+  color: #a08a70;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.stat-card .value {
+  font-size: 22px;
+  font-weight: 800;
+  color: #ff9a3c;
+  margin-top: 4px;
+}
+
+/* SOAP Section */
+.soap-section {
+  background: rgba(15, 12, 8, 0.7);
+  border: 1px solid rgba(255, 106, 0, 0.15);
+  border-radius: 16px;
+  padding: 24px;
+  margin-bottom: 24px;
+  backdrop-filter: blur(8px);
+}
+
+.soap-section h2 {
+  font-size: 16px;
+  color: #ff9a3c;
+  margin-bottom: 14px;
+  font-weight: 700;
+}
+
+#soap-note {
+  font-size: 14px;
+  line-height: 1.7;
+  color: #c0a888;
+  white-space: pre-wrap;
+  min-height: 80px;
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 10px;
+  border: 1px solid rgba(255, 106, 0, 0.08);
+}
+
+.soap-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+#generate-soap-btn {
+  flex: 1;
+  padding: 12px;
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #ff6a00, #ff9a3c);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+#generate-soap-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(255, 106, 0, 0.3);
+}
+
+#generate-soap-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+#print-btn {
+  padding: 12px 24px;
+  border: 1px solid rgba(255, 106, 0, 0.2);
+  border-radius: 10px;
+  background: rgba(255, 106, 0, 0.08);
+  color: #ff9a3c;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+#print-btn:hover {
+  background: rgba(255, 106, 0, 0.15);
+}
+
+/* Toast */
+.toast {
+  position: fixed;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%) translateY(80px);
+  padding: 12px 28px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  z-index: 9999;
+  opacity: 0;
+  transition: all 0.4s ease;
+  pointer-events: none;
+}
+
+.toast.show {
+  transform: translateX(-50%) translateY(0);
+  opacity: 1;
+}
+
+.toast.success {
+  background: rgba(0, 200, 120, 0.15);
+  border: 1px solid rgba(0, 200, 120, 0.3);
+  color: #6edba0;
+}
+
+.toast.error {
+  background: rgba(255, 50, 50, 0.15);
+  border: 1px solid rgba(255, 50, 50, 0.3);
+  color: #ff6b6b;
+}
+
+.toast.info {
+  background: rgba(255, 154, 60, 0.15);
+  border: 1px solid rgba(255, 154, 60, 0.3);
+  color: #ff9a3c;
+}
+
+/* ================================
+   PRINT STYLES — Single-Page Medical Document
+   ================================ */
+@media print {
+  * {
+    color: #000 !important;
+    background: #fff !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+
+  body {
+    font-size: 11pt;
+    line-height: 1.4;
+  }
+
+  #bg-canvas,
+  .back-btn,
+  .soap-actions,
+  .toast,
+  #generate-soap-btn,
+  #print-btn {
+    display: none !important;
+  }
+
+  .report-container {
+    max-width: 100%;
+    padding: 0;
+    margin: 0;
+  }
+
+  .report-header {
+    border-bottom: 2px solid #000;
+    padding-bottom: 8px;
+    margin-bottom: 16px;
+  }
+
+  .report-header h1 {
+    font-size: 18pt;
+    color: #000 !important;
+  }
+
+  .stats-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+
+  .stat-card {
+    border: 1px solid #ccc;
+    padding: 10px;
+    page-break-inside: avoid;
+  }
+
+  .stat-card .value {
+    font-size: 16pt;
+    color: #000 !important;
+  }
+
+  .soap-section {
+    border: 1px solid #ccc;
+    padding: 12px;
+    page-break-inside: avoid;
+  }
+
+  #soap-note {
+    border: 1px solid #ddd;
+    padding: 10px;
+    font-size: 10pt;
+  }
+
+  @page {
+    margin: 0.5in;
+    size: A4;
+  }
+}

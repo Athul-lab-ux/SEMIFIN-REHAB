@@ -1,0 +1,51 @@
+-- RehabOpt AR Database Schema
+-- Neuro-Rehabilitation Platform
+
+-- Patients Table
+CREATE TABLE IF NOT EXISTS patients (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    patient_id TEXT UNIQUE NOT NULL,
+    email TEXT UNIQUE NOT NULL,
+    password_hash TEXT NOT NULL,
+    selected_condition TEXT DEFAULT 'Hemiparesis',
+    current_streak INTEGER DEFAULT 1,
+    last_session_date TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Clinical Telemetry Session Logs
+CREATE TABLE IF NOT EXISTS telemetry_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    patient_id TEXT NOT NULL,
+    session_type TEXT NOT NULL,
+    condition TEXT NOT NULL,
+    duration_seconds INTEGER NOT NULL,
+    peak_rom REAL DEFAULT 0.0,
+    smoothness_score REAL DEFAULT 0.0,
+    cheats_blocked INTEGER DEFAULT 0,
+    score INTEGER DEFAULT 0,
+    metrics_json TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (patient_id) REFERENCES patients(patient_id)
+);
+
+-- AI Chat Daily Usage Logs
+CREATE TABLE IF NOT EXISTS chat_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    patient_id TEXT NOT NULL,
+    model_used TEXT DEFAULT 'gemini-3.7-flash',
+    status TEXT DEFAULT 'success',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (patient_id) REFERENCES patients(patient_id)
+);
+
+-- Pre-seed Initial Demonstration Account
+INSERT OR IGNORE INTO patients (patient_id, email, password_hash, selected_condition, current_streak, last_session_date)
+VALUES (
+    'SP-000000001',
+    'demo@gmail.com',
+    'scrypt:32768:8:1$e4a1b7c9d0f12345$testpasswordhash',
+    'Hemiparesis',
+    5,
+    '2026-09-03'
+);

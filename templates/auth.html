@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RehabOpt AR — Sign In</title>
+  <link rel="stylesheet" href="/static/css/auth.css" />
+</head>
+<body>
+  <canvas id="bg-canvas"></canvas>
+
+  <div class="auth-container">
+    <div class="auth-card">
+      <div class="auth-header">
+        <span class="logo-icon">🏥</span>
+        <h1>RehabOpt AR</h1>
+        <p class="subtitle">Neuro-Rehabilitation Platform</p>
+      </div>
+
+      <!-- Tabs -->
+      <div class="tab-bar">
+        <button id="sign-in-tab" class="tab active">Sign In</button>
+        <button id="register-tab" class="tab">Register</button>
+      </div>
+
+      <!-- Sign In Panel -->
+      <div id="sign-in-panel" class="panel visible">
+        <form id="sign-in-form">
+          <div class="input-group">
+            <label for="si-patient-id">🪪 Patient ID</label>
+            <input type="text" id="si-patient-id" placeholder="SP-000000001" required />
+          </div>
+          <div class="input-group">
+            <label for="si-password">🔒 Password</label>
+            <div class="pw-field">
+              <input type="password" id="si-password" placeholder="Enter password" required />
+              <button type="button" class="toggle-pw">👁️</button>
+            </div>
+          </div>
+          <button type="submit" class="btn-primary">🔓 Sign In</button>
+        </form>
+        <p class="switch-link">
+          Don't have a Patient ID yet? <a href="#" id="go-register">Register here ➜</a>
+        </p>
+        <button id="demo-btn" class="btn-demo">⚡ Fill Demo Account</button>
+      </div>
+
+      <!-- Register Panel -->
+      <div id="register-panel" class="panel">
+        <form id="register-form">
+          <div class="input-group">
+            <label for="reg-email">📧 Email</label>
+            <input type="email" id="reg-email" placeholder="you@example.com" required />
+          </div>
+          <div class="input-group">
+            <label for="reg-password">🔒 Password</label>
+            <div class="pw-field">
+              <input type="password" id="reg-password" placeholder="Min 8 characters" required minlength="8" />
+              <button type="button" class="toggle-pw">👁️</button>
+            </div>
+          </div>
+          <div class="input-group">
+            <label for="reg-password2">🔒 Confirm Password</label>
+            <div class="pw-field">
+              <input type="password" id="reg-password2" placeholder="Repeat password" required minlength="8" />
+              <button type="button" class="toggle-pw">👁️</button>
+            </div>
+          </div>
+          <button type="submit" class="btn-primary">📋 Register New Patient</button>
+        </form>
+        <p class="switch-link">
+          Already have a Patient ID? <a href="#" id="go-signin">Sign In ➜</a>
+        </p>
+      </div>
+    </div>
+
+    <div class="security-badge">🛡️ HIPAA Data Isolation Active</div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="toast"></div>
+
+  {% include '_ai_widget.html' %}
+  <script src="/static/js/auth_canvas.js"></script>
+  <script src="/static/js/auth.js"></script>
+</body>
+</html>

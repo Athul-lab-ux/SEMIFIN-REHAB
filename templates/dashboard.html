@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RehabOpt AR — Dashboard</title>
+  <link rel="stylesheet" href="/static/css/dashboard.css" />
+</head>
+<body>
+  <canvas id="bg-canvas"></canvas>
+
+  <div class="dashboard-container">
+    <!-- Header -->
+    <div class="dash-header">
+      <div class="dash-title">
+        <span class="logo">🏥</span>
+        <div>
+          <h1>RehabOpt AR</h1>
+          <span id="patient-id-display">🪪 SP-000000001</span>
+        </div>
+      </div>
+      <div style="display:flex; align-items:center; gap:12px;">
+        <span id="streak-badge">🔥 1 Days Active</span>
+        <button id="logout-btn">🚪 Sign Out</button>
+      </div>
+    </div>
+
+    <!-- Clinical Deficit Selector -->
+    <div class="condition-card">
+      <label>🩺 Clinical Deficit Profile</label>
+      <select id="condition-select">
+        <option value="Hemiparesis">🦾 Upper-Limb Hemiparesis</option>
+        <option value="Flexor Spasticity">✋ Flexor Spasticity</option>
+        <option value="Motor Ataxia">🎯 Motor Ataxia / Dysmetria</option>
+        <option value="Intention Tremor">🫨 Intention Tremor</option>
+        <option value="Motor Apraxia">🧠 Motor Apraxia</option>
+        <option value="Wrist Drop">🤚 Wrist Drop</option>
+      </select>
+    </div>
+
+    <!-- Session Launch Cards -->
+    <div class="sessions-grid">
+      <a href="/therapy" class="session-card">
+        <span class="icon">🦾</span>
+        <h3>Session 1: Therapy Drills</h3>
+        <p>Elbow goniometry, rep latching, anti-cheat trunk monitoring, AOT ghost guide</p>
+      </a>
+      <a href="/arcade" class="session-card">
+        <span class="icon">🎮</span>
+        <h3>Session 2: Arcade Arena</h3>
+        <p>Flappy Kinetic, Fruit Ballistic, combo multipliers, wrist drop therapy</p>
+      </a>
+      <a href="/air-canvas" class="session-card">
+        <span class="icon">🎨</span>
+        <h3>Session 3: Neon Air-Canvas</h3>
+        <p>Fingertip drawing, parametric templates, ataxia corridor scoring, gesture control</p>
+      </a>
+      <a href="/adl-lab" class="session-card">
+        <span class="icon">🔑</span>
+        <h3>Session 4: ADL Functional Lab</h3>
+        <p>Key turn, light switch, thermostat dial, touchless PIN pad simulation</p>
+      </a>
+    </div>
+
+    <!-- Report Card -->
+    <a href="/report" class="report-card">
+      <span class="icon">📋</span>
+      <h3>View Clinical Report Card</h3>
+    </a>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="toast"></div>
+
+  {% include '_ai_widget.html' %}
+  <script src="/static/js/dashboard.js"></script>
+</body>
+</html>

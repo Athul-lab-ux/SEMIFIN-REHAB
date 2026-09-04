@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RehabOpt AR — ADL Functional Lab</title>
+  <link rel="stylesheet" href="/static/css/adl.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+</head>
+<body>
+  <div class="adl-container">
+    <!-- Top Bar -->
+    <div class="top-bar">
+      <a href="/dashboard" class="back-btn">← Back</a>
+      <h2>🔑 ADL Functional Lab</h2>
+      <span style="font-size:12px; color:#a08a70;">Session 4</span>
+    </div>
+
+    <!-- HUD Bar -->
+    <div class="hud-bar">
+      <div class="hud-item">
+        <div class="label">📋 Task</div>
+        <div class="value" id="task-display">Choose a task</div>
+      </div>
+      <div class="hud-item">
+        <div class="label">📊 Status</div>
+        <div class="value" id="status-display">Ready</div>
+      </div>
+    </div>
+
+    <!-- Game Area -->
+    <div class="game-area">
+      <video id="video" autoplay playsinline muted></video>
+      <canvas id="hand-canvas"></canvas>
+      <canvas id="game-canvas"></canvas>
+
+      <!-- Task Menu -->
+      <div id="task-menu">
+        <button class="task-btn" data-task="key">
+          🔑 90° Door Key Turn
+          <span class="desc">Rotate forearm to turn the key</span>
+        </button>
+        <button class="task-btn" data-task="light">
+          💡 Rocker Light Switch
+          <span class="desc">Thrust hand up/down to flip switch</span>
+        </button>
+        <button class="task-btn" data-task="thermostat">
+          🎛️ Rotary Thermostat
+          <span class="desc">Circular motion to adjust 18–24°C</span>
+        </button>
+        <button class="task-btn" data-task="pin">
+          🔢 Touchless PIN Pad
+          <span class="desc">Hover over digits 1-2-3-4 steadily</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="toast"></div>
+
+  {% include '_ai_widget.html' %}
+  <script src="/static/js/kinematics.js"></script>
+  <script src="/static/js/camera.js"></script>
+  <script src="/static/js/streak_manager.js"></script>
+  <script src="/static/js/adl_engine.js"></script>
+</body>
+</html>

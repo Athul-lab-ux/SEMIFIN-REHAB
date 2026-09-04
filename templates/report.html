@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RehabOpt AR — Clinical Report Card</title>
+  <link rel="stylesheet" href="/static/css/report.css" />
+</head>
+<body>
+  <canvas id="bg-canvas"></canvas>
+
+  <div class="report-container">
+    <!-- Header -->
+    <div class="report-header">
+      <div>
+        <a href="/dashboard" class="back-btn">← Back</a>
+      </div>
+      <h1>📋 Clinical Report Card</h1>
+      <button id="print-btn">🖨️ Export PDF</button>
+    </div>
+
+    <!-- Patient Info -->
+    <div style="text-align:center; margin-bottom:20px;">
+      <span id="report-patient-id" style="font-size:14px; color:#ff9a3c; font-weight:700;">🪪 SP-000000001</span>
+      <span style="margin: 0 12px; color:#a08a70;">|</span>
+      <span id="report-condition" style="font-size:13px; color:#c0a888;">Hemiparesis</span>
+    </div>
+
+    <!-- Biomarkers Grid -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="icon">🔥</div>
+        <div class="label">Recovery Streak</div>
+        <div class="value" id="report-streak">1 Days</div>
+      </div>
+      <div class="stat-card">
+        <div class="icon">📊</div>
+        <div class="label">Total Sessions</div>
+        <div class="value" id="report-sessions">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="icon">🦾</div>
+        <div class="label">Peak ROM</div>
+        <div class="value" id="report-rom">0°</div>
+      </div>
+      <div class="stat-card">
+        <div class="icon">〰️</div>
+        <div class="label">Smoothness</div>
+        <div class="value" id="report-smoothness">0/100</div>
+      </div>
+      <div class="stat-card">
+        <div class="icon">⚠️</div>
+        <div class="label">Cheats Blocked</div>
+        <div class="value" id="report-cheats">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="icon">⏱️</div>
+        <div class="label">Avg Duration</div>
+        <div class="value" id="report-duration">0s</div>
+      </div>
+    </div>
+
+    <!-- AI SOAP Note -->
+    <div class="soap-section">
+      <h2>🤖 AI Clinical SOAP Assessment</h2>
+      <div id="soap-note">
+        Click "Generate AI SOAP Note" to have Gemini analyze your telemetry data and produce a professional clinical progress note.
+      </div>
+      <div class="soap-actions">
+        <button id="generate-soap-btn">🤖 Generate AI SOAP Note</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="toast"></div>
+
+  {% include '_ai_widget.html' %}
+  <script src="/static/js/report.js"></script>
+</body>
+</html>

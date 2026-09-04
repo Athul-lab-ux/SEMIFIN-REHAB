@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RehabOpt AR — Neon Air-Canvas</title>
+  <link rel="stylesheet" href="/static/css/air_canvas.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+</head>
+<body>
+  <div class="canvas-container">
+    <!-- Top Bar -->
+    <div class="top-bar">
+      <a href="/dashboard" class="back-btn">← Back</a>
+      <h2>🎨 Neon Air-Canvas</h2>
+      <span style="font-size:12px; color:#a08a70;">Session 3</span>
+    </div>
+
+    <!-- Template Toolbar -->
+    <div class="toolbar">
+      <button class="template-btn active" data-template="freeform">✏️ Freeform</button>
+      <button class="template-btn" data-template="line">📏 Line</button>
+      <button class="template-btn" data-template="circle">⭕ Circle</button>
+      <button class="template-btn" data-template="square">⬜ Square</button>
+      <button class="template-btn" data-template="infinity">∞ Infinity</button>
+      <button class="template-btn" data-template="triangle">🔺 Triangle</button>
+      <button class="template-btn" data-template="spiral">🌀 Spiral</button>
+      <button class="template-btn" data-template="star">⭐ Star</button>
+      <button class="template-btn" data-template="figure8">8 Figure-8</button>
+      <button class="template-btn" data-template="sine">〰️ Sine</button>
+      <button class="template-btn" data-template="zigzag">⚡ Zig-zag</button>
+    </div>
+
+    <!-- Color Palette -->
+    <div class="color-palette">
+      <button class="color-btn active" data-color="#00ff88" style="background:#00ff88;"></button>
+      <button class="color-btn" data-color="#ff6a00" style="background:#ff6a00;"></button>
+      <button class="color-btn" data-color="#00ccff" style="background:#00ccff;"></button>
+      <button class="color-btn" data-color="#ff4488" style="background:#ff4488;"></button>
+      <button class="color-btn" data-color="#ffd000" style="background:#ffd000;"></button>
+      <button id="clear-btn">🧹 Clear</button>
+    </div>
+
+    <!-- Drawing Area -->
+    <div class="drawing-area">
+      <video id="video" autoplay playsinline muted></video>
+      <canvas id="draw-canvas"></canvas>
+      <canvas id="hand-canvas"></canvas>
+
+      <!-- HUD -->
+      <div class="canvas-hud">
+        <div class="hud-pill" id="accuracy-display">📐 100%</div>
+        <div class="hud-pill" id="tool-display">✏️ Freeform</div>
+      </div>
+
+      <!-- Gesture Hint -->
+      <div class="gesture-hint">✌️ Peace sign = pen lift</div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="toast"></div>
+
+  {% include '_ai_widget.html' %}
+  <script src="/static/js/kinematics.js"></script>
+  <script src="/static/js/camera.js"></script>
+  <script src="/static/js/streak_manager.js"></script>
+  <script src="/static/js/air_canvas_engine.js"></script>
+</body>
+</html>
