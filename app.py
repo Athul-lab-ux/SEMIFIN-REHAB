@@ -589,6 +589,8 @@ def ai_chat():
 # ---------------------------------------------------------------------------
 # Application Entry
 # ---------------------------------------------------------------------------
+# Initialize DB on import (works with both python app.py and gunicorn)
+init_db()
+
 if __name__ == "__main__":
-    init_db()
     app.run(debug=True, port=5000)
