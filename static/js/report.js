@@ -97,32 +97,40 @@ document.addEventListener("DOMContentLoaded", async () => {
     w = canvas.width = window.innerWidth;
     h = canvas.height = window.innerHeight;
   }
-  window.addEventListener("resize", resize);
+  let resizeTimer = null;
+  window.addEventListener("resize", () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(resize, 150);
+  });
   resize();
 
-  function animate() {
+  let lastFrame = 0;
+  const FRAME_INTERVAL = 33;
+  function animate(timestamp) {
+    requestAnimationFrame(animate);
+    if (timestamp - lastFrame < FRAME_INTERVAL) return;
+    lastFrame = timestamp;
+
     ctx.fillStyle = "#0a0808";
     ctx.fillRect(0, 0, w, h);
 
-    // Subtle amber grid
+    // Subtle amber grid (wider spacing)
     ctx.strokeStyle = "rgba(255, 106, 0, 0.02)";
     ctx.lineWidth = 1;
-    for (let x = 0; x < w; x += 50) {
+    for (let x = 0; x < w; x += 80) {
       ctx.beginPath();
       ctx.moveTo(x, 0);
       ctx.lineTo(x, h);
       ctx.stroke();
     }
-    for (let y = 0; y < h; y += 50) {
+    for (let y = 0; y < h; y += 80) {
       ctx.beginPath();
       ctx.moveTo(0, y);
       ctx.lineTo(w, y);
       ctx.stroke();
     }
-
-    requestAnimationFrame(animate);
   }
-  animate();
+  requestAnimationFrame(animate);
 
   // Init
   await loadStats();

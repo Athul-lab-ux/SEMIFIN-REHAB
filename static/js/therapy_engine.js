@@ -547,13 +547,19 @@ document.addEventListener("DOMContentLoaded", async () => {
     ghostCtx.fillText("3.Hold", wristX + 5, wristY - 5);
 
     ghostT += 1;
-    requestAnimationFrame(animateGhostGuide);
+    if (state.phase === 'workout') {
+      requestAnimationFrame(animateGhostGuide);
+    }
   }
 
   // === Skeleton Overlay ===
+  let overlayReady = false;
   function drawOverlay(lm) {
-    overlayCanvas.width = video.videoWidth || 640;
-    overlayCanvas.height = video.videoHeight || 480;
+    if (!overlayReady) {
+      overlayCanvas.width = video.videoWidth || 640;
+      overlayCanvas.height = video.videoHeight || 480;
+      overlayReady = true;
+    }
     overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
     const w = overlayCanvas.width;
     const h = overlayCanvas.height;

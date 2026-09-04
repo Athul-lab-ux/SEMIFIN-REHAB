@@ -55,12 +55,16 @@ document.addEventListener("DOMContentLoaded", async () => {
     setTimeout(() => (toast.className = "toast"), 3000);
   }
 
-  // --- Resize Canvas ---
+  // --- Resize Canvas (debounced) ---
+  let resizeTimer = null;
   function resizeCanvas() {
     gameCanvas.width = gameCanvas.parentElement.clientWidth;
     gameCanvas.height = gameCanvas.parentElement.clientHeight;
   }
-  window.addEventListener("resize", resizeCanvas);
+  window.addEventListener("resize", () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(resizeCanvas, 150);
+  });
   resizeCanvas();
 
   // --- Camera & MediaPipe Hands ---
@@ -411,7 +415,9 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
       updateHUD();
     }
-    requestAnimationFrame(gameLoop);
+    if (gameActive || currentMode !== "menu") {
+      requestAnimationFrame(gameLoop);
+    }
   }
 
   // --- Log Session ---

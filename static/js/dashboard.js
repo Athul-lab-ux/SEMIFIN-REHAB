@@ -85,7 +85,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     w = canvas.width = window.innerWidth;
     h = canvas.height = window.innerHeight;
   }
-  window.addEventListener("resize", resize);
+  let resizeTimer = null;
+  window.addEventListener("resize", () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(resize, 150);
+  });
   resize();
 
   class Particle {
@@ -111,23 +115,29 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
-  for (let i = 0; i < 60; i++) particles.push(new Particle());
+  for (let i = 0; i < 25; i++) particles.push(new Particle());
 
   let t = 0;
-  function animateBg() {
+  let lastFrame = 0;
+  const FRAME_INTERVAL = 33; // ~30fps cap
+  function animateBg(timestamp) {
+    requestAnimationFrame(animateBg);
+    if (timestamp - lastFrame < FRAME_INTERVAL) return;
+    lastFrame = timestamp;
+
     ctx.fillStyle = "#08090c";
     ctx.fillRect(0, 0, w, h);
 
-    // Draw grid
+    // Draw grid (simplified)
     ctx.strokeStyle = "rgba(255, 106, 0, 0.03)";
     ctx.lineWidth = 1;
-    for (let x = 0; x < w; x += 40) {
+    for (let x = 0; x < w; x += 60) {
       ctx.beginPath();
       ctx.moveTo(x, 0);
       ctx.lineTo(x, h);
       ctx.stroke();
     }
-    for (let y = 0; y < h; y += 40) {
+    for (let y = 0; y < h; y += 60) {
       ctx.beginPath();
       ctx.moveTo(0, y);
       ctx.lineTo(w, y);
@@ -140,9 +150,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
 
     t += 0.01;
-    requestAnimationFrame(animateBg);
   }
-  animateBg();
+  requestAnimationFrame(animateBg);
 
   // Init
   await loadProfile();

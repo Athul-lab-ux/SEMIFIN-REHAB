@@ -30,7 +30,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     handCanvas.width = parent.clientWidth;
     handCanvas.height = parent.clientHeight;
   }
-  window.addEventListener("resize", resizeCanvas);
+  let resizeTimer = null;
+  window.addEventListener("resize", () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(resizeCanvas, 150);
+  });
   resizeCanvas();
 
   // --- Camera & MediaPipe Hands ---

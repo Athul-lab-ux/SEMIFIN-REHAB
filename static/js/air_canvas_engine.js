@@ -147,7 +147,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     handCanvas.height = parent.clientHeight;
     drawTemplate();
   }
-  window.addEventListener("resize", resizeCanvas);
+  let resizeTimer = null;
+  window.addEventListener("resize", () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(resizeCanvas, 150);
+  });
   resizeCanvas();
 
   // --- Camera & MediaPipe Hands ---

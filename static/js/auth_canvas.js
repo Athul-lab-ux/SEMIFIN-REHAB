@@ -1,19 +1,29 @@
 /**
- * Auth Portal — Neural Re-Wiring Background
- * 3 undulating golden-orange ribbons (#ff6a00)
+ * Auth Portal — Neural Re-Wiring Background (Optimized)
+ * 3 undulating golden-orange ribbons (#ff6a00) — 30fps capped
  */
 const canvas = document.getElementById("bg-canvas");
 const ctx = canvas.getContext("2d");
 let w, h, t = 0;
+let lastFrame = 0;
+const FRAME_INTERVAL = 33; // ~30fps
 
 function resize() {
   w = canvas.width = window.innerWidth;
   h = canvas.height = window.innerHeight;
 }
-window.addEventListener("resize", resize);
+let resizeTimer = null;
+window.addEventListener("resize", () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(resize, 150);
+});
 resize();
 
-function animate() {
+function animate(timestamp) {
+  requestAnimationFrame(animate);
+  if (timestamp - lastFrame < FRAME_INTERVAL) return;
+  lastFrame = timestamp;
+
   ctx.fillStyle = "#0c0804";
   ctx.fillRect(0, 0, w, h);
 
@@ -24,7 +34,7 @@ function animate() {
     ctx.shadowColor = "#ff6a00";
     ctx.shadowBlur = 14;
 
-    for (let x = 0; x < w; x += 15) {
+    for (let x = 0; x < w; x += 20) {
       const y =
         h * 0.5 +
         Math.sin(x * 0.003 + t * 0.015 + i) * 110 +
@@ -35,6 +45,5 @@ function animate() {
     ctx.stroke();
   }
   t += 1;
-  requestAnimationFrame(animate);
 }
-animate();
+requestAnimationFrame(animate);
