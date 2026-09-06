@@ -247,6 +247,12 @@
         </div>
         <div class="tb-setting-row">
           <div class="tb-setting-info">
+            <div class="tb-setting-label">App colors</div>
+            <div class="tb-setting-val" id="tb-setting-color">—</div>
+          </div>
+        </div>
+        <div class="tb-setting-row">
+          <div class="tb-setting-info">
             <div class="tb-setting-label">Sound</div>
             <div class="tb-setting-val" id="tb-setting-sound">—</div>
           </div>
@@ -293,7 +299,7 @@
         const data = await res.json();
         if (data.status === "success") {
           const p = data.profile;
-          $("tb-setting-patient").textContent = p.patient_id || "—";
+          $("tb-setting-patient").textContent = `${p.patient_name || p.patient_id || "—"}`;
           $("tb-setting-condition").textContent = p.selected_condition || "—";
           $("tb-setting-streak").textContent = `${p.current_streak || 1} Days`;
         }
@@ -305,6 +311,17 @@
       $("tb-setting-visual").textContent = visualMap[visual] || visual;
       const cam = localStorage.getItem("preferred_camera_id") || "Default camera";
       $("tb-setting-camera").textContent = cam;
+      const colors = localStorage.getItem("rehab_colors");
+      if (colors) {
+        try {
+          const c = JSON.parse(colors);
+          $("tb-setting-color").textContent = `Primary ${c.primary || "—"} · Secondary ${c.secondary || "—"}`;
+        } catch (e) {
+          $("tb-setting-color").textContent = "—";
+        }
+      } else {
+        $("tb-setting-color").textContent = "—";
+      }
       $("tb-setting-logout").addEventListener("click", async () => {
         close();
         try { await fetch("/api/logout", { method: "POST" }); } catch (e) {}

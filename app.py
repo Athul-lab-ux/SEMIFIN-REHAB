@@ -81,6 +81,11 @@ def ensure_schema_columns(db):
         "pain_level": "TEXT DEFAULT ''",
         "rehab_goal": "TEXT DEFAULT ''",
         "goal_note": "TEXT",
+        "patient_name": "TEXT DEFAULT ''",
+        "patient_dob": "TEXT DEFAULT ''",
+        "patient_phone": "TEXT DEFAULT ''",
+        "primary_color": "TEXT DEFAULT ''",
+        "secondary_color": "TEXT DEFAULT ''",
     }
     for col, ddl in additions.items():
         if col not in existing:
@@ -138,12 +143,18 @@ def onboarding_required(f):
 
 
 def generate_next_patient_id(db):
-    cur = db.execute("SELECT patient_id FROM patients ORDER BY id DESC LIMIT 1")
-    last = cur.fetchone()
-    if not last:
-        return "SP-000000001"
-    last_num = int(last["patient_id"].split("-")[1])
-    return f"SP-{last_num + 1:09d}"
+    cur = db.execute("SELECT patient_id FROM patients")
+    max_num = 0
+    for r in cur.fetchall():
+        pid = r["patient_id"] or ""
+        if "-" in pid:
+            try:
+                num = int(pid.split("-")[1])
+                if num > max_num:
+                    max_num = num
+            except ValueError:
+                pass
+    return f"SP-{max_num + 1:09d}"
 
 
 def update_streak(db, patient_id):
@@ -285,10 +296,21 @@ def api_register():
     patient_id = generate_next_patient_id(db)
     password_hash = generate_password_hash(password, method="scrypt")
 
+    name = (data.get("patient_name") or "").strip()[:60]
+    dob = (data.get("patient_dob") or "").strip()[:10]
+    phone = (data.get("patient_phone") or "").strip()[:20]
+    primary_color = (data.get("primary_color") or "").strip().lower()
+    secondary_color = (data.get("secondary_color") or "").strip().lower()
+    if primary_color and not re.match(r"^#([0-9a-f]{3}|[0-9a-f]{6})$", primary_color):
+        primary_color = ""
+    if secondary_color and not re.match(r"^#([0-9a-f]{3}|[0-9a-f]{6})$", secondary_color):
+        secondary_color = ""
+
     db.execute(
-        """INSERT INTO patients (patient_id, email, password_hash, selected_condition, current_streak, last_session_date)
-           VALUES (?, ?, ?, 'Hemiparesis', 1, NULL)""",
-        (patient_id, email, password_hash),
+        """INSERT INTO patients (patient_id, email, password_hash, selected_condition, current_streak, last_session_date,
+           patient_name, patient_dob, patient_phone, primary_color, secondary_color)
+           VALUES (?, ?, ?, 'Hemiparesis', 1, NULL, ?, ?, ?, ?, ?)""",
+        (patient_id, email, password_hash, name, dob, phone, primary_color, secondary_color),
     )
     db.commit()
 
@@ -341,16 +363,40 @@ def api_profile():
     user = db.execute(
         """SELECT patient_id, email, selected_condition, current_streak, last_session_date,
                   onboarding_done, stroke_onset, affected_side, onset_ago,
-                  daily_struggles, doing_therapy, pain_level, rehab_goal, goal_note
+                  daily_struggles, doing_therapy, pain_level, rehab_goal, goal_note,
+                  patient_name, patient_dob, patient_phone,
+                  primary_color, secondary_color
            FROM patients WHERE patient_id = ?""",
         (session["patient_id"],),
     ).fetchone()
     if not user:
         return jsonify({"status": "error", "message": "Patient not found"}), 404
+
+    profile = dict(user)
     return jsonify({
         "status": "success",
-        "profile": dict(user),
+        "profile": profile,
     })
+
+
+@app.route("/api/profile/colors", methods=["POST"])
+@login_required
+def api_update_colors():
+    data = request.get_json() or {}
+    primary_color = (data.get("primary_color") or "").strip().lower()
+    secondary_color = (data.get("secondary_color") or "").strip().lower()
+    if primary_color and not re.match(r"^#([0-9a-f]{3}|[0-9a-f]{6})$", primary_color):
+        primary_color = ""
+    if secondary_color and not re.match(r"^#([0-9a-f]{3}|[0-9a-f]{6})$", secondary_color):
+        secondary_color = ""
+
+    db = get_db()
+    db.execute(
+        "UPDATE patients SET primary_color = ?, secondary_color = ? WHERE patient_id = ?",
+        (primary_color, secondary_color, session["patient_id"]),
+    )
+    db.commit()
+    return jsonify({"status": "success", "primary_color": primary_color, "secondary_color": secondary_color})
 
 
 @app.route("/api/profile/condition", methods=["POST"])
@@ -358,6 +404,8 @@ def api_profile():
 def api_update_condition():
     data = request.get_json() or {}
     condition = data.get("condition", "Hemiparesis")
+    if condition == "LowerLimb":
+        condition = "Lower-Limb"
     valid_conditions = [
         "Hemiparesis", "Flexor Spasticity", "Motor Ataxia",
         "Intention Tremor", "Motor Apraxia", "Wrist Drop", "Lower-Limb"
@@ -410,17 +458,32 @@ def api_onboarding_status():
 @login_required
 def api_onboarding_submit():
     data = request.get_json() or {}
-    condition = data.get("condition", "")
-    if condition not in VALID_CONDITIONS:
+    condition = (data.get("condition") or "").strip()
+    if condition == "LowerLimb":
+        condition = "Lower-Limb"
+    if condition not in ("Hemiparesis", "Flexor Spasticity", "Motor Ataxia",
+                          "Intention Tremor", "Motor Apraxia", "Wrist Drop",
+                          "Lower-Limb", ""):
         return jsonify({"status": "error", "message": "Please choose a stroke category"}), 400
+
+    # Optional personal details
+    patient_name = (data.get("patient_name") or "").strip()[:60]
+    patient_dob = (data.get("patient_dob") or "").strip()[:10]
+    patient_phone = (data.get("patient_phone") or "").strip()[:20]
+
+    # User-selected app colors (saved per patient)
+    primary_color = (data.get("primary_color") or "").strip().lower()
+    secondary_color = (data.get("secondary_color") or "").strip().lower()
+    if primary_color and not re.match(r"^#([0-9a-f]{3}|[0-9a-f]{6})$", primary_color):
+        primary_color = ""
+    if secondary_color and not re.match(r"^#([0-9a-f]{3}|[0-9a-f]{6})$", secondary_color):
+        secondary_color = ""
 
     onset = (data.get("onset") or "").strip()[:500]
     side = (data.get("affected_side") or "").strip().lower()
     if side not in ("left", "right", "both", ""):
         side = ""
-    ago = (data.get("onset_ago") or "").strip()[:40]
-
-    # Daily struggles — multi-select list, stored as a comma string per patient
+    ago = (data.get("onset_ago") or "").strip()[:40]    # Daily struggles — multi-select list, stored as a comma string per patient
     VALID_STRUGGLES = {"eating", "dressing", "writing", "grip", "overhead", "carrying", "speaking", "memory"}
     struggles_raw = data.get("daily_struggles") or []
     if isinstance(struggles_raw, str):
@@ -449,14 +512,16 @@ def api_onboarding_submit():
            SET selected_condition = ?, stroke_onset = ?, affected_side = ?,
                onset_ago = ?, daily_struggles = ?, doing_therapy = ?,
                pain_level = ?, rehab_goal = ?, goal_note = ?,
+               patient_name = ?, patient_dob = ?, patient_phone = ?,
+               primary_color = ?, secondary_color = ?,
                onboarding_done = 1
            WHERE patient_id = ?""",
         (condition, onset, side, ago, struggles, doing_therapy, pain_level,
-         goal, goal_note, session["patient_id"]),
+         goal, goal_note, patient_name, patient_dob, patient_phone,
+         primary_color, secondary_color, session["patient_id"]),
     )
     db.commit()
     return jsonify({"status": "success", "condition": condition})
-
 
 # ---------------------------------------------------------------------------
 # API Routes — Telemetry Logging

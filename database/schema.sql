@@ -19,6 +19,11 @@ CREATE TABLE IF NOT EXISTS patients (
     pain_level TEXT DEFAULT '',             -- none | mild | moderate | severe
     rehab_goal TEXT DEFAULT '',             -- move | daily | fine | stiffness | strength | balance
     goal_note TEXT,                         -- short personal recovery goal (typed or voice-to-text)
+    patient_name TEXT DEFAULT '',            -- optional display name
+    patient_dob TEXT DEFAULT '',             -- optional date of birth (YYYY-MM-DD)
+    patient_phone TEXT DEFAULT '',           -- optional phone number
+    primary_color TEXT DEFAULT '',           -- user's chosen primary accent
+    secondary_color TEXT DEFAULT '',         -- user's chosen secondary accent
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

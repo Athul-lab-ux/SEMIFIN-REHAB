@@ -29,6 +29,7 @@ const StrokeProfiles = [
   { key: "Intention Tremor", emoji: "🫨", label: "Intention Tremor" },
   { key: "Motor Apraxia", emoji: "🧠", label: "Motor Apraxia" },
   { key: "Wrist Drop", emoji: "🤚", label: "Wrist Drop (Extensor Paresis)" },
+  { key: "LowerLimb", emoji: "🦵", label: "Lower-Limb Crural Paresis" },
 ];
 
 // step helper shorthand

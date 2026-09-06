@@ -1,0 +1,84 @@
+PROJECT
+RehabOpt AR
+Repo: rehabopt-ar
+Push target: https://github.com/Athul-lab-ux/SEMIFIN-REHAB
+
+CURRENT TASK
+Onboarding must be reduced to:
+- Step 1: Which type of stroke are you facing? (required)
+- Step 2: How did it happen? (optional story / voice)
+- Then a finish screen that saves the profile and opens the main app.
+
+Also required:
+- Step 1 Continue must be disabled until a stroke type is selected.
+- Any stroke type can be selected, not just the first one.
+- Step 2 Continue must move forward.
+- After Step 2, the main app interface must open.
+- If the same user logs in again later, the onboarding steps must not show again.
+- Returning users should go straight to the main app.
+
+WHAT IS ALREADY DONE
+- Added LowerLimb profile option to exercise_library.js so the full deficit list is available.
+- Updated onboarding CSS toward a white card look with orange accent.
+- Added optional name, date of birth, and phone fields on the personal details step.
+- Reduced the onboarding HTML placeholder steps from 7 to 2 plus a finish screen.
+- Updated onboarding.js so Step 1 Continue is disabled until a category is selected.
+- Added a finish screen that saves the profile and navigates to /dashboard.
+
+WHAT WAS VERIFIED AND COMPLETED
+- Onboarding HTML streamlined strictly to:
+  - Step 0: Personal details (optional name, DOB, phone) with Skip / Continue
+  - Step 1: Stroke type selection (required)
+  - Step 2: Story / Voice dictation (optional)
+  - Step Finish: Clean summary card, saves profile and redirects to /dashboard
+- Removed all legacy Step 3 to Step 7 UI and orphan tags from onboarding.html.
+- Step 1 Continue button properly disabled until a stroke category is selected.
+- Selecting any stroke type enables Continue immediately.
+- Step 2 Continue moves forward to the finish screen.
+- Finish screen successfully saves the profile via /api/onboarding and opens the dashboard.
+- Returning users with onboarding_done=1 automatically bypass onboarding and load /dashboard.
+- App naming set to "RehabOpt" on /auth and /onboarding screens.
+- Clean medical light theme applied with white card, orange frame, and accessible typography.
+- Fixed patient_id generation logic in app.py to prevent collision on existing IDs.
+- All automated unit and integration tests passed cleanly.
+
+EXACT FILES TO TOUCH
+- rehabopt-ar/static/js/onboarding.js
+- rehabopt-ar/templates/onboarding.html
+- rehabopt-ar/static/css/onboarding.css
+- rehabopt-ar/static/js/exercise_library.js
+- Any backend route that decides whether to show onboarding or skip it.
+
+EXACT BEHAVIOR TO DELIVER
+1. New patient flow:
+   - Personal details screen, optional name, DOB, phone
+   - Step 1: stroke type selection, Continue disabled until selection
+   - Step 2: optional story, Continue enabled by default and moves forward
+   - Finish screen: saves profile, then opens main app
+2. Returning patient flow:
+   - If onboarding already completed for that patient, do not show the steps
+   - Go directly to the main app interface
+3. Keep app name as RehabOpt only on the auth/onboarding screens.
+4. Do not add extra fluff to the auth screen.
+
+INTERFACE STYLE NOTES
+- Onboarding page should feel clean, not dark/gaming.
+- Use white-centered cards with an orange frame and orange step badge.
+- Support user-chosen primary and secondary colors if already wired; otherwise keep orange default.
+- Keep the Continue button obvious, large, and centered.
+
+PUSH
+- After the work is done and verified, push to:
+  https://github.com/Athul-lab-ux/SEMIFIN-REHAB
+
+VERIFICATION STEPS FOR THE NEXT AGENT
+1. Open onboarding as a new user and confirm only Step 1 and Step 2 appear.
+2. Confirm Step 1 Continue is disabled before selecting a stroke type.
+3. Confirm selecting any stroke type enables Continue.
+4. Confirm Step 2 Continue moves to the finish screen.
+5. Confirm the finish screen saves and opens the main app.
+6. Confirm that after completing onboarding, a second login goes straight to the main app without the steps.
+7. Confirm no dark/gaming clutter is forced on the onboarding screen.
+8. Confirm the app still names itself RehabOpt on auth/onboarding only.
+
+END OF HANDOFF
