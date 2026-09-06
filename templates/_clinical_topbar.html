@@ -1,5 +1,17 @@
 <!-- RehabOpt AR — Hospital Diagnostic Top Command Bar (Part 5.2) -->
 <div class="top-clinical-bar" role="toolbar" aria-label="Clinical controls">
+  <!-- Brand + primary actions -->
+  <div class="tb-group">
+    <a href="/dashboard" class="tb-brand" id="tb-brand" style="text-decoration:none;">
+      <span style="font-weight:800; letter-spacing:-0.2px;">🏥 RehabOpt AR</span>
+    </a>
+    <div class="tb-mini">
+      <a href="/auth" class="tb-icon-btn" title="Sign out">🚪</a>
+      <a href="/report" class="tb-icon-btn" title="Clinical report">📋</a>
+      <button id="tb-settings" class="tb-icon-btn" title="Settings">⚙️</button>
+    </div>
+  </div>
+
   <!-- Patient identity + streak -->
   <div class="tb-group">
     <div>
@@ -16,9 +28,9 @@
       <option value="Motor Ataxia">🎯 Motor Ataxia</option>
       <option value="Intention Tremor">🫨 Intention Tremor</option>
       <option value="Motor Apraxia">🧠 Motor Apraxia</option>
-  <option value="Wrist Drop">🤚 Wrist Drop</option>
-  <option value="Lower-Limb">🦵 Lower-Limb / Crural</option>
-</select>
+      <option value="Wrist Drop">🤚 Wrist Drop</option>
+      <option value="Lower-Limb">🦵 Lower-Limb / Crural</option>
+    </select>
   </div>
 
   <!-- Camera device (session pages only) -->
@@ -39,15 +51,6 @@
       <option value="standard">👁️ Standard Medical</option>
       <option value="high-contrast">🔆 High Contrast</option>
       <option value="reduced-motion">🐢 Reduced Motion</option>
-    </select>
-  </div>
-
-  <!-- Hemianopia HUD docking -->
-  <div class="tb-group">
-    <select id="tb-hemi" class="tb-select" aria-label="HUD visual field docking">
-      <option value="center">HUD: Centered</option>
-      <option value="left">HUD: Left Field</option>
-      <option value="right">HUD: Right Field</option>
     </select>
   </div>
 

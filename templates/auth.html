@@ -9,6 +9,8 @@
   <link rel="stylesheet" href="/static/css/auth.css" />
 </head>
 <body>
+  <canvas id="auth-bg" class="auth-bg"></canvas>
+
   <main class="auth-wrap">
     <!-- Brand panel -->
     <div class="auth-hero">
@@ -111,7 +113,7 @@
   <!-- Toast -->
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-  {% include '_ai_widget.html' %}
+  <script src="/static/js/auth_canvas.js"></script>
   <script src="/static/js/auth.js"></script>
 </body>
 </html>

@@ -1,179 +1,101 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#0F2A4A" />
-  <title>RehabOpt AR — Guided Exercise Session</title>
-  <link rel="stylesheet" href="/static/css/clinical.css" />
+{% extends "app_shell.html" %}
+{% block extra_head %}
   <link rel="stylesheet" href="/static/css/therapy.css" />
-</head>
-<body>
-  <div class="app-frame">
-    {% include '_clinical_rail.html' %}
+{% endblock %}
+{% block extra_body %}
+  <!-- Exercise Drills workspace -->
+  <section class="session-shell">
+    <div class="sess-head">
+      <div>
+        <h2>🦾 Exercise Drills</h2>
+        <p class="sess-sub">Elbow goniometry · rep latching · anti-cheat trunk lock · ghost guide</p>
+      </div>
+      <div class="sess-status" id="sess-status">
+        <span class="sess-badge" id="sess-live">⏸ Paused</span>
+        <span class="sess-badge" id="sess-cam">📷 Camera off</span>
+      </div>
+    </div>
 
-    <main class="app-main">
-      {% include '_clinical_topbar.html' %}
+    <div class="sess-workspace">
+      <div class="cam-stage" id="cam-stage">
+        <video id="therapy-video" autoplay muted playsinline webkit-playsinline></video>
+        <canvas id="therapy-overlay" class="overlay-canvas"></canvas>
 
-      <!-- ============ SCREEN 1 · PROGRAM CONFIGURATOR ============ -->
-      <section id="screen-config" class="tx-screen active">
-        <div class="tx-head">
+        <div class="hud-cluster hemi-cluster">
+          <div class="hud-row">
+            <div class="hud-chip">
+              <span class="hud-ico">🦾</span>
+              <div>
+                <div class="hud-val" id="hud-angle">0°</div>
+                <div class="hud-lab">Elbow C1</div>
+              </div>
+            </div>
+            <div class="hud-chip">
+              <span class="hud-ico">🎯</span>
+              <div>
+                <div class="hud-val"><span id="hud-target">135</span>°</div>
+                <div class="hud-lab">Target ROM</div>
+              </div>
+            </div>
+            <div class="hud-chip">
+              <span class="hud-ico">🔥</span>
+              <div>
+                <div class="hud-val"><span id="hud-reps">0</span>/<span id="hud-reps-total">10</span></div>
+                <div class="hud-lab">Reps</div>
+              </div>
+            </div>
+          </div>
+          <div class="hud-row">
+            <div class="hud-timer">
+              <span class="hud-ico">⏱</span>
+              <span id="hud-timer">00:00</span>
+            </div>
+          </div>
+        </div>
+
+        <div id="cheat-banner" class="cheat-banner" role="alert" aria-live="assertive" hidden>
+          <span class="cheat-ico">⚠️</span>
           <div>
-            <h1>🦾 Guided Exercise Session</h1>
-            <p class="tx-sub">Pick your stroke category → choose exercises → set your reps, sets and rest.</p>
+            <div class="cheat-title">POSTURE CHEAT DETECTED</div>
+            <div class="cheat-text">Keep your shoulders level — rep count paused.</div>
           </div>
         </div>
 
-        <!-- 1. Stroke category -->
-        <div class="cfg-block">
-          <h2 class="cfg-title"><span class="cfg-num">1</span> Your Stroke Category</h2>
-          <div class="profile-pills" id="profile-pills" role="tablist" aria-label="Stroke category"></div>
-          <p class="cfg-note" id="profile-note">Exercises shown below are matched to this post-stroke profile.</p>
+        <div id="hint-banner" class="hint-banner" role="status" aria-live="polite" hidden>
+          <span class="hint-ico">🦾</span>
+          <div class="hint-text" id="hint-text">Extend your arm toward the green target</div>
         </div>
+      </div>
 
-        <!-- 2. Exercise picker -->
-        <div class="cfg-block">
-          <h2 class="cfg-title"><span class="cfg-num">2</span> Choose Your Exercises</h2>
-          <div class="ex-grid" id="ex-grid"></div>
-          <p class="cfg-note">Tip: 2–3 exercises keep a session around 10–15 minutes.</p>
-        </div>
-
-        <!-- 3. Session settings -->
-        <div class="cfg-block">
-          <h2 class="cfg-title"><span class="cfg-num">3</span> Session Settings</h2>
-          <div class="settings-row">
-            <label class="set-field">
-              <span>Reps / Set</span>
-              <input type="number" id="cfg-reps" value="10" min="1" max="30" />
-            </label>
-            <label class="set-field">
-              <span>Sets</span>
-              <input type="number" id="cfg-sets" value="3" min="1" max="6" />
-            </label>
-            <label class="set-field">
-              <span>Rest between sets</span>
-              <div class="set-inline">
-                <input type="number" id="cfg-rest" value="30" min="0" max="180" />
-                <em>sec</em>
-              </div>
-            </label>
-            <label class="set-field">
-              <span>Break between exercises</span>
-              <div class="set-inline">
-                <input type="number" id="cfg-break" value="60" min="0" max="300" />
-                <em>sec</em>
-              </div>
-            </label>
+      <div class="ghost-card">
+        <div class="ghost-head">
+          <span class="ghost-ico">👻</span>
+          <div>
+            <div class="ghost-title">Action Observation Guide</div>
+            <div class="ghost-sub">Mirror the ideal rhythm</div>
           </div>
         </div>
-
-        <div class="cfg-summary" id="cfg-summary">
-          <span>⏱️ <b id="cfg-reps-total">0</b> reps · <b id="cfg-ex-count">0</b> exercises selected</span>
-          <button id="btn-start" class="clin-btn clin-btn-primary">▶ Begin Session</button>
+        <canvas id="ghost-guide-canvas" class="ghost-canvas" width="220" height="200"></canvas>
+        <div class="ghost-steps">
+          <span class="ghost-step"><span class="step-num">1</span> Flex</span>
+          <span class="ghost-step"><span class="step-num">2</span> Reach</span>
+          <span class="ghost-step"><span class="step-num">3</span> Hold</span>
         </div>
-      </section>
+      </div>
+    </div>
 
-      <!-- ============ SCREEN 2 · WARM-UP ============ -->
-      <section id="screen-warmup" class="tx-screen">
-        <div class="warmup-box">
-          <div class="warmup-icon">🧘</div>
-          <div class="warmup-title">Warm-Up</div>
-          <div class="warmup-counter" id="warmup-counter">5</div>
-          <p id="warmup-hint">Get ready — the first exercise starts in a moment.</p>
-          <div class="progress-track"><div class="progress-fill" id="warmup-fill"></div></div>
-        </div>
-      </section>
+    <div class="sess-controls">
+      <button id="sess-start" class="clin-btn clin-btn-primary">▶ Start Exercise</button>
+      <button id="sess-pause" class="clin-btn clin-btn-ghost" disabled>⏸ Pause</button>
+      <button id="sess-stop" class="clin-btn clin-btn-secondary" disabled>⏹ Stop</button>
+    </div>
 
-      <!-- ============ SCREEN 3 · WORKOUT ============ -->
-      <section id="screen-workout" class="tx-screen">
-        <div class="wo-top">
-          <div class="wo-now" id="wo-now">—</div>
-          <div class="wo-set" id="wo-set">Set 1/3</div>
-          <div class="wo-spacer"></div>
-          <button id="pause-btn" class="hud-btn">⏸ Pause</button>
-          <button id="quit-btn" class="hud-btn danger">✕ Quit</button>
-        </div>
-
-        <div class="wo-stage">
-          <video id="video" autoplay playsinline muted></video>
-          <canvas id="overlay-canvas"></canvas>
-
-          <!-- HUD cluster -->
-          <div class="hemi-cluster hud-cluster">
-            <div class="hud-box metric"><span class="hb-lab" id="metric-label">ELBOW °</span><span class="hb-val" id="metric-value">—</span></div>
-            <div class="hud-box rep"><span class="hb-lab">Reps</span><span class="hb-val" id="rep-display">0 / 10</span></div>
-            <div class="hud-box hold"><span class="hb-lab">Hold</span><span class="hb-val" id="hold-display">—</span></div>
-            <div class="hud-box time"><span class="hb-lab">⏱️ Time</span><span class="hb-val" id="timer-display">00:00</span></div>
-          </div>
-
-          <!-- Cheat alert -->
-          <div id="cheat-banner" class="cheat-banner" role="alert" aria-live="assertive">
-            ⚠️ POSTURE CHEAT: KEEP YOUR SHOULDERS LEVEL
-          </div>
-        </div>
-
-        <!-- Steps rail -->
-        <div class="steps-rail">
-          <div class="sr-head">Follow each step — <span id="current-step-name">…</span></div>
-          <div class="sr-row" id="step-boxes"></div>
-        </div>
-
-        <!-- Feedback + hint -->
-        <div id="feedback-line" class="feedback-line" aria-live="polite"></div>
-        <div id="hint-line" class="hint-line" aria-live="polite"></div>
-      </section>
-
-      <!-- ============ SCREEN 4 · REST BETWEEN SETS ============ -->
-      <section id="screen-rest" class="tx-screen">
-        <div class="warmup-box rest-box">
-          <div class="warmup-icon">💧</div>
-          <div class="warmup-title">Rest Between Sets</div>
-          <div class="warmup-counter" id="rest-counter">30</div>
-          <p class="warmup-hint">Shake out your arm — next set starts automatically.</p>
-          <div class="progress-track"><div class="progress-fill" id="rest-fill"></div></div>
-          <button id="skip-rest" class="clin-btn clin-btn-ghost">Skip Rest →</button>
-        </div>
-      </section>
-
-      <!-- ============ SCREEN 5 · BREAK BETWEEN EXERCISES ============ -->
-      <section id="screen-break" class="tx-screen">
-        <div class="warmup-box break-box">
-          <div class="warmup-icon">🎉</div>
-          <div class="warmup-title">Exercise Complete!</div>
-          <div class="break-stats" id="break-stats"></div>
-          <div class="warmup-counter-sm" id="break-counter">60</div>
-          <p class="warmup-hint" id="break-next">Next up in a moment…</p>
-          <div class="progress-track"><div class="progress-fill" id="break-fill"></div></div>
-          <button id="skip-break" class="clin-btn clin-btn-ghost">Start Next Exercise →</button>
-        </div>
-      </section>
-
-      <!-- ============ SCREEN 6 · COMPLETE ============ -->
-      <section id="screen-done" class="tx-screen">
-        <div class="done-box">
-          <div class="done-icon">🏆</div>
-          <h1>Session Complete!</h1>
-          <p class="done-sub">Great work today — every rep moves you forward.</p>
-          <div class="done-summary" id="done-summary"></div>
-          <div class="done-actions">
-            <a href="/dashboard" class="clin-btn clin-btn-secondary">← Back to Dashboard</a>
-            <button id="again-btn" class="clin-btn clin-btn-primary">🔄 New Session</button>
-          </div>
-        </div>
-      </section>
-    </main>
-  </div>
-
-  <!-- Toast -->
-  <div id="toast" class="toast" role="status" aria-live="polite"></div>
-
-  {% include '_ai_widget.html' %}
-  <script src="/static/js/kinematics.js"></script>
-  <script src="/static/js/qa_watchdog.js"></script>
-  <script src="/static/js/biofeedback.js"></script>
-  <script src="/static/js/clinical_ui.js"></script>
-  <script src="/static/js/vision_loader.js"></script>
-  <script src="/static/js/exercise_library.js"></script>
-  <script src="/static/js/therapy_engine.js"></script>
-</body>
-</html>
+    <div class="sess-progress">
+      <div class="prog-track">
+        <div class="prog-fill" id="prog-fill"></div>
+        <div class="prog-marker" id="prog-marker"></div>
+      </div>
+      <div class="prog-label">Rep progress</div>
+    </div>
+  </section>
+{% endblock %}

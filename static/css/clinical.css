@@ -207,6 +207,14 @@ button, .btn-link {
   white-space: nowrap;
 }
 
+.tb-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  color: var(--clin-navy);
+}
+.tb-mini { display: flex; gap: 4px; }
 .tb-select,
 .clin-select {
   height: 42px;
@@ -415,3 +423,67 @@ html.hemi-right .hemi-cluster { right: 14px !important; left: auto !important; }
   .clin-card { box-shadow: none; border-color: #ccc; }
   @page { margin: 0.55in; size: A4; }
 }
+
+/* Settings panel */
+.tb-settings {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: min(360px, 92vw);
+  height: 100vh;
+  background: var(--clin-surface);
+  border-left: 1px solid var(--clin-border);
+  box-shadow: var(--shadow-pop);
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  transform: translateX(100%);
+  transition: transform 0.25s ease;
+}
+.tb-settings.open { transform: translateX(0); }
+
+.tb-settings-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--clin-border);
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--clin-navy);
+}
+.tb-settings-close {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  border: 1px solid var(--clin-border);
+  background: var(--clin-canvas);
+  cursor: pointer;
+  font-size: 16px;
+  color: var(--clin-text);
+}
+.tb-settings-close:hover { background: var(--clin-orange-tint); border-color: var(--clin-orange); }
+
+.tb-settings-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.tb-setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  background: var(--clin-canvas);
+  border: 1px solid var(--clin-border);
+  border-radius: 10px;
+}
+.tb-setting-row-final { justify-content: center; }
+.tb-setting-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.tb-setting-label { font-size: 11px; font-weight: 700; color: var(--clin-slate); text-transform: uppercase; letter-spacing: 0.6px; }
+.tb-setting-val { font-size: 13px; font-weight: 700; color: var(--clin-navy); word-break: break-word; }

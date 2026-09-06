@@ -1,141 +1,128 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#0F2A4A" />
-  <title>RehabOpt AR — Clinical Dashboard</title>
-  <link rel="stylesheet" href="/static/css/clinical.css" />
+{% extends "app_shell.html" %}
+{% block extra_head %}
   <link rel="stylesheet" href="/static/css/dashboard.css" />
-</head>
-<body>
-  <div class="app-frame">
-    {% include '_clinical_rail.html' %}
+{% endblock %}
+{% block extra_body %}
+  <!-- Welcome band -->
+  {# rendered inside app shell via extends app_shell.html #}
+  <section class="welcome-band" aria-live="polite">
+    <div>
+      <h1>Welcome back 👋</h1>
+      <p class="wb-sub">
+        <span id="dash-condition-label">🦾 Hemiparesis</span>
+        &nbsp;·&nbsp; Continue your guided neuro-recovery program below.
+      </p>
+    </div>
+    <a href="/therapy" class="clin-btn clin-btn-primary">▶ Resume Exercise</a>
+  </section>
 
-    <main class="app-main">
-      {% include '_clinical_topbar.html' %}
+  <!-- Recovery snapshot -->
+  <section class="snap-grid" aria-label="Recovery snapshot">
+    <div class="snap-card">
+      <span class="snap-ico">🔥</span>
+      <div>
+        <div class="snap-val" id="snap-streak">1</div>
+        <div class="snap-lab">Day Streak Active</div>
+      </div>
+    </div>
+    <div class="snap-card">
+      <span class="snap-ico">📋</span>
+      <div>
+        <div class="snap-val" id="snap-sessions">0</div>
+        <div class="snap-lab">Completed Sessions</div>
+      </div>
+    </div>
+    <div class="snap-card">
+      <span class="snap-ico">🦾</span>
+      <div>
+        <div class="snap-val" id="snap-rom">0°</div>
+        <div class="snap-lab">Peak Active ROM</div>
+      </div>
+    </div>
+    <div class="snap-card">
+      <span class="snap-ico">〰️</span>
+      <div>
+        <div class="snap-val" id="snap-smooth">0<span class="unit">/100</span></div>
+        <div class="snap-lab">Movement Fluidity (S1)</div>
+      </div>
+    </div>
+  </section>
 
-      <!-- Welcome band -->
-      <section class="welcome-band" aria-live="polite">
-        <div>
-          <h1>Welcome back 👋</h1>
-          <p class="wb-sub">
-            <span id="dash-condition-label">🦾 Hemiparesis</span>
-            &nbsp;·&nbsp; Continue your guided neuro-recovery program below.
-          </p>
-        </div>
-        <a href="/therapy" class="clin-btn clin-btn-primary">▶ Resume Exercise</a>
-      </section>
+  <!-- Condition spotlight -->
+  <section class="spot-card">
+    <div class="spot-top">
+      <h2>🩺 Active Clinical Profile</h2>
+      <span class="clin-chip accent" id="spot-condition-chip">Hemiparesis</span>
+    </div>
+    <p id="spot-description" class="spot-desc">
+      Focus on guided elbow extension to rebuild active range of motion while trunk
+      compensation is monitored and blocked automatically.
+    </p>
+  </section>
 
-      <!-- Recovery snapshot -->
-      <section class="snap-grid" aria-label="Recovery snapshot">
-        <div class="snap-card">
-          <span class="snap-ico">🔥</span>
-          <div>
-            <div class="snap-val" id="snap-streak">1</div>
-            <div class="snap-lab">Day Streak Active</div>
-          </div>
-        </div>
-        <div class="snap-card">
-          <span class="snap-ico">📋</span>
-          <div>
-            <div class="snap-val" id="snap-sessions">0</div>
-            <div class="snap-lab">Completed Sessions</div>
-          </div>
-        </div>
-        <div class="snap-card">
-          <span class="snap-ico">🦾</span>
-          <div>
-            <div class="snap-val" id="snap-rom">0°</div>
-            <div class="snap-lab">Peak Active ROM</div>
-          </div>
-        </div>
-        <div class="snap-card">
-          <span class="snap-ico">〰️</span>
-          <div>
-            <div class="snap-val" id="snap-smooth">0<span class="unit">/100</span></div>
-            <div class="snap-lab">Movement Fluidity (S1)</div>
-          </div>
-        </div>
-      </section>
+  <!-- Session launch cards -->
+  <h2 class="section-title">Practice Sessions</h2>
+  <section class="sessions-grid">
+    <a href="/therapy" class="session-card">
+      <span class="card-ico">🦾</span>
+      <div class="card-body">
+        <h3>1 · Exercise Drills</h3>
+        <p>Set & rep elbow goniometry with ghost-guide mirroring and anti-cheat posture lock.</p>
+      </div>
+      <span class="card-go">Start ➜</span>
+    </a>
+    <a href="/arcade" class="session-card">
+      <span class="card-ico">🎮</span>
+      <div class="card-body">
+        <h3>2 · Games</h3>
+        <p>Gamified motor games driven by wrist velocity, open-palm and forearm rotation.</p>
+      </div>
+      <span class="card-go">Play ➜</span>
+    </a>
+    <a href="/air-canvas" class="session-card">
+      <span class="card-ico">🎨</span>
+      <div class="card-body">
+        <h3>3 · Neon Air-Canvas</h3>
+        <p>Fingertip drawing with trajectory corridors and tremor readout for ataxia.</p>
+      </div>
+      <span class="card-go">Draw ➜</span>
+    </a>
+    <a href="/adl-lab" class="session-card">
+      <span class="card-ico">🔑</span>
+      <div class="card-body">
+        <h3>4 · ADL Functional Lab</h3>
+        <p>Simulated daily tasks — key turn, switch, thermostat and PIN pad.</p>
+      </div>
+      <span class="card-go">Practice ➜</span>
+    </a>
+    <a href="/leg" class="session-card leg-card">
+      <span class="card-ico">🦵</span>
+      <div class="card-body">
+        <h3>5 · Leg Recovery</h3>
+        <p>Seated knee extension — left leg first, then right, with a live knee-angle HUD and symmetry readout.</p>
+      </div>
+      <span class="card-go">Start ➜</span>
+    </a>
+  </section>
 
-      <!-- Condition spotlight -->
-      <section class="spot-card">
-        <div class="spot-top">
-          <h2>🩺 Active Clinical Profile</h2>
-          <span class="clin-chip accent" id="spot-condition-chip">Hemiparesis</span>
-        </div>
-        <p id="spot-description" class="spot-desc">
-          Focus on guided elbow extension to rebuild active range of motion while trunk
-          compensation is monitored and blocked automatically.
-        </p>
-      </section>
-
-      <!-- Session launch cards -->
-      <h2 class="section-title">Practice Sessions</h2>
-      <section class="sessions-grid">
-        <a href="/therapy" class="session-card">
-          <span class="card-ico">🦾</span>
-          <div class="card-body">
-            <h3>1 · Exercise Drills</h3>
-            <p>Set & rep elbow goniometry with ghost-guide mirroring and anti-cheat posture lock.</p>
-          </div>
-          <span class="card-go">Start ➜</span>
-        </a>
-        <a href="/arcade" class="session-card">
-          <span class="card-ico">🎮</span>
-          <div class="card-body">
-            <h3>2 · Games</h3>
-            <p>Gamified motor games driven by wrist velocity, open-palm and forearm rotation.</p>
-          </div>
-          <span class="card-go">Play ➜</span>
-        </a>
-        <a href="/air-canvas" class="session-card">
-          <span class="card-ico">🎨</span>
-          <div class="card-body">
-            <h3>3 · Neon Air-Canvas</h3>
-            <p>Fingertip drawing with trajectory corridors and tremor readout for ataxia.</p>
-          </div>
-          <span class="card-go">Draw ➜</span>
-        </a>
-        <a href="/adl-lab" class="session-card">
-          <span class="card-ico">🔑</span>
-          <div class="card-body">
-            <h3>4 · ADL Functional Lab</h3>
-            <p>Simulated daily tasks — key turn, switch, thermostat and PIN pad.</p>
-          </div>
-          <span class="card-go">Practice ➜</span>
-        </a>
-        <a href="/leg" class="session-card leg-card">
-          <span class="card-ico">🦵</span>
-          <div class="card-body">
-            <h3>5 · Leg Recovery</h3>
-            <p>Seated knee extension — left leg first, then right, with a live knee-angle HUD and symmetry readout.</p>
-          </div>
-          <span class="card-go">Start ➜</span>
-        </a>
-      </section>
-
-      <!-- Clinical tools -->
-      <h2 class="section-title">Clinical Tools</h2>
-      <section class="tool-grid">
-        <a href="/report" class="tool-card">
-          <span class="tool-ico">📋</span>
-          <div>
-            <h3>Clinical Report Card</h3>
-            <p>Biomarker summary + one-click AI SOAP note + printable PDF chart.</p>
-          </div>
-        </a>
-        <a href="/report" class="tool-card">
-          <span class="tool-ico">🤖</span>
-          <div>
-            <h3>RehabOpt AI Assistant</h3>
-            <p>Open the 💬 bubble — ask about exercises, upload files or attach telemetry.</p>
-          </div>
-        </a>
-      </section>
-    </main>
-  </div>
+  <!-- Clinical tools -->
+  <h2 class="section-title">Clinical Tools</h2>
+  <section class="tool-grid">
+    <a href="/report" class="tool-card">
+      <span class="tool-ico">📋</span>
+      <div>
+        <h3>Clinical Report Card</h3>
+        <p>Biomarker summary + one-click AI SOAP note + printable PDF chart.</p>
+      </div>
+    </a>
+    <a href="/report" class="tool-card">
+      <span class="tool-ico">🤖</span>
+      <div>
+        <h3>RehabOpt AI Assistant</h3>
+        <p>Open the 💬 bubble — ask about exercises, upload files or attach telemetry.</p>
+      </div>
+    </a>
+  </section>
 
   <!-- Toast -->
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
@@ -144,5 +131,4 @@
   <script src="/static/js/streak_manager.js"></script>
   <script src="/static/js/clinical_ui.js"></script>
   <script src="/static/js/dashboard.js"></script>
-</body>
-</html>
+{% endblock %}

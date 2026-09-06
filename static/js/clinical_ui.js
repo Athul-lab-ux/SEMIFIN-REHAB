@@ -200,15 +200,117 @@
   }
 
   // ---- Sign out -------------------------------------------------------
-  const logoutBtn = $("tb-logout");
-  if (logoutBtn) {
-    logoutBtn.addEventListener("click", async () => {
+  const logoutBtn = $("tb-brand");
+  if (logoutBtn && window.location.pathname !== "/auth") {
+    logoutBtn.addEventListener("click", async (e) => {
+      e.preventDefault();
       logoutBtn.disabled = true;
       try {
         await fetch("/api/logout", { method: "POST" });
       } catch (e) {}
       window.location.href = "/auth";
     });
+  }
+
+  // ---- Settings panel (simple interactive modal) --------------------
+  const settingsBtn = $("tb-settings");
+  const existingSettings = document.getElementById("tb-settings-panel");
+  if (settingsBtn && !existingSettings) {
+    const panel = document.createElement("div");
+    panel.id = "tb-settings-panel";
+    panel.className = "tb-settings";
+    panel.setAttribute("role", "dialog");
+    panel.setAttribute("aria-label", "Settings");
+    panel.innerHTML = `
+      <div class="tb-settings-head">
+        <span>⚙️ Settings</span>
+        <button type="button" class="tb-settings-close" aria-label="Close settings">✕</button>
+      </div>
+      <div class="tb-settings-body">
+        <div class="tb-setting-row">
+          <div class="tb-setting-info">
+            <div class="tb-setting-label">Saved session</div>
+            <div class="tb-setting-val" id="tb-setting-patient">—</div>
+          </div>
+        </div>
+        <div class="tb-setting-row">
+          <div class="tb-setting-info">
+            <div class="tb-setting-label">Active profile</div>
+            <div class="tb-setting-val" id="tb-setting-condition">—</div>
+          </div>
+        </div>
+        <div class="tb-setting-row">
+          <div class="tb-setting-info">
+            <div class="tb-setting-label">Daily streak</div>
+            <div class="tb-setting-val" id="tb-setting-streak">—</div>
+          </div>
+        </div>
+        <div class="tb-setting-row">
+          <div class="tb-setting-info">
+            <div class="tb-setting-label">Sound</div>
+            <div class="tb-setting-val" id="tb-setting-sound">—</div>
+          </div>
+        </div>
+        <div class="tb-setting-row">
+          <div class="tb-setting-info">
+            <div class="tb-setting-label">Visual mode</div>
+            <div class="tb-setting-val" id="tb-setting-visual">—</div>
+          </div>
+        </div>
+        <div class="tb-setting-row">
+          <div class="tb-setting-info">
+            <div class="tb-setting-label">Camera device</div>
+            <div class="tb-setting-val" id="tb-setting-camera">—</div>
+          </div>
+        </div>
+        <div class="tb-setting-row tb-setting-row-final">
+          <button id="tb-setting-logout" class="clin-btn clin-btn-danger" style="width:100%;">🚪 Sign Out</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(panel);
+
+    const close = () => {
+      panel.classList.remove("open");
+    };
+    panel.querySelector(".tb-settings-close").addEventListener("click", close);
+    settingsBtn.addEventListener("click", () => {
+      const openNow = panel.classList.toggle("open");
+      settingsBtn.classList.toggle("active", openNow);
+      if (openNow) populateSettings();
+    });
+    document.addEventListener("click", (e) => {
+      if (panel.classList.contains("open") &&
+          !panel.contains(e.target) &&
+          e.target !== settingsBtn) {
+        close();
+      }
+    });
+
+    async function populateSettings() {
+      try {
+        const res = await fetch("/api/profile");
+        const data = await res.json();
+        if (data.status === "success") {
+          const p = data.profile;
+          $("tb-setting-patient").textContent = p.patient_id || "—";
+          $("tb-setting-condition").textContent = p.selected_condition || "—";
+          $("tb-setting-streak").textContent = `${p.current_streak || 1} Days`;
+        }
+      } catch (e) {}
+      const soundOn = localStorage.getItem("rehab_sound_enabled") !== "0";
+      $("tb-setting-sound").textContent = soundOn ? "On" : "Off";
+      const visual = localStorage.getItem("rehab_visual_mode") || "Standard Medical";
+      const visualMap = { standard: "Standard Medical", "high-contrast": "High Contrast", "reduced-motion": "Reduced Motion" };
+      $("tb-setting-visual").textContent = visualMap[visual] || visual;
+      const cam = localStorage.getItem("preferred_camera_id") || "Default camera";
+      $("tb-setting-camera").textContent = cam;
+      $("tb-setting-logout").addEventListener("click", async () => {
+        close();
+        try { await fetch("/api/logout", { method: "POST" }); } catch (e) {}
+        window.location.href = "/auth";
+      });
+    }
   }
 
   // Unlock WebAudio on the first user interaction anywhere (iOS/Safari)

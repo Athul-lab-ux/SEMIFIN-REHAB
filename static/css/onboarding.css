@@ -2,14 +2,24 @@
    RehabOpt AR — New-Patient Onboarding (clinical light theme)
    ========================================================================== */
 
+.auth-bg {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+}
+
 .obo-body {
   background:
     radial-gradient(900px 400px at 90% -10%, rgba(255, 106, 0, 0.07), transparent 60%),
     radial-gradient(800px 400px at -5% 110%, rgba(30, 64, 175, 0.06), transparent 60%),
-    var(--clin-canvas);
+    #0C0A14;
   padding: 22px 16px 60px;
   min-height: 100vh;
 }
+
+.obo-wrap { position: relative; z-index: 2; }
 
 .obo-wrap { max-width: 860px; margin: 0 auto; }
 
@@ -17,9 +27,9 @@
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
   flex-wrap: wrap; margin-bottom: 18px;
 }
-.obo-brand { font-size: 16px; color: var(--clin-navy); }
-.obo-brand b { font-size: 17px; }
-.obo-brand span { color: var(--clin-slate); font-weight: 600; font-size: 12px; }
+.obo-brand { font-size: 16px; color: #F5F3FF; }
+.obo-brand b { font-size: 17px; color: #F5F3FF; }
+.obo-brand span { color: #B9A7E0; font-weight: 600; font-size: 12px; }
 
 .obo-progress { display: flex; align-items: center; gap: 8px; margin-bottom: 18px; }
 .prog-dot {
@@ -44,32 +54,32 @@
   color: var(--clin-orange); background: var(--clin-orange-tint);
   padding: 4px 12px; border-radius: 999px; margin-bottom: 12px;
 }
-.obo-card h1 { font-size: 23px; margin: 0 0 6px; }
-.opt-tag { font-size: 12px; font-weight: 700; color: var(--clin-slate); text-transform: uppercase; vertical-align: middle; }
-.obo-sub { color: var(--clin-slate); font-size: 13.5px; margin: 0 0 20px; max-width: 640px; }
+.obo-card h1 { font-size: 23px; margin: 0 0 6px; color: #F5F3FF; }
+.opt-tag { font-size: 12px; font-weight: 700; color: #B9A7E0; text-transform: uppercase; vertical-align: middle; }
+.obo-sub { color: #C7BCF0; font-size: 13.5px; margin: 0 0 20px; max-width: 640px; }
 
 /* Stroke type options */
 .obo-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px; margin-bottom: 20px; }
 .stroke-option {
   display: flex; align-items: center; gap: 12px;
-  background: var(--clin-canvas);
-  border: 1.5px solid var(--clin-border);
+  background: #1F1B33;
+  border: 1.5px solid #2E2A48;
   border-radius: 14px; padding: 14px;
   cursor: pointer; font-family: inherit; text-align: left;
   transition: all 0.15s ease;
 }
 .stroke-option:hover { border-color: var(--clin-orange); }
 .stroke-option.selected {
-  background: #EEF2FF; border-color: var(--clin-cobalt);
+  background: #2E2650; border-color: var(--clin-cobalt);
   box-shadow: inset 4px 0 0 var(--clin-orange);
 }
 .so-emoji { font-size: 30px; flex-shrink: 0; }
 .so-body { display: flex; flex-direction: column; min-width: 0; }
-.so-name { font-size: 14px; font-weight: 800; color: var(--clin-navy); }
-.so-desc { font-size: 11.5px; color: var(--clin-slate); }
+.so-name { font-size: 14px; font-weight: 800; color: #F5F3FF; }
+.so-desc { font-size: 11.5px; color: #B9A7E0; }
 .so-check {
   margin-left: auto; width: 22px; height: 22px; border-radius: 50%;
-  border: 2px solid var(--clin-border); color: transparent;
+  border: 2px solid #2E2A48; color: transparent;
   font-size: 13px; display: inline-flex; align-items: center; justify-content: center;
   flex-shrink: 0;
 }
@@ -79,42 +89,47 @@
 
 /* Step 2 fields */
 .obo-label { display: block; font-size: 12px; font-weight: 800; color: var(--clin-navy); text-transform: uppercase; letter-spacing: 0.6px; margin: 18px 0 8px; }
-.obo-voice-row { display: flex; align-items: flex-end; gap: 8px; }
-.obo-voice-row textarea {
+.obo-voice-row { display: flex; align-items: flex-end; gap: 8px; }.obo-voice-row textarea {
   flex: 1; resize: vertical; min-height: 84px;
-  border: 1px solid var(--clin-border); border-radius: 12px;
-  background: var(--clin-canvas); color: var(--clin-text);
+  border: 1px solid #2E2A48; border-radius: 12px;
+  background: #16132B; color: #F5F3FF;
   font-size: 14px; font-family: inherit; line-height: 1.5; padding: 12px 14px;
   outline: none;
 }
-.obo-voice-row textarea:focus { border-color: var(--clin-orange); box-shadow: 0 0 0 3px rgba(255, 106, 0, 0.12); }
+.obo-voice-row textarea:focus { border-color: var(--clin-orange); box-shadow: 0 0 0 3px rgba(255,106,0,0.18); }
 .vo-btn {
   width: 52px; height: 52px; min-width: 52px; border-radius: 14px;
   background: linear-gradient(135deg, var(--clin-orange), var(--clin-orange-soft));
   border: none; color: #fff; font-size: 24px; cursor: pointer;
-  box-shadow: 0 6px 16px rgba(255, 106, 0, 0.3);
+  box-shadow: 0 6px 16px rgba(255, 106, 0, 0.35);
 }
 .vo-btn.recording { animation: micPulse 1s ease-in-out infinite; }
 @keyframes micPulse {
   0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.5); }
   50% { box-shadow: 0 0 0 9px rgba(239, 68, 68, 0); }
 }
-.voice-status { font-size: 12px; color: #B91C1C; font-weight: 700; min-height: 16px; margin: 6px 0 0; }
+.voice-status { font-size: 12px; color: #FF8A8A; font-weight: 700; min-height: 16px; margin: 6px 0 0; }
 
 .obo-q { margin-top: 6px; }
 .chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
 .obo-chip {
   min-height: 46px; padding: 8px 16px;
-  border-radius: 999px; border: 1.5px solid var(--clin-border);
-  background: var(--clin-canvas); color: var(--clin-text);
+  border-radius: 999px; border: 1.5px solid #2E2A48;
+  background: #1F1B33; color: #F5F3FF;
   font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer;
   transition: all 0.15s ease;
 }
 .obo-chip:hover { border-color: var(--clin-orange); }
-.obo-chip.picked { background: var(--clin-navy); border-color: var(--clin-navy); color: #fff; }
+.obo-chip.picked { background: #2E2650; border-color: var(--clin-cobalt); color: #F5F3FF; }
 
 .obo-actions { display: flex; gap: 10px; margin-top: 26px; }
 .obo-actions .clin-btn { flex: 1; height: 50px; font-size: 15px; }
+
+.obo-card {
+  background: #16132B;
+  border: 1px solid #2E2A48;
+  color: #F5F3FF;
+}
 
 /* Toast */
 .toast {
@@ -148,9 +163,9 @@
   padding: 11px 16px;
   border-radius: 12px;
   font-size: 12.5px;
-  color: #7C2D12;
-  background: var(--clin-orange-tint);
-  border: 1px solid rgba(255, 106, 0, 0.25);
+  color: #FFDDC8;
+  background: rgba(255, 106, 0, 0.12);
+  border: 1px solid rgba(255, 106, 0, 0.3);
   line-height: 1.5;
 }
 

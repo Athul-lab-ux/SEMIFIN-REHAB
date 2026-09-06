@@ -1,69 +1,95 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>RehabOpt AR — ADL Functional Lab</title>
+{% extends "app_shell.html" %}
+{% block extra_head %}
   <link rel="stylesheet" href="/static/css/adl.css" />
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
-</head>
-<body>
-  <div class="adl-container">
-    <!-- Top Bar -->
-    <div class="top-bar">
-      <a href="/dashboard" class="back-btn">← Back</a>
-      <h2>🔑 ADL Functional Lab</h2>
-      <span style="font-size:12px; color:#a08a70;">Session 4</span>
-    </div>
-
-    <!-- HUD Bar -->
-    <div class="hud-bar">
-      <div class="hud-item">
-        <div class="label">📋 Task</div>
-        <div class="value" id="task-display">Choose a task</div>
+{% endblock %}
+{% block extra_body %}
+  <!-- ADL Functional Lab workspace -->
+  <section class="session-shell">
+    <div class="sess-head">
+      <div>
+        <h2>🔑 ADL Functional Lab</h2>
+        <p class="sess-sub">Simulated daily tasks — key turn · light switch · thermostat · touchless PIN</p>
       </div>
-      <div class="hud-item">
-        <div class="label">📊 Status</div>
-        <div class="value" id="status-display">Ready</div>
+      <div class="sess-status">
+        <span class="sess-badge" id="adl-status">⏸ Paused</span>
+        <span class="sess-badge" id="adl-cam">📷 Camera off</span>
       </div>
     </div>
 
-    <!-- Game Area -->
-    <div class="game-area">
-      <video id="video" autoplay playsinline muted></video>
-      <canvas id="hand-canvas"></canvas>
-      <canvas id="game-canvas"></canvas>
+    <div class="sess-workspace adl-grid">
+      <div class="adl-camera-stage">
+        <video id="adl-video" autoplay muted playsinline webkit-playsinline></video>
+        <canvas id="adl-overlay" class="overlay-canvas"></canvas>
 
-      <!-- Task Menu -->
-      <div id="task-menu">
-        <button class="task-btn" data-task="key">
-          🔑 90° Door Key Turn
-          <span class="desc">Rotate forearm to turn the key</span>
-        </button>
-        <button class="task-btn" data-task="light">
-          💡 Rocker Light Switch
-          <span class="desc">Thrust hand up/down to flip switch</span>
-        </button>
-        <button class="task-btn" data-task="thermostat">
-          🎛️ Rotary Thermostat
-          <span class="desc">Circular motion to adjust 18–24°C</span>
-        </button>
-        <button class="task-btn" data-task="pin">
-          🔢 Touchless PIN Pad
-          <span class="desc">Hover over digits 1-2-3-4 steadily</span>
-        </button>
+        <div class="hud-cluster hemi-cluster">
+          <div class="hud-row">
+            <div class="hud-chip adl-hud">
+              <span class="hud-ico">📌</span>
+              <div>
+                <div class="hud-val" id="adl-mode">Select a task</div>
+                <div class="hud-lab">Active task</div>
+              </div>
+            </div>
+            <div class="hud-chip adl-hud">
+              <span class="hud-ico">📊</span>
+              <div>
+                <div class="hud-val" id="adl-progress">0 / 0</div>
+                <div class="hud-lab">Progress</div>
+              </div>
+            </div>
+            <div class="hud-chip adl-hud">
+              <span class="hud-ico">⚡</span>
+              <div>
+                <div class="hud-val" id="adl-status-val">—</div>
+                <div class="hud-lab">Status</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div id="adl-hint" class="hint-banner" role="status" aria-live="polite">
+          <span class="hint-ico">💬</span>
+          <div class="hint-text" id="adl-hint-text">Select a daily task on the right and follow the instructions.</div>
+        </div>
+      </div>
+
+      <div class="adl-scenes">
+        <div class="adl-scene-panel">
+          <div class="adl-scene-title">🧩 Tasks</div>
+          <div class="adl-scene-list" id="adl-scene-list">
+            <button type="button" class="adl-scene-btn active" data-scene="key">
+              <span class="adl-scene-ico">🔑</span>
+              <span class="adl-scene-name">90° Door Key</span>
+            </button>
+            <button type="button" class="adl-scene-btn" data-scene="switch">
+              <span class="adl-scene-ico">💡</span>
+              <span class="adl-scene-name">Rocker Light Switch</span>
+            </button>
+            <button type="button" class="adl-scene-btn" data-scene="thermostat">
+              <span class="adl-scene-ico">🎛️</span>
+              <span class="adl-scene-name">Rotary Thermostat</span>
+            </button>
+            <button type="button" class="adl-scene-btn" data-scene="pin">
+              <span class="adl-scene-ico">🔢</span>
+              <span class="adl-scene-name">Touchless PIN Pad</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="adl-workbench" id="adl-workbench">
+          <div class="adl-scene-panel adl-scene-active" id="adl-active-panel">
+            <div class="adl-scene-title">🏗️ Workbench</div>
+            <div class="adl-scene-view" id="adl-scene-view">
+              <div class="adl-empty">Select a task to load the workbench.</div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
-  </div>
 
-  <!-- Toast -->
-  <div id="toast" class="toast"></div>
-
-  {% include '_ai_widget.html' %}
-  <script src="/static/js/kinematics.js"></script>
-  <script src="/static/js/camera.js"></script>
-  <script src="/static/js/streak_manager.js"></script>
-  <script src="/static/js/adl_engine.js"></script>
-</body>
-</html>
+    <div class="sess-controls">
+      <button id="adl-start" class="clin-btn clin-btn-primary">▶ Start Task</button>
+      <button id="adl-stop" class="clin-btn clin-btn-secondary" disabled>⏹ Stop</button>
+    </div>
+  </section>
+{% endblock %}
