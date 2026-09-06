@@ -110,7 +110,7 @@
   width: 100%;
   height: 100%;
 }
-.video-frame video { object-fit: cover; transform: scaleX(-1); } /* selfie view: move right = video shows right */
+.video-frame video { object-fit: cover; } /* plain camera (not selfie-mirror) — keeps the raw video direction on the Games stage */
 #game-canvas, #overlay-canvas { z-index: 2; pointer-events: none; }
 
 .stage-placeholder {

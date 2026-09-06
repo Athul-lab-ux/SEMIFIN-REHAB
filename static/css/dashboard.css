@@ -90,6 +90,7 @@
 .session-card:nth-child(2)::before { background: var(--clin-cobalt); }
 .session-card:nth-child(3)::before { background: var(--clin-emerald); }
 .session-card:nth-child(4)::before { background: var(--clin-navy); }
+.session-card.leg-card::before { background: var(--clin-orange); }
 .session-card::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 4px; }
 .session-card:hover {
   transform: translateY(-4px);

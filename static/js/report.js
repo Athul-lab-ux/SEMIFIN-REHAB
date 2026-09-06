@@ -19,6 +19,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     soap: document.getElementById("soap-note"),
     generateBtn: document.getElementById("generate-soap-btn"),
     printBtn: document.getElementById("print-btn"),
+    legLeft: document.getElementById("leg-left"),
+    legRight: document.getElementById("leg-right"),
+    legC6: document.getElementById("leg-c6"),
+    legSnapshot: document.getElementById("leg-snapshot"),
+    legSummary: document.getElementById("leg-summary"),
   };
   const toast = document.getElementById("toast");
 
@@ -53,6 +58,29 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (els.duration) els.duration.textContent = `${Math.round(s.avg_duration)}s`;
       if (els.adherence) {
         els.adherence.textContent = `${s.streak} consecutive active days`;
+      }
+
+      // Surface the most recent logged leg routine if one exists for this patient
+      if (els.legLeft && els.legRight && els.legC6 && els.legSnapshot) {
+        let leg = null;
+        try {
+          const legRes = await fetch("/api/telemetry/history?only_leg=1&limit=1");
+          const legData = await legRes.json();
+          if (legData.status === "success" && legData.history && legData.history.length) {
+            leg = legData.history[0];
+          }
+        } catch (e) { /* omit leg snapshot on network error */ }
+        if (leg) {
+          const lj = JSON.parse(leg.metrics_json || "{}");
+          const L = Math.round(lj.left_max_deg || 0);
+          const R = Math.round(lj.right_max_deg || 0);
+          const c6 = lj.c6_sym != null ? Math.round(lj.c6_sym) : 0;
+          els.legLeft.textContent = `${L}°`;
+          els.legRight.textContent = `${R}°`;
+          els.legC6.textContent = `${c6}%`;
+          els.legSummary.textContent = legSnapText(L, R, c6);
+          els.legSnapshot.classList.add("show");
+        }
       }
     } catch (err) {
       console.error("Stats error:", err);
@@ -101,14 +129,34 @@ document.addEventListener("DOMContentLoaded", async () => {
               mean_wrist_deviation_deg: 0,
               hand_dispersion_index: 0,
               tremor_frequency_hz: 0,
+              leg_left_knee_deg: 0,
+              leg_right_knee_deg: 0,
+              leg_c6_sym: 0,
             },
           }),
         });
 
         const data = await res.json();
         if (data.status === "success") {
-          els.soap.innerHTML = renderSoap(data.soap_note);
-          showToast("✅ SOAP note generated", "success");
+      els.soap.innerHTML = renderSoap(data.soap_note);
+      // Refresh the leg snapshot after a new SOAP is generated (latest telemetry)
+      try {
+        const refreshRes = await fetch("/api/telemetry/history?only_leg=1&limit=1");
+        const refreshData = await refreshRes.json();
+        if (refreshData.status === "success" && refreshData.history && refreshData.history.length) {
+          const leg = refreshData.history[0];
+          const lj = JSON.parse(leg.metrics_json || "{}");
+          const L = Math.round(lj.left_max_deg || 0);
+          const R = Math.round(lj.right_max_deg || 0);
+          const c6 = lj.c6_sym != null ? Math.round(lj.c6_sym) : 0;
+          if (els.legLeft) els.legLeft.textContent = `${L}°`;
+          if (els.legRight) els.legRight.textContent = `${R}°`;
+          if (els.legC6) els.legC6.textContent = `${c6}%`;
+          if (els.legSummary) els.legSummary.textContent = legSnapText(L, R, c6);
+          if (els.legSnapshot) els.legSnapshot.classList.add("show");
+        }
+      } catch (e) { /* keep existing snapshot on error */ }
+      showToast("✅ SOAP note generated", "success");
         } else {
           els.soap.innerHTML = `<b>⚠️ ${data.message || "Generation failed"}</b>`;
           showToast(`❌ ${data.message || "Generation failed"}`, "error");
@@ -126,6 +174,18 @@ document.addEventListener("DOMContentLoaded", async () => {
   // --- One-page PDF export ------------------------------------------------
   if (els.printBtn) {
     els.printBtn.addEventListener("click", () => window.print());
+  }
+
+  // Leg snapshot interpretation text
+  function legSnapText(L, R, c6) {
+    if (L === 0 && R === 0) return "No leg routine has been completed yet.";
+    if (Math.abs(L - R) <= 20) {
+      return `Left knee reached ${L}° and right knee reached ${R}°. Your legs moved within 20° of each other — a good symmetry range to build on.`;
+    }
+    if (L > R) {
+      return `Left knee reached ${L}° and right knee reached ${R}°. You have more range on the left side right now — the right side is the one to work on.`;
+    }
+    return `Left knee reached ${L}° and right knee reached ${R}°. You have more range on the right side right now — the left side is the one to work on.`;
   }
 
   await loadStats();

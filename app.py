@@ -244,6 +244,13 @@ def adl_lab():
     return render_template("adl_lab.html")
 
 
+@app.route("/leg")
+@login_required
+@onboarding_required
+def leg():
+    return render_template("leg.html")
+
+
 @app.route("/report")
 @login_required
 @onboarding_required
@@ -353,7 +360,7 @@ def api_update_condition():
     condition = data.get("condition", "Hemiparesis")
     valid_conditions = [
         "Hemiparesis", "Flexor Spasticity", "Motor Ataxia",
-        "Intention Tremor", "Motor Apraxia", "Wrist Drop"
+        "Intention Tremor", "Motor Apraxia", "Wrist Drop", "Lower-Limb"
     ]
     if condition not in valid_conditions:
         return jsonify({"status": "error", "message": "Invalid condition profile"}), 400
@@ -380,7 +387,7 @@ def api_streak():
 # ---------------------------------------------------------------------------
 VALID_CONDITIONS = [
     "Hemiparesis", "Flexor Spasticity", "Motor Ataxia",
-    "Intention Tremor", "Motor Apraxia", "Wrist Drop"
+    "Intention Tremor", "Motor Apraxia", "Wrist Drop", "Lower-Limb"
 ]
 
 
@@ -570,12 +577,17 @@ def generate_soap():
     dispersion = m.get("hand_dispersion_index", 0)
     tremor = m.get("tremor_frequency_hz", 0)
 
+    # Lower-limb telemetry (Seated Knee Extension, session type LEG)
+    leg_left = m.get("leg_left_knee_deg", 0)
+    leg_right = m.get("leg_right_knee_deg", 0)
+    leg_sym = m.get("leg_c6_sym", 0)
+
     duration_min = int(active_seconds or 0) // 60
 
     client = genai.Client(api_key=api_key)
     prompt = f"""
-    You are an attending neuro-physiatrist generating an official SOAP progress note for an
-    upper-limb stroke tele-rehabilitation session. Write under 140 words.
+    You are an attending neuro-physiatrist generating an official SOAP progress note for a
+    {('lower-limb' if condition == 'Lower-Limb' or (leg_left or leg_right) else 'upper-limb')} stroke tele-rehabilitation session. Write under 140 words.
 
     QUANTITATIVE BIOMECHANICAL TELEMETRY:
     - Patient ID: {patient_id} | Primary Deficit: {condition} | Adherence streak: {streak} days
@@ -586,6 +598,7 @@ def generate_soap():
     - Signed Wrist Deviation (E3): {wrist_dev}°
     - Hand Dispersion (C3): {dispersion} (open palm threshold > 0.25)
     - Intention Tremor Frequency (E6): {tremor} Hz
+    - Seated Knee Extension — Left Max ROM: {leg_left}° | Right Max ROM: {leg_right}° | C6 Symmetry Ratio: {leg_sym}%
 
     DOCUMENTATION RULES:
     Structure strictly under the headings:

@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0F2A4A" />
+  <title>RehabOpt AR — Leg Recovery</title>
+  <link rel="stylesheet" href="/static/css/clinical.css" />
+  <link rel="stylesheet" href="/static/css/leg.css" />
+</head>
+<body>
+  <div class="app-frame">
+    {% include '_clinical_rail.html' %}
+
+    <main class="app-main">
+      {% include '_clinical_topbar.html' %}
+
+      <!-- ============ SCREEN 1 · Program header ============ -->
+      <section id="screen-config" class="lg-screen active">
+        <div class="lg-head">
+          <div>
+            <h1>🦵 Leg Recovery</h1>
+            <p class="lg-sub">Seated knee extension — single exercise, left leg first, right leg second. One capture setup, two sets.</p>
+          </div>
+        </div>
+
+        <!-- Setup cue -->
+        <div class="lg-setup">
+          <div class="setup-icon">🪑</div>
+          <div class="setup-text">
+            <strong>Seated setup</strong>
+            <p>Sit upright on a firm chair, thighs supported, feet flat. Your front camera should show your face and both knees. Wear something that lets the camera see your thighs clearly.</p>
+          </div>
+        </div>
+
+        <div class="lg-settings">
+          <div class="settings-row lx-row">
+            <label class="set-field">
+              <span>Reps per leg</span>
+              <input type="number" id="cfg-reps" value="10" min="1" max="30" aria-label="Reps per leg" />
+            </label>
+            <label class="set-field">
+              <span>Transition</span>
+              <input type="number" id="cfg-trans" value="8" min="2" max="30" aria-label="Seconds between legs" />
+              <span class="set-sfx">sec</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="lg-summary" id="lg-summary">
+          <span>🦵 <b id="lg-reps">10</b> reps per leg · <b>20</b> total</span>
+          <button id="btn-start" class="clin-btn clin-btn-primary">▶ Begin Leg Routine</button>
+        </div>
+
+        <p class="lx-fine">The app reports your active-side knee angle and a side-to-side symmetry ratio (C6) after both legs finish.</p>
+      </section>
+
+      <!-- ============ SCREEN 2 · stage + HUD ============ -->
+      <section id="screen-stage" class="lg-screen">
+        <div class="lg-top">
+          <div class="lg-stage-name" id="stage-name">—</div>
+          <div class="lg-stage-side" id="stage-side">
+            <span class="side-badge" id="side-badge">Left Leg</span>
+          </div>
+          <div class="lg-spacer"></div>
+          <button id="lg-pause" class="hud-btn">⏸ Pause</button>
+          <button id="lg-quit" class="hud-btn danger">✕ Quit</button>
+        </div>
+
+        <div class="lg-stage">
+          <video id="video" autoplay playsinline muted></video>
+          <canvas id="overlay-canvas"></canvas>
+
+          <div class="hemi-cluster hud-cluster">
+            <div class="hud-box metric">
+              <span class="hb-lab" id="metric-label">KNEE °</span>
+              <span class="hb-val" id="metric-value">—</span>
+            </div>
+            <div class="hud-box rep">
+              <span class="hb-lab">Reps</span>
+              <span class="hb-val" id="rep-display">0 / 10</span>
+            </div>
+            <div class="hud-box hold">
+              <span class="hb-lab">Hold</span>
+              <span class="hb-val" id="hold-display">—</span>
+            </div>
+            <div class="hud-box time">
+              <span class="hb-lab">⏱️ Time</span>
+              <span class="hb-val" id="timer-display">00:00</span>
+            </div>
+          </div>
+
+          <!-- Active-side indicator bar -->
+          <div class="active-bar" id="active-bar">
+            <span class="ab-label">Active Leg</span>
+            <span class="ab-val" id="ab-val">⬅️ Left</span>
+          </div>
+        </div>
+
+        <!-- Progress stages -->
+        <div class="progress-stages">
+          <div class="stage-pill" id="stage-left">
+            <span class="sp-dot"></span> Left Leg
+          </div>
+          <div class="stage-arrow" id="stage-arrow">➜</div>
+          <div class="stage-pill" id="stage-right">
+            <span class="sp-dot"></span> Right Leg
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ SCREEN 3 · transition ============ -->
+      <section id="screen-transition" class="lg-screen">
+        <div class="lg-transition-box">
+          <div class="transition-icon">🔄</div>
+          <div class="transition-title" id="transition-title">Switching Legs</div>
+          <div class="transition-counter" id="transition-counter">8</div>
+          <p id="transition-hint">Rest your leg and get ready for the right side.</p>
+          <div class="progress-track"><div class="progress-fill" id="transition-fill"></div></div>
+        </div>
+      </section>
+
+      <!-- ============ SCREEN 4 · done ============ -->
+      <section id="screen-done" class="lg-screen">
+        <div class="lg-done-box">
+          <div class="done-icon">🏆</div>
+          <h1>Leg Routine Complete</h1>
+          <p class="done-sub">Both legs tracked — here's your symmetry snapshot.</p>
+
+          <div class="kg-grid">
+            <div class="kg-card">
+              <span class="kg-ico">🦵</span>
+              <div class="kg-val" id="kg-left">—°</div>
+              <div class="kg-lab">Left Knee (max)</div>
+            </div>
+            <div class="kg-card">
+              <span class="kg-ico">🦵</span>
+              <div class="kg-val" id="kg-right">—°</div>
+              <div class="kg-lab">Right Knee (max)</div>
+            </div>
+            <div class="kg-card kg-accent">
+              <span class="kg-ico">⚖️</span>
+              <div class="kg-val" id="kg-sym">—</div>
+              <div class="kg-lab">C6 Symmetry Ratio</div>
+            </div>
+          </div>
+
+          <div class="kg-interp" id="kg-interp"></div>
+
+          <div class="done-actions">
+            <a href="/dashboard" class="clin-btn clin-btn-secondary">← Back to Dashboard</a>
+            <button id="lg-again" class="clin-btn clin-btn-primary">🔄 Repeat</button>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  {% include '_ai_widget.html' %}
+  <script src="/static/js/kinematics.js"></script>
+  <script src="/static/js/qa_watchdog.js"></script>
+  <script src="/static/js/biofeedback.js"></script>
+  <script src="/static/js/clinical_ui.js"></script>
+  <script src="/static/js/vision_loader.js"></script>
+  <script src="/static/js/leg.js"></script>
+</body>
+</html>

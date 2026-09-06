@@ -527,7 +527,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   function drawOverlay(res) {
     oCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
     const W = overlayCanvas.width, H = overlayCanvas.height;
-    // Arm skeleton (pose)
+    // Arm skeleton (pose) — raw (unmirrored) coords on the Games stage
     if (engine.arm) {
       const { sh, el, wr } = engine.arm;
       oCtx.strokeStyle = "#38BDF8"; oCtx.lineWidth = 5; oCtx.lineCap = "round";
@@ -541,7 +541,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         oCtx.beginPath(); oCtx.arc(p.x * W, p.y * H, 7, 0, Math.PI * 2); oCtx.fill();
       });
     }
-    // Hand tip cursor
+    // Hand tip cursor — raw (unmirrored) coords on the Games stage
     if (engine.tip) {
       oCtx.beginPath();
       oCtx.arc(engine.tip.x * W, engine.tip.y * H, 18, 0, Math.PI * 2);

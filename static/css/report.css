@@ -98,6 +98,35 @@
 
 /* Attending sign-off block */
 .signoff { margin-top: 26px; }
+
+/* ===== Leg session snapshot ===== */
+.leg-section { display: none; } /* hidden until a leg routine has been logged */
+.leg-section.show { display: block; }
+
+.kg-grid {
+  display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;
+  margin-bottom: 18px;
+}
+.kg-card {
+  background: var(--clin-canvas); border: 1px solid var(--clin-border);
+  border-radius: var(--radius-md); padding: 14px 12px;
+}
+.kg-card.kg-accent { background: var(--clin-emerald-tint); border-color: rgba(16,185,129,0.4); }
+.kg-ico { font-size: 24px; margin-bottom: 6px; }
+.kg-val { font-size: 24px; font-weight: 800; color: var(--clin-navy); font-variant-numeric: tabular-nums; }
+.kg-card.kg-accent .kg-val { color: #047857; }
+.kg-lab { font-size: 10.5px; color: var(--clin-slate); text-transform: uppercase; letter-spacing: 0.6px; margin-top: 4px; }
+
+.kg-interp {
+  font-size: 12.5px; color: var(--clin-navy); background: #EEF2FF;
+  border: 1px solid rgba(30,64,175,0.25); border-radius: var(--radius-md);
+  padding: 12px 14px; line-height: 1.5;
+  box-shadow: 0 4px 12px rgba(30,64,175,0.08);
+}
+
+@media print {
+  .leg-section { display: none !important; }
+}
 .sign-line {
   display: flex;
   align-items: flex-end;

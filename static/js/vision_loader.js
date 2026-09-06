@@ -6,9 +6,14 @@
  * with the QA watchdog (frame stall → pipeline restart, no reload).
  *
  * Landmark access patterns (matching session engines):
- *   results.pose[11|12|13|14|15|16]  → { x, y, z } (shoulder/elbow/wrist)
- *   results.hand[0..20]              → { x, y, z } (full hand)
- *   results.poseAll / results.handAll → raw arrays for canvas drawing
+ *   results.pose[11|12|13|14|15|16]           → { x, y, z } (upper arm)
+ *   results.pose[23|25|27]                     → { x, y, z } (LEFT hip/knee/ankle)
+ *   results.pose[24|26|28]                     → { x, y, z } (RIGHT hip/knee/ankle)
+ *   results.hand[0..20]                        → { x, y, z } (full hand)
+ *   results.poseAll / results.handAll         → raw arrays for canvas drawing
+ *   results.chain                              → single-arm tracking chain (arm + matched hand)
+ *   results.legs                               → { left, right } knee chains (for leg sessions)
+ *   results.legChain                           → active-side leg chain (hip→knee→ankle)
  */
 const VisionLoader = (() => {
   const WASM_URL = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm";
@@ -181,6 +186,14 @@ const VisionLoader = (() => {
           for (let i = 0; i < src.length; i++) {
             results.pose[i] = { x: 1 - src[i].x, y: src[i].y, z: src[i].z || 0 };
           }
+          // Expose lower-body landmarks if the Lite pose model provides them
+          // (MediaPipe Pose Lite outputs landmarks 0..22 including hips 23/24,
+          // knees 25/26, ankles 27/28). Downstream engines only use what they
+          // need; if a landmark is missing the chain is simply not built.
+          results.legs = {
+            left: { hip: results.pose[23], knee: results.pose[25], ankle: results.pose[27] },
+            right: { hip: results.pose[24], knee: results.pose[26], ankle: results.pose[28] },
+          };
         }
       } catch (e) { /* pose frame skipped */ }
 
@@ -198,6 +211,8 @@ const VisionLoader = (() => {
         }
       } catch (e) { /* hand frame skipped */ }
 
+      // ---- Single tracking chain: ONE arm (shoulder→elbow→wrist) + the ----
+      // ---- ONE tracked hand matched to that wrist (no second skeleton) ----
       // ---- Single tracking chain: ONE arm (shoulder→elbow→wrist) + the ----
       // ---- ONE tracked hand matched to that wrist (no second skeleton) ----
       if (results.pose) {
@@ -222,6 +237,31 @@ const VisionLoader = (() => {
             sh, el, wr,
             hasHand: !!(results.hand && results.hand[8]),
           };
+        }
+      }
+
+      // ---- Active-side leg chain (hip → knee → ankle) with a muted ----
+      // ---- inactive-side copy for the single-card leg routine. The ----
+      // ---- active side is picked the same way the arm chain is: by ----
+      // ---- proximity to the visible hand/centre of frame. ----
+      if (results.legs) {
+        const pickSide = () => {
+          if (results.hand && results.hand[0]) {
+            const hw = results.hand[0];
+            const dL = results.legs.left.hip ? Math.hypot(hw.x - results.legs.left.hip.x, hw.y - results.legs.left.hip.y) : 9;
+            const dR = results.legs.right.hip ? Math.hypot(hw.x - results.legs.right.hip.x, hw.y - results.legs.right.hip.y) : 9;
+            return dR <= dL ? "right" : "left";
+          }
+          // No hand: prefer the leg nearer the centre of frame
+          const c = 0.5;
+          const dl = results.legs.left.hip ? Math.abs(results.legs.left.hip.x - c) : 9;
+          const dr = results.legs.right.hip ? Math.abs(results.legs.right.hip.x - c) : 9;
+          return dr <= dl ? "right" : "left";
+        };
+        const side = pickSide();
+        const a = results.legs[side].hip, b = results.legs[side].knee, c2 = results.legs[side].ankle;
+        if (a && b && c2) {
+          results.legChain = { side, hip: a, knee: b, ankle: c2 };
         }
       }
       if (onResultsCallback) onResultsCallback(results);
