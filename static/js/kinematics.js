@@ -9,6 +9,10 @@ const Kinematics = {
    * Interior angle formed by Shoulder (p1), Elbow (p2), Wrist (p3)
    */
   calculateJointAngle(shoulder, elbow, wrist) {
+    // Defensive: missing or non-finite coordinates must never yield NaN
+    if (!shoulder || !elbow || !wrist) return 0;
+    const nums = [shoulder.x, shoulder.y, elbow.x, elbow.y, wrist.x, wrist.y];
+    if (nums.some((n) => typeof n !== "number" || !Number.isFinite(n))) return 0;
     const v1 = { x: shoulder.x - elbow.x, y: shoulder.y - elbow.y };
     const v2 = { x: wrist.x - elbow.x, y: wrist.y - elbow.y };
     const dot = v1.x * v2.x + v1.y * v2.y;
@@ -84,6 +88,11 @@ const Kinematics = {
    * Angle of inter-shoulder line relative to horizontal axis
    */
   calculateTrunkTilt(leftShoulder, rightShoulder) {
+    if (!leftShoulder || !rightShoulder) return { tiltDegrees: 0, isCompensating: false };
+    const nums = [leftShoulder.x, leftShoulder.y, rightShoulder.x, rightShoulder.y];
+    if (nums.some((n) => typeof n !== "number" || !Number.isFinite(n))) {
+      return { tiltDegrees: 0, isCompensating: false };
+    }
     const dy = rightShoulder.y - leftShoulder.y;
     const dx = rightShoulder.x - leftShoulder.x;
     const radians = Math.atan2(dy, dx);
