@@ -469,7 +469,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       VisionLoader.watch(() => { /* watchdog restarts pipeline itself */ });
       showToast("✅ Camera active — enjoy your session!", "success");
     } else {
-      showToast("❌ Camera unavailable — arcade needs webcam access", "error");
+      showToast("❌ Camera unavailable — games need webcam access", "error");
     }
   }
 

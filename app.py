@@ -683,7 +683,7 @@ def ai_chat():
                 "Your quota resets tomorrow. In the meantime, here are some general tips:\n\n"
                 "1. Continue your daily exercises as prescribed\n"
                 "2. Keep your posture aligned — no compensatory leaning\n"
-                "3. Track your ROM progress in the therapy session\n"
+                "3. Track your ROM progress in the exercise session\n"
                 "4. Stay hydrated and rest between sets\n\n"
                 "For detailed clinical guidance, check back tomorrow or consult your therapist."
             ),

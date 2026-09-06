@@ -9,11 +9,11 @@ A production-grade, clinical-grade web platform for post-stroke motor recovery t
 - **Deterministic 13-Formula Biomechanical Engine**: Explicit mathematical kinematics (C1-C6, E1-E6, S1-S3) — no black-box AI
 - **Zero-Leak Gemini Proxy**: Server-side Flask backend with `GEMINI_API_KEY` never exposed to client JavaScript
 
-### 4 Specialized Therapy Sessions
+### 4 Core Practice Sessions
 | Session | Name | Purpose |
 |---------|------|---------|
-| 🦾 Session 1 | **Therapy Drills** | Elbow goniometry, rep latching, anti-cheat trunk monitoring, Action Observation ghost guide |
-| 🎮 Session 2 | **Arcade Arena** | Flappy Kinetic + Fruit Ballistic gamified motor training with combo multipliers |
+| 🦾 Session 1 | **Exercise Drills** | Elbow goniometry, rep latching, anti-cheat trunk monitoring, Action Observation ghost guide |
+| 🎮 Session 2 | **Games** | Flappy Kinetic + Fruit Ballistic gamified motor training with combo multipliers |
 | 🎨 Session 3 | **Neon Air-Canvas** | Fingertip drawing with 10 parametric templates, ataxia corridor scoring, gesture control |
 | 🔑 Session 4 | **ADL Functional Lab** | Key turn, light switch, thermostat dial, touchless PIN pad simulation |
 
