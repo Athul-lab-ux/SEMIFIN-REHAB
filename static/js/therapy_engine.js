@@ -1,658 +1,486 @@
 /**
- * RehabOpt AR — Session 1: Therapy Drills Engine (Gym-App Quality)
- * Warm-up → Sets × Reps → Rest → Complete → Summary
+ * RehabOpt AR — Guided Therapy Engine (Wave 3)
+ * ------------------------------------------------------------------
+ * Patient flow: pick stroke profile → pick exercises → set reps/sets/
+ * rest-between-sets/break-between-exercises → step-locked guided reps.
+ *
+ * Detection model: every exercise is a chain of numbered steps; a step
+ * with a hold time must be held; a rep completes when the final step
+ * finishes; a set completes at reps_target; rest follows between sets,
+ * a break between exercises. Trunk tilt > 10° (E1) freezes progress.
  */
-document.addEventListener("DOMContentLoaded", async () => {
-  // === DOM Elements ===
+document.addEventListener("DOMContentLoaded", () => {
+  // ---------- DOM -----------------------------------------------------
+  const $ = (id) => document.getElementById(id);
   const screens = {
-    pre: document.getElementById("pre-workout"),
-    warmup: document.getElementById("warmup-screen"),
-    workout: document.getElementById("workout-screen"),
-    rest: document.getElementById("rest-screen"),
-    complete: document.getElementById("complete-screen"),
+    config: $("screen-config"), warmup: $("screen-warmup"), workout: $("screen-workout"),
+    rest: $("screen-rest"), break_: $("screen-break"), done: $("screen-done"),
   };
+  const toast = $("toast");
 
-  const video = document.getElementById("video");
-  const overlayCanvas = document.getElementById("overlay-canvas");
-  const overlayCtx = overlayCanvas.getContext("2d");
-  const ghostCanvas = document.getElementById("ghost-guide-canvas");
-  const ghostCtx = ghostCanvas.getContext("2d");
-
-  // HUD elements
-  const angleDisplay = document.getElementById("angle-display");
-  const angleArc = document.getElementById("angle-arc");
-  const repDisplay = document.getElementById("rep-display");
-  const repArc = document.getElementById("rep-arc");
-  const timerDisplay = document.getElementById("timer-display");
-  const setInfo = document.getElementById("set-info");
-  const cheatAlert = document.getElementById("cheat-alert");
-  const hintBanner = document.getElementById("hint-banner");
-  const cueStep = document.getElementById("cue-step");
-  const warmupCounter = document.getElementById("warmup-counter");
-  const warmupFill = document.getElementById("warmup-fill");
-  const restCounter = document.getElementById("rest-counter");
-  const restFill = document.getElementById("rest-fill");
-  const setDots = document.getElementById("set-dots");
-  const setRepsFill = document.getElementById("set-reps-fill");
-  const toast = document.getElementById("toast");
-
-  // === Configuration ===
-  const CONFIG = {
-    WARMUP_SECONDS: 5,
-    REST_SECONDS: 30,
-    SETS: 3,
-    REPS_PER_SET: 10,
-    EXTENSION_THRESHOLD: 135,
-    FLEXION_THRESHOLD: 60,
-    TRUNK_CHEAT_THRESHOLD: 10,
-    INACTIVITY_TIMEOUT: 3000,
-    HINT_DURATION: 5000,
-  };
-
-  // === Workout State ===
-  let state = {
-    phase: "pre", // pre | warmup | active | rest | paused | complete
-    currentSet: 1,
-    currentRep: 0,
-    armState: "FLEXED", // FLEXED | EXTENDED
-    currentAngle: 0,
-    peakRom: 0,
-    cheatsBlocked: 0,
-    totalReps: 0,
-    sessionStartTime: 0,
-    lastMovementTime: 0,
-    isInactive: false,
-    isPaused: false,
-    pauseStartTime: 0,
-    totalPausedTime: 0,
-    positionBuffer: [],
-    timestampBuffer: [],
-  };
-
-  // Audio context for sound effects
-  let audioCtx = null;
-
-  function getAudioCtx() {
-    if (!audioCtx) {
-      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    }
-    return audioCtx;
-  }
-
-  function playBeep(freq, duration, volume) {
-    try {
-      const ctx = getAudioCtx();
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.frequency.value = freq;
-      gain.gain.value = volume || 0.15;
-      osc.start(ctx.currentTime);
-      osc.stop(ctx.currentTime + duration);
-    } catch (e) { /* silent */ }
-  }
-
-  function playRepSound() { playBeep(880, 0.1, 0.12); }
-  function playSetComplete() { playBeep(1200, 0.15, 0.15); setTimeout(() => playBeep(1600, 0.15, 0.15), 150); }
-  function playWorkoutComplete() {
-    playBeep(880, 0.1, 0.15);
-    setTimeout(() => playBeep(1100, 0.1, 0.15), 100);
-    setTimeout(() => playBeep(1400, 0.2, 0.15), 200);
-  }
-
-  // === Screen Management ===
-  function showScreen(name) {
-    Object.values(screens).forEach((s) => s.classList.remove("active"));
-    screens[name].classList.add("active");
-    state.phase = name;
-  }
-
-  function showToast(msg, type) {
+  function showToast(msg, type = "info") {
     toast.textContent = msg;
-    toast.className = `toast show ${type || "info"}`;
-    setTimeout(() => (toast.className = "toast"), 3000);
+    toast.className = `toast show ${type}`;
+    setTimeout(() => { toast.className = "toast"; }, 2800);
   }
 
-  // === Pre-Workout ===
-  document.getElementById("pre-condition").textContent =
-    localStorage.getItem("selectedCondition") || "Hemiparesis";
+  function showScreen(name) {
+    Object.values(screens).forEach((el) => el.classList.remove("active"));
+    screens[name === "break" ? "break_" : name].classList.add("active");
+  }
 
-  document.getElementById("start-workout-btn").addEventListener("click", () => {
-    startWarmup();
+  const fmt = (ms) => {
+    const s = Math.floor(ms / 1000);
+    return `${String((s / 60) | 0).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+  };
+
+  // ---------- Config UI -------------------------------------------------
+  const profilePills = $("profile-pills");
+  const exGrid = $("ex-grid");
+  const profileNote = $("profile-note");
+  let profile = localStorage.getItem("selectedCondition") || "Hemiparesis";
+  let selected = new Set();
+
+  const PROFILE_NOTES = {
+    Hemiparesis: "Rebuild active range of motion and reach strength with trunk-compensation blocking.",
+    "Flexor Spasticity": "Slow, controlled opening and unfurling to quiet velocity-dependent tightness.",
+    "Motor Ataxia": "Zone-based precision drills to reduce overshoot and trajectory wandering.",
+    "Intention Tremor": "Endpoint stabilisation and steady hovering to retrain terminal motor control.",
+    "Motor Apraxia": "Sequenced multi-stage drills that rebuild motor memory step by step.",
+    "Wrist Drop": "Active wrist cock-up and sweeps to retrain radial-nerve extension.",
+  };
+
+  // profile pills
+  window.StrokeProfiles.forEach((p) => {
+    const b = document.createElement("button");
+    b.className = "profile-pill";
+    b.innerHTML = `${p.emoji}<span>${p.label}</span>`;
+    b.addEventListener("click", () => { profile = p.key; renderConfig(); });
+    profilePills.appendChild(b);
   });
 
-  document.getElementById("replay-btn").addEventListener("click", () => {
-    resetWorkout();
-    startWarmup();
-  });
+  function exerciseCard(ex) {
+    // <label> semantics toggle the checkbox on any card click
+    const div = document.createElement("label");
+    div.className = "ex-card" + (selected.has(ex.key) ? " picked" : "");
+    const cb = document.createElement("input");
+    cb.type = "checkbox";
+    cb.value = ex.key;
+    cb.checked = selected.has(ex.key);
+    cb.addEventListener("change", () => {
+      if (cb.checked) selected.add(ex.key); else selected.delete(ex.key);
+      div.classList.toggle("picked", cb.checked);
+      updateSummary();
+    });
+    div.innerHTML = `
+      <span class="ex-emoji">${ex.emoji}</span>
+      <span class="ex-body">
+        <span class="ex-name">${ex.name}</span>
+        <span class="ex-meta">${ex.metric} · ${ex.steps.length} steps</span>
+      </span>`;
+    div.prepend(cb);
+    return div;
+  }
 
-  // === Warm-Up Countdown ===
-  async function startWarmup() {
-    showScreen("warmup");
-    // Initialize camera during warmup
-    const cam = new RehabCamera("video", onFrame);
-    const ok = await cam.initialize();
-    if (!ok) {
-      showToast("Camera access required", "error");
-      showScreen("pre");
+  function renderConfig() {
+    profilePills.querySelectorAll(".profile-pill").forEach((b) => {
+      const key = StrokeProfiles.find((p) => b.textContent.includes(p.label))?.key;
+      b.classList.toggle("active", key === profile || b.textContent.includes(profile));
+    });
+    const info = StrokeProfiles.find((p) => p.key === profile) || StrokeProfiles[0];
+    profileNote.textContent = `${info.emoji} ${PROFILE_NOTES[profile] || ""}`;
+    // Keep selections that belong to the new profile, else preselect first 3
+    selected = new Set([...selected].filter((k) => EXERCISES.some((e) => e.key === k && e.profile === profile)));
+    if (!selected.size) EXERCISES_BY_PROFILE[profile].slice(0, 3).forEach((e) => selected.add(e.key));
+    exGrid.innerHTML = "";
+    EXERCISES_BY_PROFILE[profile].forEach((ex) => exGrid.appendChild(exerciseCard(ex)));
+    updateSummary();
+  }
+
+  function syncChecks() {
+    exGrid.querySelectorAll(".ex-card").forEach((card, i) => {
+      const cb = card.querySelector("input");
+      cb.value = EXERCISES_BY_PROFILE[profile][i].key;
+      cb.checked = selected.has(cb.value);
+      card.classList.toggle("picked", cb.checked);
+    });
+  }
+
+  function currentSelection() {
+    return [...selected].filter((k) => EXERCISES.some((e) => e.key === k));
+  }
+
+  function updateSummary() {
+    const reps = parseInt($("cfg-reps").value) || 10;
+    const sets = parseInt($("cfg-sets").value) || 3;
+    $("cfg-reps-total").textContent = currentSelection().length * reps * sets;
+    $("cfg-ex-count").textContent = currentSelection().length;
+    $("btn-start").disabled = currentSelection().length === 0;
+  }
+
+  // ---------- Session state ----------------------------------------------
+  const S = {
+    phase: "config", queue: [], qi: 0, ex: null,
+    set: 1, rep: 0, step: 0, holdStart: 0,
+    repsTarget: 10, setsTarget: 3, restSec: 30, breakSec: 60,
+    paused: false, cheat: false, stuckAt: 0, stepEnteredAt: 0,
+    timerStart: 0, setStart: 0, exStart: 0,
+    results: [], // per finished exercise
+    videoOn: false, lastTip: null, lastT: 0, speed: 0, metrics: null,
+    hintOn: false, secTick: 0,
+  };
+
+  // ---------- Metrics per frame ------------------------------------------
+  function computeMetrics(res) {
+    const M = { elbowMax: null, elbowMin: null, elevMax: null, reach: 0, tilt: 0,
+                spread: null, pinch: null, fan: null, dev: null, tipX: null, tipY: null,
+                speed: 0 };
+    // Pose arm metrics (either arm may drive the drill)
+    if (res.pose) {
+      const arms = [
+        { sh: res.pose[11], el: res.pose[13], wr: res.pose[15] },
+        { sh: res.pose[12], el: res.pose[14], wr: res.pose[16] },
+      ];
+      const elbows = [], elevs = [];
+      arms.forEach((a) => {
+        if (a.sh && a.el && a.wr && (a.sh.x !== 0 || a.sh.y !== 0)) {
+          elbows.push(Kinematics.calculateJointAngle(a.sh, a.el, a.wr));
+          const dx = Math.abs(a.el.x - a.sh.x), dy = Math.abs(a.el.y - a.sh.y);
+          elevs.push((Math.atan2(dx, dy) * 180) / Math.PI);
+          M.reach = Math.max(M.reach, Math.abs(a.wr.x - a.sh.x));
+        }
+      });
+      if (elbows.length) { M.elbowMax = Math.max(...elbows); M.elbowMin = Math.min(...elbows); }
+      if (elevs.length) M.elevMax = Math.max(...elevs);
+      if (res.pose[11] && res.pose[12]) M.tilt = Kinematics.calculateTrunkTilt(res.pose[11], res.pose[12]).tiltDegrees || 0;
+    }
+    // Hand metrics
+    if (res.hand) {
+      const pts = [];
+      for (let i = 0; i < 21; i++) pts.push(res.hand[i] || { x: 0, y: 0 });
+      M.spread = handVariance(pts);
+      M.pinch = res.hand[4] && res.hand[8]
+        ? Math.sqrt((res.hand[4].x - res.hand[8].x) ** 2 + (res.hand[4].y - res.hand[8].y) ** 2) : null;
+      M.fan = res.hand[8] && res.hand[20]
+        ? Math.sqrt((res.hand[8].x - res.hand[20].x) ** 2 + (res.hand[8].y - res.hand[20].y) ** 2) : null;
+      if (res.hand[5] && res.hand[0] && res.hand[12]) {
+        M.dev = Kinematics.calculateWristDeviation(
+          { x: res.hand[5].x, y: res.hand[5].y }, { x: res.hand[0].x, y: res.hand[0].y },
+          { x: res.hand[12].x, y: res.hand[12].y });
+      }
+      const tip = res.hand[8];
+      if (tip) {
+        M.tipX = tip.x; M.tipY = tip.y;
+        const now = Date.now(), dt = (now - S.lastT) / 1000;
+        if (S.lastTip && dt > 0) {
+          S.speed = Math.sqrt((tip.x - S.lastTip.x) ** 2 + (tip.y - S.lastTip.y) ** 2) / dt;
+          M.speed = S.speed;
+        }
+        S.lastTip = { x: tip.x, y: tip.y }; S.lastT = now;
+      }
+    }
+    return M;
+  }
+
+  function handVariance(pts) {
+    let cx = 0, cy = 0, n = 0;
+    for (const p of pts) { if (p) { cx += p.x; cy += p.y; n++; } }
+    if (n < 5) return 1;
+    cx /= n; cy /= n;
+    let s = 0;
+    for (const p of pts) { if (p) s += (p.x - cx) ** 2 + (p.y - cy) ** 2; }
+    return Math.sqrt(s / n);
+  }
+
+  // ---------- Metric readout ---------------------------------------------
+  function metricReadout(ex, M) {
+    switch (ex.metric) {
+      case "ELBOW °": return M.elbowMax != null ? `${Math.round(M.elbowMax)}°` : "—";
+      case "ELEV °": return M.elevMax != null ? `${Math.round(M.elevMax)}°` : "—";
+      case "REACH": return M.reach != null ? `${Math.round(M.reach * 100)}%` : "—";
+      case "BOTH ELBOW": return M.elbowMin != null ? `${Math.round(M.elbowMin)}°` : "—";
+      case "PALM": case "CYCLE": return M.spread != null ? (M.spread > 0.10 ? "OPEN 🖐️" : "fist ✊") : "—";
+      case "FAN": return M.fan != null ? `${Math.round(M.fan * 100)}` : "—";
+      case "DEV °": return M.dev != null ? `${Math.round(M.dev)}°` : "—";
+      case "PINCH": return M.pinch != null ? `${Math.round(M.pinch * 100)}` : "—";
+      default: return M.tipY != null ? `x ${Math.round(M.tipX * 100)} · y ${Math.round(M.tipY * 100)}` : "—";
+    }
+  }
+
+  // ---------- Step engine -------------------------------------------------
+  const stepBoxes = $("step-boxes");
+
+  function renderSteps(ex, activeIdx) {
+    stepBoxes.innerHTML = "";
+    ex.steps.forEach((st, i) => {
+      const d = document.createElement("div");
+      d.className = "step-box" + (i < activeIdx ? " done" : i === activeIdx ? " active" : "");
+      d.innerHTML = `<span class="sb-num">${i + 1}</span><span class="sb-txt">${st.label}</span>${st.hold ? `<span class="sb-hold">⏱ ${st.hold}s</span>` : ""}`;
+      stepBoxes.appendChild(d);
+    });
+  }
+
+  function speakStep(ex, idx) {
+    const st = ex.steps[idx];
+    if (!st) return;
+    $("current-step-name").textContent = st.label;
+    if (window.RehabBio) window.RehabBio.speak(`Step ${idx + 1}. ${st.label}`);
+  }
+
+  function handleWorkoutFrame(res) {
+    if (S.phase !== "workout" || S.paused) return;
+    const M = computeMetrics(res);
+    S.metrics = M;
+    $("metric-value").textContent = metricReadout(S.ex, M);
+
+    // Anti-cheat trunk lock (E1 > 10°)
+    if (M.tilt > 10) {
+      if (!S.cheat) {
+        S.cheat = true;
+        $("cheat-banner").classList.add("show");
+        if (window.RehabBio) { window.RehabBio.stopRomTone(); window.RehabBio.playCheatBuzz(); window.RehabBio.speak("Posture cheat detected: keep your shoulders level.", { priority: true }); }
+      }
+      S.holdStart = 0;
       return;
     }
-
-    let count = CONFIG.WARMUP_SECONDS;
-    warmupCounter.textContent = count;
-    warmupFill.style.width = "0%";
-
-    const interval = setInterval(() => {
-      count--;
-      warmupCounter.textContent = count;
-      warmupFill.style.width = `${((CONFIG.WARMUP_SECONDS - count) / CONFIG.WARMUP_SECONDS) * 100}%`;
-      playBeep(440, 0.05, 0.1);
-
-      if (count <= 0) {
-        clearInterval(interval);
-        warmupFill.style.width = "100%";
-        startActiveWorkout();
-      }
-    }, 1000);
-
-    // Start Pose detection
-    initPose();
-  }
-
-  // === Active Workout ===
-  function startActiveWorkout() {
-    showScreen("workout");
-    state.sessionStartTime = Date.now();
-    state.lastMovementTime = Date.now();
-    updateSetDisplay();
-    updateRepDisplay();
-    startTimer();
-  }
-
-  function updateSetDisplay() {
-    setInfo.textContent = `Set ${state.currentSet}/${CONFIG.SETS}`;
-
-    // Update set dots
-    const dots = setDots.querySelectorAll(".set-dot");
-    dots.forEach((dot, i) => {
-      dot.classList.remove("active", "done");
-      if (i + 1 < state.currentSet) dot.classList.add("done");
-      if (i + 1 === state.currentSet) dot.classList.add("active");
-    });
-  }
-
-  function updateRepDisplay() {
-    repDisplay.textContent = state.currentRep;
-    const pct = (state.currentRep / CONFIG.REPS_PER_SET) * 100;
-    setRepsFill.style.width = `${pct}%`;
-
-    // Update rep arc
-    const circumference = 2 * Math.PI * 42;
-    const offset = circumference - (pct / 100) * circumference;
-    repArc.setAttribute("stroke-dashoffset", offset);
-
-    // Color change on completion
-    if (state.currentRep >= CONFIG.REPS_PER_SET) {
-      repArc.setAttribute("stroke", "#00ff88");
-    } else {
-      repArc.setAttribute("stroke", "#ff6a00");
-    }
-  }
-
-  function updateAngleDisplay(angle) {
-    state.currentAngle = angle;
-    angleDisplay.textContent = `${Math.round(angle)}°`;
-
-    // Update arc
-    const circumference = 2 * Math.PI * 52;
-    const pct = Math.min(1, angle / CONFIG.EXTENSION_THRESHOLD);
-    const offset = circumference - pct * circumference;
-    angleArc.setAttribute("stroke-dashoffset", offset);
-
-    // Color based on progress
-    if (angle >= CONFIG.EXTENSION_THRESHOLD) {
-      angleArc.setAttribute("stroke", "#00ff88");
-    } else if (angle >= 100) {
-      angleArc.setAttribute("stroke", "#ffd000");
-    } else {
-      angleArc.setAttribute("stroke", "#ff6a00");
-    }
-  }
-
-  // === Timer ===
-  let timerInterval = null;
-  function startTimer() {
-    timerInterval = setInterval(() => {
-      if (state.isPaused) return;
-      const elapsed = Math.floor((Date.now() - state.sessionStartTime - state.totalPausedTime) / 1000);
-      const mins = Math.floor(elapsed / 60);
-      const secs = elapsed % 60;
-      timerDisplay.textContent = `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
-    }, 500);
-  }
-
-  // === Pause ===
-  document.getElementById("pause-btn").addEventListener("click", () => {
-    if (state.isPaused) {
-      resumeWorkout();
-    } else {
-      pauseWorkout();
-    }
-  });
-
-  function pauseWorkout() {
-    state.isPaused = true;
-    state.pauseStartTime = Date.now();
-    document.getElementById("pause-btn").textContent = "▶ Resume";
-
-    // Show pause overlay
-    const overlay = document.createElement("div");
-    overlay.className = "pause-overlay";
-    overlay.id = "pause-overlay";
-    overlay.innerHTML = `
-      <h2>⏸ Paused</h2>
-      <p style="color:#8a7a6a;margin-bottom:20px;">Take a break — you're doing great!</p>
-      <button onclick="document.getElementById('pause-overlay').remove(); window._therapyResume();">▶ Resume</button>
-    `;
-    screens.workout.appendChild(overlay);
-  }
-
-  function resumeWorkout() {
-    state.isPaused = false;
-    state.totalPausedTime += Date.now() - state.pauseStartTime;
-    document.getElementById("pause-btn").textContent = "⏸ Pause";
-    const overlay = document.getElementById("pause-overlay");
-    if (overlay) overlay.remove();
-  }
-
-  window._therapyResume = resumeWorkout;
-
-  // === Pose Detection ===
-  let pose = null;
-  function initPose() {
-    pose = new Pose({
-      locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`,
-    });
-    pose.setOptions({
-      modelComplexity: 1,
-      smoothLandmarks: true,
-      enableSegmentation: false,
-      minDetectionConfidence: 0.6,
-      minTrackingConfidence: 0.5,
-    });
-    pose.onResults(onPoseResults);
-  }
-
-  async function onFrame(videoEl) {
-    if (pose && state.phase === "workout") {
-      await pose.send({ image: videoEl });
-    }
-  }
-
-  function onPoseResults(results) {
-    if (state.isPaused || !results.poseLandmarks) return;
-
-    const lm = results.poseLandmarks;
-    const shoulder = lm[12];
-    const elbow = lm[14];
-    const wrist = lm[16];
-    const leftShoulder = lm[11];
-
-    if (!shoulder || !elbow || !wrist) return;
-
-    // C1: Joint Goniometry
-    const angle = Kinematics.calculateJointAngle(shoulder, elbow, wrist);
-    updateAngleDisplay(angle);
-
-    if (angle > state.peakRom) state.peakRom = angle;
-
-    // E1: Anti-Cheat Trunk Tilt
-    if (leftShoulder) {
-      const tilt = Kinematics.calculateTrunkTilt(leftShoulder, shoulder);
-      if (tilt.isCompensating) {
-        cheatAlert.classList.add("visible");
-        state.cheatsBlocked++;
-        cueStep.textContent = "Keep shoulders level!";
-        cueStep.style.color = "#ff4444";
-        setTimeout(() => {
-          cheatAlert.classList.remove("visible");
-          cueStep.style.color = "";
-        }, 2000);
-      }
+    if (S.cheat) {
+      S.cheat = false;
+      $("cheat-banner").classList.remove("show");
     }
 
-    // Rep Latch State Machine
-    processRepLatch(angle);
-
-    // Movement tracking
+    const step = S.ex.steps[S.step];
+    if (!step) return;
+    const ok = step.test(M);
     const now = Date.now();
-    if (angle !== state.currentAngle || Math.abs(angle - state.currentAngle) > 1) {
-      state.lastMovementTime = now;
-      if (state.isInactive) {
-        hintBanner.classList.remove("visible");
-        state.isInactive = false;
-      }
-    }
 
-    // Inactivity watchdog
-    if (now - state.lastMovementTime > CONFIG.INACTIVITY_TIMEOUT && !state.isInactive) {
-      state.isInactive = true;
-      hintBanner.classList.add("visible");
-      cueStep.textContent = "Move your arm!";
-      cueStep.style.color = "#ff9a3c";
-      setTimeout(() => {
-        hintBanner.classList.remove("visible");
-        state.isInactive = false;
-        cueStep.style.color = "";
-      }, CONFIG.HINT_DURATION);
-    }
-
-    // Smoothness tracking
-    state.positionBuffer.push(angle);
-    state.timestampBuffer.push(now);
-    if (state.positionBuffer.length > 60) state.positionBuffer.shift();
-    if (state.timestampBuffer.length > 60) state.timestampBuffer.shift();
-
-    // Draw overlay
-    drawOverlay(lm);
-  }
-
-  // === Rep Latch State Machine ===
-  function processRepLatch(angle) {
-    if (state.cheatsBlocked > 0 && cheatAlert.classList.contains("visible")) return;
-
-    if (state.armState === "FLEXED" && angle >= CONFIG.EXTENSION_THRESHOLD) {
-      // Rep completed!
-      state.armState = "EXTENDED";
-      state.currentRep++;
-      state.totalReps++;
-      updateRepDisplay();
-      playRepSound();
-
-      // Update form cue
-      cueStep.textContent = "Return to start position";
-      cueStep.style.color = "#00ff88";
-      setTimeout(() => { cueStep.style.color = ""; }, 1000);
-
-      // Check set completion
-      if (state.currentRep >= CONFIG.REPS_PER_SET) {
-        playSetComplete();
-        showToast(`Set ${state.currentSet} complete!`, "success");
-
-        if (state.currentSet >= CONFIG.SETS) {
-          // Workout complete!
-          setTimeout(() => completeWorkout(), 1500);
+    if (ok) {
+      // Pitch-tone sonification for elbow ROM drills
+      if (window.RehabBio) {
+        if (S.ex.metric.indexOf("ELBOW") === 0 && M.elbowMax != null) {
+          window.RehabBio.setRomTone(M.elbowMax, { minAngle: 30, maxAngle: 150 });
+        } else if (S.ex.metric === "DEV °" && M.dev != null) {
+          window.RehabBio.setRomTone(Math.abs(M.dev), { minAngle: 0, maxAngle: 25, minHz: 220, maxHz: 700 });
         } else {
-          // Start rest period
-          setTimeout(() => startRest(), 1000);
+          window.RehabBio.stopRomTone();
         }
       }
-    } else if (state.armState === "EXTENDED" && angle < CONFIG.FLEXION_THRESHOLD) {
-      state.armState = "FLEXED";
-      cueStep.textContent = "Extend arm to 135°";
-      cueStep.style.color = "";
+      if (step.hold > 0) {
+        if (!S.holdStart) S.holdStart = now;
+        const held = (now - S.holdStart) / 1000;
+        $("hold-display").textContent = `${Math.max(0, step.hold - held).toFixed(1)}s`;
+        if (held < step.hold) { S.hintOn = false; return; }
+      }
+      // Step complete
+      S.holdStart = 0;
+      S.step++;
+      S.hintOn = false;
+      const line = $("feedback-line");
+      if (window.RehabBio) window.RehabBio.playBeep(880, 0.06, 0.3);
+      if (S.step >= S.ex.steps.length) completeRep();
+      else {
+        speakStep(S.ex, S.step);
+        renderSteps(S.ex, S.step);
+        line.textContent = "";
+      }
     } else {
-      // Intermediate angles
-      if (angle < CONFIG.FLEXION_THRESHOLD) {
-        cueStep.textContent = "Bend elbow to start position";
-      } else if (angle >= CONFIG.FLEXION_THRESHOLD && angle < CONFIG.EXTENSION_THRESHOLD) {
-        const remaining = Math.round(CONFIG.EXTENSION_THRESHOLD - angle);
-        cueStep.textContent = `Extend ${remaining}° more to target`;
+      // Not achieved yet
+      if (window.RehabBio) window.RehabBio.stopRomTone();
+      S.holdStart = 0;
+      if (!S.stuckAt) S.stuckAt = now;
+      if (now - S.stuckAt > 2200 && !S.hintOn) {
+        S.hintOn = true;
+        $("hint-line").textContent = `💡 Try: ${step.label}`;
+        if (window.RehabBio) window.RehabBio.speak(`Try: ${step.label}`);
       }
     }
   }
 
-  // === Rest Between Sets ===
-  function startRest() {
-    showScreen("rest");
-    let count = CONFIG.REST_SECONDS;
-    restCounter.textContent = count;
-    restFill.style.width = "100%";
-
-    const interval = setInterval(() => {
-      count--;
-      restCounter.textContent = count;
-      restFill.style.width = `${(count / CONFIG.REST_SECONDS) * 100}%`;
-
-      if (count <= 0) {
-        clearInterval(interval);
-        nextSet();
-      }
-    }, 1000);
-
-    document.getElementById("skip-rest-btn").onclick = () => {
-      clearInterval(interval);
-      nextSet();
-    };
+  function completeRep() {
+    S.rep++;
+    S.step = 0;
+    S.stuckAt = 0;
+    renderSteps(S.ex, 0);
+    $("rep-display").textContent = `${S.rep} / ${S.repsTarget}`;
+    $("hint-line").textContent = "";
+    $("feedback-line").textContent = "";
+    const praise = ["Nice!", "Great form!", "Keep going!", "Excellent!", "Beautiful rep!"];
+    $("feedback-line").textContent = `${praise[(S.rep - 1) % praise.length]} Rep ${S.rep}/${S.repsTarget} ✅`;
+    if (window.RehabBio) window.RehabBio.playRepChime();
+    if (S.rep === 5 || S.rep === S.repsTarget) {
+      if (window.RehabBio) window.RehabBio.speak(`Repetition ${S.rep} complete. ${Math.max(0, S.repsTarget - S.rep)} remaining.`);
+    }
+    if (S.rep >= S.repsTarget) {
+      // Set finished
+      S.set++;
+      if (S.set > S.setsTarget) { finishExercise(); return; }
+      $("wo-set").textContent = `Set ${S.set}/${S.setsTarget}`;
+      S.phase = "rest";
+      S.countdown = S.restSec;
+      S.lastCountdown = Date.now();
+      if (window.RehabBio) window.RehabBio.playSetChime();
+      renderRest();
+      showScreen("rest");
+      updateCountdownUI();
+    }
   }
 
-  function nextSet() {
-    state.currentSet++;
-    state.currentRep = 0;
-    state.armState = "FLEXED";
-    updateSetDisplay();
-    updateRepDisplay();
+  // ---------- Set / exercise / program flow --------------------------------
+  function finishExercise() {
+    S.results.push({
+      key: S.ex.key, name: S.ex.name, emoji: S.ex.emoji,
+      reps: S.repsTarget * S.setsTarget, sets: S.setsTarget,
+      elapsed: Math.round((Date.now() - S.exStart) / 1000),
+    });
+    logExercise(S.results[S.results.length - 1]);
+    if (window.RehabBio) { window.RehabBio.stopRomTone(); window.RehabBio.playWorkoutFanfare(); }
+    S.qi++;
+    if (S.qi >= S.queue.length) { renderDone(); showScreen("done"); stopVision(); return; }
+    // Break between exercises
+    S.phase = "break";
+    S.countdown = S.breakSec;
+    S.lastCountdown = Date.now();
+    $("break-next").textContent = `Next up: ${S.queue[S.qi].emoji} ${S.queue[S.qi].name}`;
+    $("break-stats").innerHTML = `${S.results[S.results.length - 1].emoji} <b>${S.results[S.results.length - 1].name}</b> — ${S.results[S.results.length - 1].reps} reps · ${S.results[S.results.length - 1].sets} sets · ${S.results[S.results.length - 1].elapsed}s`;
+    showScreen("break");
+    updateCountdownUI();
+  }
+
+  function startNextExercise() {
+    S.ex = S.queue[S.qi];
+    S.set = 1; S.rep = 0; S.step = 0; S.holdStart = 0; S.stuckAt = 0;
+    S.exStart = Date.now();
+    $("wo-now").textContent = `${S.ex.emoji} ${S.ex.name}`;
+    $("wo-set").textContent = `Set 1/${S.setsTarget}`;
+    $("rep-display").textContent = `0 / ${S.repsTarget}`;
+    $("metric-label").textContent = S.ex.metric;
+    $("hint-line").textContent = ""; $("feedback-line").textContent = "";
+    renderSteps(S.ex, 0);
+    S.phase = "workout";
     showScreen("workout");
-    cueStep.textContent = "Bend elbow to start position";
+    speakStep(S.ex, 0);
   }
 
-  // === Workout Complete ===
-  function completeWorkout() {
-    showScreen("complete");
-    playWorkoutComplete();
-    if (timerInterval) clearInterval(timerInterval);
-
-    // Calculate stats
-    const duration = Math.floor((Date.now() - state.sessionStartTime - state.totalPausedTime) / 1000);
-    const mins = Math.floor(duration / 60);
-    const secs = duration % 60;
-
-    document.getElementById("cs-reps").textContent = state.totalReps;
-    document.getElementById("cs-sets").textContent = CONFIG.SETS;
-    document.getElementById("cs-rom").textContent = `${Math.round(state.peakRom)}°`;
-    document.getElementById("cs-cheats").textContent = state.cheatsBlocked;
-    document.getElementById("cs-time").textContent = `${mins}:${String(secs).padStart(2, "0")}`;
-
-    // Streak
-    const streak = StreakManager.updateStreak();
-    document.getElementById("cs-streak").textContent = streak;
-
-    // Grade
-    const gradeEl = document.getElementById("complete-grade");
-    let grade, desc;
-    if (state.cheatsBlocked === 0 && state.peakRom >= CONFIG.EXTENSION_THRESHOLD) {
-      grade = "A+"; desc = "Perfect Form!";
-    } else if (state.cheatsBlocked <= 2) {
-      grade = "A"; desc = "Excellent Form";
-    } else if (state.cheatsBlocked <= 5) {
-      grade = "B"; desc = "Good — Watch Posture";
-    } else {
-      grade = "C"; desc = "Keep Practicing";
+  // ---------- Countdowns (warm-up / rest / break) -------------------------
+  function renderRest() {
+    $("rest-counter").textContent = S.countdown;
+    $("rest-fill").style.width = "0%";
+  }
+  function updateCountdownUI() {
+    if (S.phase === "warmup") {
+      $("warmup-counter").textContent = Math.max(1, Math.ceil(S.countdown));
+      $("warmup-fill").style.width = `${(S.totalCount - S.countdown) / S.totalCount * 100}%`;
+    } else if (S.phase === "rest") {
+      $("rest-counter").textContent = Math.max(0, Math.ceil(S.countdown));
+      $("rest-fill").style.width = `${(S.restSec - S.countdown) / S.restSec * 100}%`;
+    } else if (S.phase === "break") {
+      $("break-counter").textContent = Math.max(0, Math.ceil(S.countdown));
+      $("break-fill").style.width = `${(S.breakSec - S.countdown) / S.breakSec * 100}%`;
     }
-    gradeEl.querySelector(".grade-letter").textContent = grade;
-    gradeEl.querySelector(".grade-desc").textContent = desc;
-
-    // Log telemetry
-    logSession(duration);
   }
 
-  function resetWorkout() {
-    state = {
-      phase: "pre",
-      currentSet: 1,
-      currentRep: 0,
-      armState: "FLEXED",
-      currentAngle: 0,
-      peakRom: 0,
-      cheatsBlocked: 0,
-      totalReps: 0,
-      sessionStartTime: 0,
-      lastMovementTime: 0,
-      isInactive: false,
-      isPaused: false,
-      pauseStartTime: 0,
-      totalPausedTime: 0,
-      positionBuffer: [],
-      timestampBuffer: [],
-    };
-    updateSetDisplay();
-    updateRepDisplay();
-  }
-
-  // === Ghost Guide Animation ===
-  let ghostT = 0;
-  function animateGhostGuide() {
-    ghostCtx.clearRect(0, 0, ghostCanvas.width, ghostCanvas.height);
-    const cx = ghostCanvas.width / 2;
-    const cy = 20;
-    const armLen = 55;
-
-    const phase = Math.sin(ghostT * 0.03) * 0.5 + 0.5;
-    const ghostAngle = 50 + phase * 95;
-    const rad = (ghostAngle * Math.PI) / 180;
-
-    const elbowX = cx;
-    const elbowY = cy + 35;
-    const wristX = elbowX + armLen * Math.sin(rad);
-    const wristY = elbowY + armLen * Math.cos(rad);
-
-    ghostCtx.strokeStyle = "rgba(0, 200, 255, 0.35)";
-    ghostCtx.lineWidth = 2.5;
-    ghostCtx.shadowColor = "rgba(0, 200, 255, 0.2)";
-    ghostCtx.shadowBlur = 4;
-
-    ghostCtx.beginPath();
-    ghostCtx.moveTo(cx, cy);
-    ghostCtx.lineTo(elbowX, elbowY);
-    ghostCtx.lineTo(wristX, wristY);
-    ghostCtx.stroke();
-    ghostCtx.shadowBlur = 0;
-
-    // Joints
-    ghostCtx.fillStyle = "rgba(0, 200, 255, 0.4)";
-    [cx, cy, elbowX, elbowY, wristX, wristY].forEach((v, i) => {
-      if (i % 2 === 0) {
-        ghostCtx.beginPath();
-        ghostCtx.arc(v, [cy, elbowY, wristY][i / 2], 4, 0, Math.PI * 2);
-        ghostCtx.fill();
+  const ticker = setInterval(() => {
+    if (S.phase === "warmup" || S.phase === "rest" || S.phase === "break") {
+      const dt = (Date.now() - S.lastCountdown) / 1000;
+      S.lastCountdown = Date.now();
+      S.countdown = Math.max(0, S.countdown - dt);
+      updateCountdownUI();
+      if (S.countdown <= 0) {
+        if (S.phase === "warmup") startNextExercise();
+        else if (S.phase === "rest") { S.phase = "workout"; showScreen("workout"); S.setStart = Date.now(); }
+        else if (S.phase === "break") startNextExercise();
       }
-    });
-
-    // Labels
-    ghostCtx.font = "8px sans-serif";
-    ghostCtx.fillStyle = "rgba(0, 200, 255, 0.4)";
-    ghostCtx.fillText("1.Flex", cx - 25, cy + 25);
-    ghostCtx.fillText("2.Reach", elbowX + 10, elbowY + 5);
-    ghostCtx.fillText("3.Hold", wristX + 5, wristY - 5);
-
-    ghostT += 1;
-    if (state.phase === 'workout') {
-      requestAnimationFrame(animateGhostGuide);
+    } else if (S.phase === "workout" && !S.paused) {
+      if (!S.timerStart) S.timerStart = Date.now();
+      $("timer-display").textContent = fmt(Date.now() - S.timerStart);
     }
+  }, 250);
+
+  // ---------- Vision ------------------------------------------------------
+  async function startVision() {
+    if (S.videoOn) return true;
+    if (window.RehabQA) {
+      const report = window.RehabQA.runStressTest(window.RehabQA.STRESS_TARGET);
+      if (!report.passed) console.warn("[QA] Stress test issues:", report.failures.slice(0, 3));
+    }
+    const ok = await VisionLoader.start($("video"), onFrame);
+    if (ok) { S.videoOn = true; VisionLoader.watch(); }
+    else showToast("❌ Camera unavailable — allow webcam access", "error");
+    return ok;
   }
 
-  // === Skeleton Overlay ===
-  let overlayReady = false;
-  function drawOverlay(lm) {
-    if (!overlayReady) {
-      overlayCanvas.width = video.videoWidth || 640;
-      overlayCanvas.height = video.videoHeight || 480;
-      overlayReady = true;
-    }
-    overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
-    const w = overlayCanvas.width;
-    const h = overlayCanvas.height;
-
-    const rs = lm[12], re = lm[14], rw = lm[16], ls = lm[11];
-    if (!rs || !re || !rw) return;
-
-    // Dynamic bone color
-    let boneColor;
-    if (state.currentAngle < 90) boneColor = "#ffaa00";
-    else if (state.currentAngle < 120) boneColor = "#ffd000";
-    else boneColor = "#00ff88";
-
-    // Trunk line
-    if (ls) {
-      const cheating = cheatAlert.classList.contains("visible");
-      overlayCtx.beginPath();
-      overlayCtx.strokeStyle = cheating ? "#ff2200" : "rgba(255,170,0,0.4)";
-      overlayCtx.lineWidth = cheating ? 5 : 3;
-      if (cheating) overlayCtx.setLineDash([6, 4]);
-      overlayCtx.moveTo(ls.x * w, ls.y * h);
-      overlayCtx.lineTo(rs.x * w, rs.y * h);
-      overlayCtx.stroke();
-      overlayCtx.setLineDash([]);
-    }
-
-    // Arm bones
-    overlayCtx.strokeStyle = boneColor;
-    overlayCtx.lineWidth = 4;
-    overlayCtx.shadowColor = boneColor;
-    overlayCtx.shadowBlur = 6;
-
-    overlayCtx.beginPath();
-    overlayCtx.moveTo(rs.x * w, rs.y * h);
-    overlayCtx.lineTo(re.x * w, re.y * h);
-    overlayCtx.stroke();
-
-    overlayCtx.beginPath();
-    overlayCtx.moveTo(re.x * w, re.y * h);
-    overlayCtx.lineTo(rw.x * w, rw.y * h);
-    overlayCtx.stroke();
-    overlayCtx.shadowBlur = 0;
-
-    // Joints
-    [rs, re, rw].forEach((pt) => {
-      overlayCtx.beginPath();
-      overlayCtx.arc(pt.x * w, pt.y * h, 7, 0, Math.PI * 2);
-      overlayCtx.fillStyle = boneColor;
-      overlayCtx.fill();
-      overlayCtx.strokeStyle = "rgba(255,255,255,0.6)";
-      overlayCtx.lineWidth = 2;
-      overlayCtx.stroke();
-    });
-
-    // Goniometric arc
-    const ex = re.x * w, ey = re.y * h;
-    const a1 = Math.atan2((rs.y - re.y) * h, (rs.x - re.x) * w);
-    const a2 = Math.atan2((rw.y - re.y) * h, (rw.x - re.x) * w);
-    overlayCtx.beginPath();
-    overlayCtx.arc(ex, ey, 40, Math.min(a1, a2), Math.max(a1, a2));
-    overlayCtx.strokeStyle = "rgba(255,154,60,0.6)";
-    overlayCtx.lineWidth = 2;
-    overlayCtx.stroke();
+  function stopVision() {
+    if (S.videoOn) { VisionLoader.stop(); S.videoOn = false; }
   }
 
-  // === Telemetry Logging ===
-  async function logSession(duration) {
+  function onFrame(res) {
+    if (S.phase === "workout") handleWorkoutFrame(res);
+  }
+
+  // ---------- Start / controls ---------------------------------------------
+  $("btn-start").addEventListener("click", async () => {
+    const queue = currentSelection();
+    if (!queue.length) { showToast("⚠️ Select at least one exercise", "error"); return; }
+    S.queue = queue;
+    S.qi = 0;
+    S.repsTarget = Math.max(1, parseInt($("cfg-reps").value) || 10);
+    S.setsTarget = Math.max(1, parseInt($("cfg-sets").value) || 3);
+    S.restSec = Math.max(0, parseInt($("cfg-rest").value) || 30);
+    S.breakSec = Math.max(0, parseInt($("cfg-break").value) || 60);
+    S.results = []; S.timerStart = 0;
+    $("warmup-hint").textContent = `Get ready — first exercise: ${queue[0].emoji} ${queue[0].name}`;
+    S.phase = "warmup";
+    S.totalCount = 5; S.countdown = 5; S.lastCountdown = Date.now();
+    updateCountdownUI();
+    showScreen("warmup");
+    if (!await startVision()) { S.phase = "config"; showScreen("config"); return; }
+  });
+
+  $("pause-btn").addEventListener("click", () => {
+    S.paused = !S.paused;
+    $("pause-btn").textContent = S.paused ? "▶ Resume" : "⏸ Pause";
+    if (window.RehabBio) window.RehabBio.stopRomTone();
+  });
+
+  $("quit-btn").addEventListener("click", () => { stopVision(); window.location.href = "/dashboard"; });
+
+  $("skip-rest").addEventListener("click", () => { S.phase = "workout"; showScreen("workout"); });
+  $("skip-break").addEventListener("click", () => startNextExercise());
+  $("again-btn").addEventListener("click", () => window.location.reload());
+
+  // ---------- Logging --------------------------------------------------------
+  async function logExercise(result) {
     try {
       await fetch("/api/telemetry", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           session_type: "THERAPY",
-          condition: localStorage.getItem("selectedCondition") || "Hemiparesis",
-          duration_seconds: duration,
-          peak_rom: state.peakRom,
-          smoothness_score: state.positionBuffer.length > 10
-            ? Kinematics.calculateSmoothness(1, duration / 1000, 1) : 75,
-          cheats_blocked: state.cheatsBlocked,
-          score: state.totalReps,
-          metrics_json: JSON.stringify({
-            peakRom: state.peakRom,
-            cheatsBlocked: state.cheatsBlocked,
-            totalReps: state.totalReps,
-            sets: CONFIG.SETS,
-          }),
+          condition: profile,
+          duration_seconds: Math.max(1, result.elapsed),
+          peak_rom: 0,
+          smoothness_score: 0,
+          cheats_blocked: 0,
+          score: result.reps,
+          metrics_json: JSON.stringify({ exercise: result.name, reps: result.reps, sets: result.sets, profile: profile }),
         }),
       });
-    } catch (err) {
-      console.error("Telemetry error:", err);
-    }
+    } catch (e) { console.error("Telemetry error", e); }
   }
 
-  // === Start Ghost Guide ===
-  animateGhostGuide();
+  function renderDone() {
+    const totalReps = S.results.reduce((a, r) => a + r.reps, 0);
+    const totalSec = S.results.reduce((a, r) => a + r.elapsed, 0);
+    const list = S.results.map((r) => `<div class="done-row"><span>${r.emoji} ${r.name}</span><span>${r.reps} reps · ${r.sets} sets</span></div>`).join("");
+    $("done-summary").innerHTML = `
+      <div class="done-totals"><div><b>${S.results.length}</b><span>Exercises</span></div>
+      <div><b>${totalReps}</b><span>Total reps</span></div>
+      <div><b>${Math.round(totalSec / 60)}m</b><span>Active time</span></div></div>
+      ${list}`;
+  }
+
+  // ---------- Boot ----------------------------------------------------------
+  ["cfg-reps", "cfg-sets", "cfg-rest", "cfg-break"].forEach((id) => {
+    $(id).addEventListener("input", updateSummary);
+  });
+  renderConfig();
 });
