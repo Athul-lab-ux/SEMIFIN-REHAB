@@ -9,7 +9,9 @@
   <link rel="stylesheet" href="/static/css/session_shell.css" />
 </head>
 <body>
-  <div class="app-frame">
+  <canvas id="auth-bg" class="auth-bg"></canvas>
+
+  <div class="app-frame" data-shell="true">
     {% include '_clinical_rail.html' %}
 
     <main class="app-main" id="app-main">
