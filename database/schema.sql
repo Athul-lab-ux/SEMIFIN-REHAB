@@ -10,6 +10,10 @@ CREATE TABLE IF NOT EXISTS patients (
     selected_condition TEXT DEFAULT 'Hemiparesis',
     current_streak INTEGER DEFAULT 1,
     last_session_date TEXT,
+    onboarding_done INTEGER DEFAULT 0,      -- 0 = must complete the onboarding questions
+    stroke_onset TEXT,                      -- "how did it happen" (typed or voice-to-text)
+    affected_side TEXT DEFAULT '',          -- left | right | both
+    onset_ago TEXT DEFAULT '',              -- how long ago the stroke happened
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -39,13 +43,14 @@ CREATE TABLE IF NOT EXISTS chat_logs (
     FOREIGN KEY (patient_id) REFERENCES patients(patient_id)
 );
 
--- Pre-seed Initial Demonstration Account
-INSERT OR IGNORE INTO patients (patient_id, email, password_hash, selected_condition, current_streak, last_session_date)
+-- Pre-seed Initial Demonstration Account (already onboarded → skips questions)
+INSERT OR IGNORE INTO patients (patient_id, email, password_hash, selected_condition, current_streak, last_session_date, onboarding_done)
 VALUES (
     'SP-000000001',
     'demo@gmail.com',
     'scrypt:32768:8:1$e4a1b7c9d0f12345$testpasswordhash',
     'Hemiparesis',
     5,
-    '2026-09-03'
+    '2026-09-03',
+    1
 );

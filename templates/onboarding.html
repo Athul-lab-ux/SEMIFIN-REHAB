@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0F2A4A" />
+  <title>RehabOpt AR — Tell Us About You</title>
+  <link rel="stylesheet" href="/static/css/clinical.css" />
+  <link rel="stylesheet" href="/static/css/onboarding.css" />
+</head>
+<body class="obo-body">
+  <main class="obo-wrap">
+    <!-- Brand -->
+    <header class="obo-head">
+      <div class="obo-brand">🏥 <b>RehabOpt AR</b> <span>Neuro-Rehab Tele-Platform</span></div>
+      <span class="clin-chip" id="obo-patient">🪪 Loading…</span>
+    </header>
+
+    <!-- Progress -->
+    <div class="obo-progress" role="progressbar" aria-label="Questionnaire progress" aria-valuenow="1" aria-valuemin="1" aria-valuemax="2">
+      <span class="prog-dot on"></span><span class="prog-line"></span><span class="prog-dot" id="prog-dot2"></span>
+    </div>
+
+    <!-- ============ STEP 1 · Stroke type ============ -->
+    <section class="obo-card" id="step1">
+      <div class="step-badge">Step 1 of 2</div>
+      <h1>🧠 Which type of stroke are you facing?</h1>
+      <p class="obo-sub">Pick the category that best matches your condition — we'll tailor your therapy to it. You can change it anytime from the top bar.</p>
+      <div class="obo-options" id="stroke-options"><!-- injected --></div>
+      <button id="btn-next1" class="clin-btn clin-btn-primary obo-next" disabled>Continue ➜</button>
+    </section>
+
+    <!-- ============ STEP 2 · How it happened ============ -->
+    <section class="obo-card" id="step2" style="display:none;">
+      <div class="step-badge">Step 2 of 2</div>
+      <h1>💬 How did it happen? <span class="opt-tag">optional</span></h1>
+      <p class="obo-sub">Type it below — or tap the mic 🎙️ and just say it. This stays private to your care profile.</p>
+
+      <label class="obo-label" for="onset-text">Your story</label>
+      <div class="obo-voice-row">
+        <textarea id="onset-text" rows="3" maxlength="500"
+          placeholder="e.g. I had a stroke about 4 months ago, and my right arm feels weak…"></textarea>
+        <button id="btn-voice" class="vo-btn" aria-label="Speak instead of typing" title="Speak instead of typing">🎙️</button>
+      </div>
+      <p class="voice-status" id="voice-status"></p>
+
+      <div class="obo-q">
+        <div class="obo-label">Which side is mostly affected?</div>
+        <div class="chip-row" id="side-chips">
+          <button class="obo-chip" data-side="left">⬅️ Left arm</button>
+          <button class="obo-chip" data-side="right">➡️ Right arm</button>
+          <button class="obo-chip" data-side="both">🤝 Both arms</button>
+        </div>
+      </div>
+
+      <div class="obo-q">
+        <div class="obo-label">How long ago did it happen?</div>
+        <div class="chip-row" id="ago-chips">
+          <button class="obo-chip" data-ago="Less than a month">🗓️ < 1 month</button>
+          <button class="obo-chip" data-ago="1-6 months ago">1 – 6 months</button>
+          <button class="obo-chip" data-ago="6-12 months ago">6 – 12 months</button>
+          <button class="obo-chip" data-ago="Over a year ago">Over a year</button>
+          <button class="obo-chip" data-ago="Not sure">Not sure</button>
+        </div>
+      </div>
+
+      <div class="obo-actions">
+        <button id="btn-back1" class="clin-btn clin-btn-ghost">← Back</button>
+        <button id="btn-submit" class="clin-btn clin-btn-primary">🚀 Start My Recovery</button>
+      </div>
+    </section>
+  </main>
+
+  <!-- Toast -->
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script src="/static/js/exercise_library.js"></script>
+  <script src="/static/js/onboarding.js"></script>
+</body>
+</html>

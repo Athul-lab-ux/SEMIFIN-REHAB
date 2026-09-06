@@ -68,6 +68,20 @@ def close_db(exception):
         db.close()
 
 
+def ensure_schema_columns(db):
+    """Add columns introduced after v1 to databases that already exist."""
+    existing = {r["name"] for r in db.execute("PRAGMA table_info(patients)").fetchall()}
+    additions = {
+        "onboarding_done": "INTEGER DEFAULT 0",
+        "stroke_onset": "TEXT",
+        "affected_side": "TEXT DEFAULT ''",
+        "onset_ago": "TEXT DEFAULT ''",
+    }
+    for col, ddl in additions.items():
+        if col not in existing:
+            db.execute(f"ALTER TABLE patients ADD COLUMN {col} {ddl}")
+
+
 def init_db():
     """Initialize the database and seed demo account."""
     db = sqlite3.connect(DATABASE)
@@ -75,13 +89,14 @@ def init_db():
     schema_path = os.path.join(os.path.dirname(__file__), "database", "schema.sql")
     with open(schema_path, "r") as f:
         db.executescript(f.read())
+    ensure_schema_columns(db)
 
     # Generate real scrypt hash for demo password
     demo_hash = generate_password_hash("PatientDemo@123", method="scrypt")
     db.execute(
         """INSERT OR REPLACE INTO patients
-           (patient_id, email, password_hash, selected_condition, current_streak, last_session_date)
-           VALUES (?, ?, ?, ?, ?, ?)""",
+           (patient_id, email, password_hash, selected_condition, current_streak, last_session_date, onboarding_done)
+           VALUES (?, ?, ?, ?, ?, ?, 1)""",
         ("SP-000000001", "demo@gmail.com", demo_hash, "Hemiparesis", 5, "2026-09-03"),
     )
     db.commit()
@@ -96,6 +111,23 @@ def login_required(f):
     def decorated_function(*args, **kwargs):
         if "patient_id" not in session:
             return redirect(url_for("auth_portal"))
+        return f(*args, **kwargs)
+    return decorated_function
+
+
+def onboarding_required(f):
+    """Block clinical pages until the patient completes onboarding."""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if "patient_id" not in session:
+            return redirect(url_for("auth_portal"))
+        db = get_db()
+        row = db.execute(
+            "SELECT onboarding_done FROM patients WHERE patient_id = ?",
+            (session["patient_id"],),
+        ).fetchone()
+        if row is None or not row["onboarding_done"]:
+            return redirect(url_for("onboarding"))
         return f(*args, **kwargs)
     return decorated_function
 
@@ -158,38 +190,58 @@ def auth_portal():
     return render_template("auth.html")
 
 
+@app.route("/onboarding")
+@login_required
+def onboarding():
+    """New-patient questionnaire: stroke type → how it happened."""
+    db = get_db()
+    row = db.execute(
+        "SELECT onboarding_done FROM patients WHERE patient_id = ?",
+        (session["patient_id"],),
+    ).fetchone()
+    if row and row["onboarding_done"]:
+        return redirect(url_for("dashboard"))
+    return render_template("onboarding.html")
+
+
 @app.route("/dashboard")
 @login_required
+@onboarding_required
 def dashboard():
     return render_template("dashboard.html")
 
 
 @app.route("/therapy")
 @login_required
+@onboarding_required
 def therapy():
     return render_template("therapy.html")
 
 
 @app.route("/arcade")
 @login_required
+@onboarding_required
 def arcade():
     return render_template("arcade.html")
 
 
 @app.route("/air-canvas")
 @login_required
+@onboarding_required
 def air_canvas():
     return render_template("air_canvas.html")
 
 
 @app.route("/adl-lab")
 @login_required
+@onboarding_required
 def adl_lab():
     return render_template("adl_lab.html")
 
 
 @app.route("/report")
 @login_required
+@onboarding_required
 def report():
     return render_template("report.html")
 
@@ -275,7 +327,9 @@ def api_logout():
 def api_profile():
     db = get_db()
     user = db.execute(
-        "SELECT patient_id, email, selected_condition, current_streak, last_session_date FROM patients WHERE patient_id = ?",
+        """SELECT patient_id, email, selected_condition, current_streak, last_session_date,
+                  onboarding_done, stroke_onset, affected_side, onset_ago
+           FROM patients WHERE patient_id = ?""",
         (session["patient_id"],),
     ).fetchone()
     if not user:
@@ -314,6 +368,56 @@ def api_streak():
     streak = update_streak(db, session["patient_id"])
     db.commit()
     return jsonify({"status": "success", "streak": streak})
+
+# ---------------------------------------------------------------------------
+# API Routes — Onboarding (new-patient stroke questionnaire)
+# ---------------------------------------------------------------------------
+VALID_CONDITIONS = [
+    "Hemiparesis", "Flexor Spasticity", "Motor Ataxia",
+    "Intention Tremor", "Motor Apraxia", "Wrist Drop"
+]
+
+
+@app.route("/api/onboarding/status", methods=["GET"])
+@login_required
+def api_onboarding_status():
+    db = get_db()
+    row = db.execute(
+        "SELECT onboarding_done, selected_condition FROM patients WHERE patient_id = ?",
+        (session["patient_id"],),
+    ).fetchone()
+    return jsonify({
+        "status": "success",
+        "onboarding_done": bool(row and row["onboarding_done"]),
+        "condition": row["selected_condition"] if row else "Hemiparesis",
+    })
+
+
+@app.route("/api/onboarding", methods=["POST"])
+@login_required
+def api_onboarding_submit():
+    data = request.get_json() or {}
+    condition = data.get("condition", "")
+    if condition not in VALID_CONDITIONS:
+        return jsonify({"status": "error", "message": "Please choose a stroke category"}), 400
+
+    onset = (data.get("onset") or "").strip()[:500]
+    side = (data.get("affected_side") or "").strip().lower()
+    if side not in ("left", "right", "both", ""):
+        side = ""
+    ago = (data.get("onset_ago") or "").strip()[:40]
+
+    db = get_db()
+    db.execute(
+        """UPDATE patients
+           SET selected_condition = ?, stroke_onset = ?, affected_side = ?,
+               onset_ago = ?, onboarding_done = 1
+           WHERE patient_id = ?""",
+        (condition, onset, side, ago, session["patient_id"]),
+    )
+    db.commit()
+    return jsonify({"status": "success", "condition": condition})
+
 
 # ---------------------------------------------------------------------------
 # API Routes — Telemetry Logging

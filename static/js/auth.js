@@ -65,7 +65,16 @@ document.addEventListener("DOMContentLoaded", () => {
       const data = await res.json();
       if (data.status === "success") {
         showToast("✅ Login successful! Redirecting...", "success");
-        setTimeout(() => (window.location.href = "/dashboard"), 800);
+        // First-time patients must complete onboarding before the dashboard
+        setTimeout(async () => {
+          try {
+            const sres = await fetch("/api/onboarding/status");
+            const sdata = await sres.json();
+            window.location.href = sdata.onboarding_done ? "/dashboard" : "/onboarding";
+          } catch (e) {
+            window.location.href = "/dashboard";
+          }
+        }, 800);
       } else {
         showToast(`❌ ${data.message}`, "error");
       }
