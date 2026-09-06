@@ -16,23 +16,23 @@
       <span class="clin-chip" id="obo-patient">🪪 Loading…</span>
     </header>
 
-    <!-- Progress -->
-    <div class="obo-progress" role="progressbar" aria-label="Questionnaire progress" aria-valuenow="1" aria-valuemin="1" aria-valuemax="2">
-      <span class="prog-dot on"></span><span class="prog-line"></span><span class="prog-dot" id="prog-dot2"></span>
-    </div>
+    <!-- Progress (7 dots, injected by JS) -->
+    <div class="obo-progress" id="obo-progress" role="progressbar" aria-label="Questionnaire progress" aria-valuemin="1" aria-valuemax="7"></div>
 
     <!-- ============ STEP 1 · Stroke type ============ -->
     <section class="obo-card" id="step1">
-      <div class="step-badge">Step 1 of 2</div>
+      <div class="step-badge" data-badge="Step 1 of 7">Step 1 of 7</div>
       <h1>🧠 Which type of stroke are you facing?</h1>
       <p class="obo-sub">Pick the category that best matches your condition — we'll tailor your therapy to it. You can change it anytime from the top bar.</p>
       <div class="obo-options" id="stroke-options"><!-- injected --></div>
-      <button id="btn-next1" class="clin-btn clin-btn-primary obo-next" disabled>Continue ➜</button>
+      <div class="obo-actions">
+        <button id="btn-next1" class="clin-btn clin-btn-primary" disabled>Continue ➜</button>
+      </div>
     </section>
 
     <!-- ============ STEP 2 · How it happened ============ -->
     <section class="obo-card" id="step2" style="display:none;">
-      <div class="step-badge">Step 2 of 2</div>
+      <div class="step-badge" data-badge="Step 2 of 7">Step 2 of 7</div>
       <h1>💬 How did it happen? <span class="opt-tag">optional</span></h1>
       <p class="obo-sub">Type it below — or tap the mic 🎙️ and just say it. This stays private to your care profile.</p>
 
@@ -40,32 +40,139 @@
       <div class="obo-voice-row">
         <textarea id="onset-text" rows="3" maxlength="500"
           placeholder="e.g. I had a stroke about 4 months ago, and my right arm feels weak…"></textarea>
-        <button id="btn-voice" class="vo-btn" aria-label="Speak instead of typing" title="Speak instead of typing">🎙️</button>
+        <button type="button" class="vo-btn vo-btn-a" aria-label="Speak instead of typing" title="Speak instead of typing">🎙️</button>
       </div>
       <p class="voice-status" id="voice-status"></p>
 
+      <div class="obo-actions">
+        <button class="clin-btn clin-btn-ghost btn-back" data-to="0">← Back</button>
+        <button id="btn-next2" class="clin-btn clin-btn-primary">Continue ➜</button>
+      </div>
+    </section>
+
+    <!-- ============ STEP 3 · Affected side ============ -->
+    <section class="obo-card" id="step3" style="display:none;">
+      <div class="step-badge" data-badge="Step 3 of 7">Step 3 of 7</div>
+      <h1>⬅️ Which side is mostly affected?</h1>
+      <p class="obo-sub">We'll focus your exercises on this side. If it's both, no problem — we'll train them together.</p>
+
+      <div class="chip-row obo-big-chips" id="side-chips">
+        <button type="button" class="obo-chip" data-value="left">⬅️ Left arm</button>
+        <button type="button" class="obo-chip" data-value="right">➡️ Right arm</button>
+        <button type="button" class="obo-chip" data-value="both">🤝 Both arms</button>
+      </div>
+
+      <div class="obo-actions">
+        <button class="clin-btn clin-btn-ghost btn-back" data-to="1">← Back</button>
+        <button class="clin-btn clin-btn-primary btn-next" data-to="3">Continue ➜</button>
+      </div>
+    </section>
+
+    <!-- ============ STEP 4 · How long ago ============ -->
+    <section class="obo-card" id="step4" style="display:none;">
+      <div class="step-badge" data-badge="Step 4 of 7">Step 4 of 7</div>
+      <h1>🗓️ How long ago did it happen?</h1>
+      <p class="obo-sub">Recovery works differently at every stage — this helps us set the right pace for you.</p>
+
+      <div class="chip-row obo-big-chips" id="ago-chips">
+        <button type="button" class="obo-chip" data-value="Less than a month">🗓️ &lt; 1 month</button>
+        <button type="button" class="obo-chip" data-value="1-6 months ago">1 – 6 months</button>
+        <button type="button" class="obo-chip" data-value="6-12 months ago">6 – 12 months</button>
+        <button type="button" class="obo-chip" data-value="Over a year ago">Over a year</button>
+        <button type="button" class="obo-chip" data-value="Not sure">Not sure</button>
+      </div>
+
+      <div class="obo-actions">
+        <button class="clin-btn clin-btn-ghost btn-back" data-to="2">← Back</button>
+        <button class="clin-btn clin-btn-primary btn-next" data-to="4">Continue ➜</button>
+      </div>
+    </section>
+
+    <!-- ============ STEP 5 · Daily struggles (multi-select) ============ -->
+    <section class="obo-card" id="step5" style="display:none;">
+      <div class="step-badge" data-badge="Step 5 of 7">Step 5 of 7</div>
+      <h1>🏠 What everyday things are harder now? <span class="opt-tag">pick any</span></h1>
+      <p class="obo-sub">Tick everything that has become difficult since the stroke — this shapes the activities we practise.</p>
+
+      <div class="chip-row obo-big-chips" id="struggle-chips">
+        <button type="button" class="obo-chip" data-value="eating">🥄 Eating &amp; drinking</button>
+        <button type="button" class="obo-chip" data-value="dressing">👕 Dressing / buttons</button>
+        <button type="button" class="obo-chip" data-value="writing">✍️ Writing &amp; typing</button>
+        <button type="button" class="obo-chip" data-value="grip">🤏 Gripping objects</button>
+        <button type="button" class="obo-chip" data-value="overhead">🧺 Reaching overhead</button>
+        <button type="button" class="obo-chip" data-value="carrying">💼 Carrying items</button>
+        <button type="button" class="obo-chip" data-value="speaking">🗣️ Speaking clearly</button>
+        <button type="button" class="obo-chip" data-value="memory">🧠 Memory &amp; focus</button>
+      </div>
+      <p class="obo-sub" style="margin-top:14px;">Nothing hard to pick? Just continue — we'll start you on the basics.</p>
+
+      <div class="obo-actions">
+        <button class="clin-btn clin-btn-ghost btn-back" data-to="3">← Back</button>
+        <button class="clin-btn clin-btn-primary btn-next" data-to="5">Continue ➜</button>
+      </div>
+    </section>
+
+    <!-- ============ STEP 6 · Care & pain ============ -->
+    <section class="obo-card" id="step6" style="display:none;">
+      <div class="step-badge" data-badge="Step 6 of 7">Step 6 of 7</div>
+      <h1>🩺 Your care &amp; comfort right now</h1>
+      <p class="obo-sub">Two quick questions — both optional. Answer honestly so we never push you past your limit.</p>
+
       <div class="obo-q">
-        <div class="obo-label">Which side is mostly affected?</div>
-        <div class="chip-row" id="side-chips">
-          <button class="obo-chip" data-side="left">⬅️ Left arm</button>
-          <button class="obo-chip" data-side="right">➡️ Right arm</button>
-          <button class="obo-chip" data-side="both">🤝 Both arms</button>
+        <div class="obo-label">Are you currently doing any therapy?</div>
+        <div class="chip-row" id="therapy-chips">
+          <button type="button" class="obo-chip" data-value="physio">🧑‍⚕️ Physiotherapy</button>
+          <button type="button" class="obo-chip" data-value="occupational">🧑‍🎨 Occupational therapy</button>
+          <button type="button" class="obo-chip" data-value="speech">🗣️ Speech therapy</button>
+          <button type="button" class="obo-chip" data-value="none">🤷 None yet</button>
         </div>
       </div>
 
       <div class="obo-q">
-        <div class="obo-label">How long ago did it happen?</div>
-        <div class="chip-row" id="ago-chips">
-          <button class="obo-chip" data-ago="Less than a month">🗓️ < 1 month</button>
-          <button class="obo-chip" data-ago="1-6 months ago">1 – 6 months</button>
-          <button class="obo-chip" data-ago="6-12 months ago">6 – 12 months</button>
-          <button class="obo-chip" data-ago="Over a year ago">Over a year</button>
-          <button class="obo-chip" data-ago="Not sure">Not sure</button>
+        <div class="obo-label">Pain or discomfort when moving your arm?</div>
+        <div class="chip-row" id="pain-chips">
+          <button type="button" class="obo-chip" data-value="none">😌 No pain (0)</button>
+          <button type="button" class="obo-chip" data-value="mild">🙂 Mild (1–3)</button>
+          <button type="button" class="obo-chip" data-value="moderate">😐 Moderate (4–6)</button>
+          <button type="button" class="obo-chip" data-value="severe">😣 Severe (7–10)</button>
         </div>
       </div>
 
       <div class="obo-actions">
-        <button id="btn-back1" class="clin-btn clin-btn-ghost">← Back</button>
+        <button class="clin-btn clin-btn-ghost btn-back" data-to="4">← Back</button>
+        <button class="clin-btn clin-btn-primary btn-next" data-to="6">Continue ➜</button>
+      </div>
+    </section>
+
+    <!-- ============ STEP 7 · Recovery goal ============ -->
+    <section class="obo-card" id="step7" style="display:none;">
+      <div class="step-badge" data-badge="Step 7 of 7">Step 7 of 7</div>
+      <h1>🎯 What do you most want to get back? <span class="opt-tag">optional</span></h1>
+      <p class="obo-sub">Pick your main goal — it becomes the headline of your personal recovery plan.</p>
+
+      <div class="chip-row obo-big-chips" id="goal-chips">
+        <button type="button" class="obo-chip" data-value="move">🦾 Regain arm movement &amp; reach</button>
+        <button type="button" class="obo-chip" data-value="daily">🏠 Get back to daily activities</button>
+        <button type="button" class="obo-chip" data-value="fine">🤏 Improve hand &amp; finger skills</button>
+        <button type="button" class="obo-chip" data-value="stiffness">✋ Reduce tightness / stiffness</button>
+        <button type="button" class="obo-chip" data-value="strength">💪 Build strength &amp; endurance</button>
+        <button type="button" class="obo-chip" data-value="balance">🧘 Better balance &amp; coordination</button>
+      </div>
+
+      <div class="obo-q">
+        <div class="obo-label">Anything else you'd like us to know?</div>
+        <div class="obo-voice-row">
+          <textarea id="goal-text" rows="2" maxlength="300"
+            placeholder="e.g. I want to be able to hold my granddaughter again…"></textarea>
+          <button type="button" class="vo-btn vo-btn-b" aria-label="Speak instead of typing" title="Speak instead of typing">🎙️</button>
+        </div>
+        <p class="voice-status" id="voice-status2"></p>
+      </div>
+
+      <p class="obo-privacy">🔒 All your answers are saved to <b>your private patient record only</b> — never shared with or visible to any other user.</p>
+
+      <div class="obo-actions">
+        <button class="clin-btn clin-btn-ghost btn-back" data-to="5">← Back</button>
         <button id="btn-submit" class="clin-btn clin-btn-primary">🚀 Start My Recovery</button>
       </div>
     </section>

@@ -14,6 +14,11 @@ CREATE TABLE IF NOT EXISTS patients (
     stroke_onset TEXT,                      -- "how did it happen" (typed or voice-to-text)
     affected_side TEXT DEFAULT '',          -- left | right | both
     onset_ago TEXT DEFAULT '',              -- how long ago the stroke happened
+    daily_struggles TEXT DEFAULT '',        -- comma list: hardest daily tasks (eating,dressing,...)
+    doing_therapy TEXT DEFAULT '',          -- physio | occupational | speech | none
+    pain_level TEXT DEFAULT '',             -- none | mild | moderate | severe
+    rehab_goal TEXT DEFAULT '',             -- move | daily | fine | stiffness | strength | balance
+    goal_note TEXT,                         -- short personal recovery goal (typed or voice-to-text)
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

@@ -76,6 +76,11 @@ def ensure_schema_columns(db):
         "stroke_onset": "TEXT",
         "affected_side": "TEXT DEFAULT ''",
         "onset_ago": "TEXT DEFAULT ''",
+        "daily_struggles": "TEXT DEFAULT ''",
+        "doing_therapy": "TEXT DEFAULT ''",
+        "pain_level": "TEXT DEFAULT ''",
+        "rehab_goal": "TEXT DEFAULT ''",
+        "goal_note": "TEXT",
     }
     for col, ddl in additions.items():
         if col not in existing:
@@ -328,7 +333,8 @@ def api_profile():
     db = get_db()
     user = db.execute(
         """SELECT patient_id, email, selected_condition, current_streak, last_session_date,
-                  onboarding_done, stroke_onset, affected_side, onset_ago
+                  onboarding_done, stroke_onset, affected_side, onset_ago,
+                  daily_struggles, doing_therapy, pain_level, rehab_goal, goal_note
            FROM patients WHERE patient_id = ?""",
         (session["patient_id"],),
     ).fetchone()
@@ -407,13 +413,39 @@ def api_onboarding_submit():
         side = ""
     ago = (data.get("onset_ago") or "").strip()[:40]
 
+    # Daily struggles — multi-select list, stored as a comma string per patient
+    VALID_STRUGGLES = {"eating", "dressing", "writing", "grip", "overhead", "carrying", "speaking", "memory"}
+    struggles_raw = data.get("daily_struggles") or []
+    if isinstance(struggles_raw, str):
+        struggles_raw = [s.strip() for s in struggles_raw.split(",") if s.strip()]
+    struggles = ",".join([s for s in struggles_raw if s in VALID_STRUGGLES][:8])
+
+    doing_therapy = (data.get("doing_therapy") or "").strip().lower()
+    if doing_therapy not in ("", "physio", "occupational", "speech", "none"):
+        doing_therapy = ""
+
+    pain_level = (data.get("pain_level") or "").strip().lower()
+    if pain_level not in ("", "none", "mild", "moderate", "severe"):
+        pain_level = ""
+
+    goal = (data.get("rehab_goal") or "").strip().lower()
+    if goal not in ("", "move", "daily", "fine", "stiffness", "strength", "balance"):
+        goal = ""
+
+    goal_note = (data.get("goal_note") or "").strip()[:300]
+
+    # All answers are stored on THIS patient's own row only — patient_id comes
+    # from the logged-in session, so no two patients ever share answers.
     db = get_db()
     db.execute(
         """UPDATE patients
            SET selected_condition = ?, stroke_onset = ?, affected_side = ?,
-               onset_ago = ?, onboarding_done = 1
+               onset_ago = ?, daily_struggles = ?, doing_therapy = ?,
+               pain_level = ?, rehab_goal = ?, goal_note = ?,
+               onboarding_done = 1
            WHERE patient_id = ?""",
-        (condition, onset, side, ago, session["patient_id"]),
+        (condition, onset, side, ago, struggles, doing_therapy, pain_level,
+         goal, goal_note, session["patient_id"]),
     )
     db.commit()
     return jsonify({"status": "success", "condition": condition})
