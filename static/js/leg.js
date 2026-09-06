@@ -381,11 +381,20 @@ document.addEventListener("DOMContentLoaded", () => {
     // Active-side skeleton
     const on = res.legs && res.legs[S.side];
     if (on && on.hip && on.knee && on.ankle) {
-      drawLegChain(on.hip, on.knee, on.ankle, W, H, "rgba(255,106,0,0.95)");
-      // Knee marker
+      // One combined path for the active-side bones — fewer canvas state
+      // changes than drawing each bone separately.
       oCtx.beginPath();
-      oCtx.arc(on.knee.x * W, on.knee.y * H, 8, 0, Math.PI * 2);
+      oCtx.strokeStyle = "rgba(255,106,0,0.95)";
+      oCtx.lineWidth = 5;
+      oCtx.lineCap = "round";
+      oCtx.moveTo(on.hip.x * W, on.hip.y * H);
+      oCtx.lineTo(on.knee.x * W, on.knee.y * H);
+      oCtx.lineTo(on.ankle.x * W, on.ankle.y * H);
+      oCtx.stroke();
+      // Knee marker (the only large filled joint we draw every frame)
+      oCtx.beginPath();
       oCtx.fillStyle = "#FF6A00";
+      oCtx.arc(on.knee.x * W, on.knee.y * H, 8, 0, Math.PI * 2);
       oCtx.fill();
       oCtx.strokeStyle = "rgba(255,255,255,0.95)";
       oCtx.lineWidth = 2.5;

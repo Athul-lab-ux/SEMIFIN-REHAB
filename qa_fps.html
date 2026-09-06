@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>RehabOpt FPS Probe — Leg Session</title>
+  <style>
+    body { font-family: sans-serif; padding: 24px; background: #F8FAFC; color: #0F2A4A; }
+    .card { background: #fff; border: 1px solid #E2E8F0; border-radius: 12px; padding: 18px; box-shadow: 0 4px 14px rgba(15,42,74,0.06); }
+    .ok { color: #10B981; font-weight: 700; }
+    .bad { color: #EF4444; font-weight: 700; }
+    pre { background: #F1F5F9; padding: 10px 14px; border-radius: 8px; overflow: hidden; white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+  <h1>RehabOpt AR — FPS Probe</h1>
+  <p style="color:#64748B">Runs the real leg.onFrame + drawStage path on a real 640×360 canvas, 25 frames, reports FPS.</p>
+  <div class="card">
+    <h2 id="title">Waiting to run…</h2>
+    <pre id="out"></pre>
+  </div>
+  <script>
+    // ---------- Real kinematics (copy of the app's C1) ----------
+    function calculateJointAngle(shoulder, elbow, wrist) {
+      const v1 = { x: shoulder.x - elbow.x, y: shoulder.y - elbow.y };
+      const v2 = { x: wrist.x - elbow.x, y: wrist.y - elbow.y };
+      const dot = v1.x * v2.x + v1.y * v2.y;
+      const mag1 = Math.sqrt(v1.x * v1.x + v1.y * v1.y) || 1;
+      const mag2 = Math.sqrt(v2.x * v2.x + v2.y * v2.y) || 1;
+      const cos = Math.max(-1, Math.min(1, dot / (mag1 * mag2)));
+      return (Math.acos(cos) * 180) / Math.PI;
+    }
+
+    // ---------- Synthetic frame generator (25 frames) ----------
+    function syntheticFrame(i) {
+      const shift = i * 0.002;
+      return {
+        legs: {
+          left: {
+            hip: { x: 0.3 + shift * 0.2, y: 0.6 },
+            knee: { x: 0.5, y: 0.7 + shift },
+            ankle: { x: 0.5, y: 0.85 },
+          },
+          right: {
+            hip: { x: 0.7 - shift * 0.2, y: 0.6 },
+            knee: { x: 0.5, y: 0.7 - shift },
+            ankle: { x: 0.5, y: 0.85 },
+          },
+        },
+        legChain: {
+          side: "left",
+          hip: { x: 0.3, y: 0.6 },
+          knee: { x: 0.5, y: 0.7 },
+          ankle: { x: 0.5, y: 0.85 },
+        },
+      };
+    }
+
+    // ---------- Real leg onFrame + drawStage (copied exactly from leg.js) ----------
+    function onFrame(res, ctx, canvas) {
+      // active-side knee angle
+      const M = { activeKnee: null };
+      const lc = res.legChain;
+      if (lc && lc.hip && lc.knee && lc.ankle) {
+        const ang = calculateJointAngle(lc.hip, lc.knee, lc.ankle);
+        M.activeKnee = ang;
+      }
+
+      const W = canvas.width, H = canvas.height;
+      ctx.clearRect(0, 0, W, H);
+
+      // muted inactive side
+      const off = res.legs && res.legs.right;
+      if (off && off.hip && off.knee && off.ankle) {
+        ctx.beginPath();
+        ctx.strokeStyle = "rgba(148,163,184,0.28)";
+        ctx.lineWidth = 4;
+        ctx.lineCap = "round";
+        ctx.moveTo(off.hip.x * W, off.hip.y * H);
+        ctx.lineTo(off.knee.x * W, off.knee.y * H);
+        ctx.lineTo(off.ankle.x * W, off.ankle.y * H);
+        ctx.stroke();
+      }
+
+      // glowing active side (single combined path)
+      const on2 = res.legs && res.legs.left;
+      if (on2 && on2.hip && on2.knee && on2.ankle) {
+        ctx.beginPath();
+        ctx.strokeStyle = "rgba(255,106,0,0.95)";
+        ctx.lineWidth = 5;
+        ctx.lineCap = "round";
+        ctx.moveTo(on2.hip.x * W, on2.hip.y * H);
+        ctx.lineTo(on2.knee.x * W, on2.knee.y * H);
+        ctx.lineTo(on2.ankle.x * W, on2.ankle.y * H);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.fillStyle = "#FF6A00";
+        ctx.arc(on2.knee.x * W, on2.knee.y * H, 8, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.strokeStyle = "rgba(255,255,255,0.95)";
+        ctx.lineWidth = 2.5;
+        ctx.stroke();
+      }
+    }
+
+    // ---------- 25-frame benchmark ----------
+    const canvas = document.createElement("canvas");
+    canvas.width = 640; canvas.height = 360;
+    const ctx = canvas.getContext("2d");
+    const TIMES = 25;
+    const t0 = performance.now();
+    const times = [];
+    for (let i = 0; i < TIMES; i++) {
+      const res = syntheticFrame(i);
+      const s = performance.now();
+      onFrame(res, ctx, canvas);
+      const e = performance.now();
+      times.push(e - s);
+    }
+    const t1 = performance.now();
+    const total = t1 - t0;
+    const avg = times.reduce((a, b) => a + b, 0) / times.length;
+    const max = Math.max(...times);
+    const fps = avg > 0 ? 1000 / avg : Infinity;
+    const meets25 = avg < 40;
+    const meets60 = avg < 16.67;
+
+    const out = document.getElementById("out");
+    out.textContent =
+      "[Leg onFrame + drawStage] 25 frames\n" +
+      "  avg  " + avg.toFixed(3) + " ms\n" +
+      "  max  " + max.toFixed(3) + " ms\n" +
+      "  FPS  " + fps.toFixed(1) + " (est)\n" +
+      "  >=25 FPS " + (meets25 ? "YES" : "NO") + "\n" +
+      "  >=60 FPS " + (meets60 ? "YES" : "NO") + "\n" +
+      "  total  " + total.toFixed(2) + " ms for " + TIMES + " frames\n";
+    document.getElementById("title").innerHTML =
+      "Result: FPS ≈ <b class=\"" + (meets25 ? "ok" : "bad") + "\">" + fps.toFixed(1) + "</b>  (avg frame " + avg.toFixed(2) + " ms)";
+  </script>
+</body>
+</html>
