@@ -1,159 +1,90 @@
 /**
- * Dashboard — Patient Command Center
+ * RehabOpt AR — Clinical Dashboard (Command Center)
+ * Loads live recovery snapshot from /api/report/stats and keeps the
+ * condition spotlight in sync with the profile selected in the top bar.
  */
 document.addEventListener("DOMContentLoaded", async () => {
-  const patientIdEl = document.getElementById("patient-id-display");
-  const streakEl = document.getElementById("streak-badge");
-  const conditionSelect = document.getElementById("condition-select");
-  const logoutBtn = document.getElementById("logout-btn");
-  const toast = document.getElementById("toast");
+  const snapStreak = document.getElementById("snap-streak");
+  const snapSessions = document.getElementById("snap-sessions");
+  const snapRom = document.getElementById("snap-rom");
+  const snapSmooth = document.getElementById("snap-smooth");
+  const conditionChip = document.getElementById("spot-condition-chip");
+  const conditionLabel = document.getElementById("dash-condition-label");
+  const conditionDesc = document.getElementById("spot-description");
 
-  function showToast(message, type = "info") {
-    toast.textContent = message;
-    toast.className = `toast show ${type}`;
-    setTimeout(() => (toast.className = "toast"), 3000);
+  // Short clinical blurbs shown in the spotlight card.
+  const SPOTLIGHT = {
+    "Hemiparesis":
+      "Focus on guided elbow extension to rebuild active range of motion while trunk " +
+      "compensation is monitored and blocked automatically.",
+    "Flexor Spasticity":
+      "Slow, controlled elbow unfurling and open-palm dispersion stretches — speed is " +
+      "capped to avoid triggering velocity-dependent stretch reflexes.",
+    "Motor Ataxia":
+      "Coordination retraining: intercept precise spatial targets and trace corridors " +
+      "to reduce overshoot and trajectory wandering.",
+    "Intention Tremor":
+      "Stabilization holds and smooth, speed-governed reaches target the 3–6 Hz terminal " +
+      "shaking band measured by the tremor detector.",
+    "Motor Apraxia":
+      "Sequenced multi-step drills rebuild motor memory — stage-by-stage cues guide each " +
+      "part of the movement chain.",
+    "Wrist Drop":
+      "Active wrist cock-up and radial-ulnar sweeps retrain radial nerve extension against " +
+      "gravity, tracked by signed wrist deviation.",
+  };
+
+  const iconFor = (c) =>
+    ({
+      Hemiparesis: "🦾",
+      "Flexor Spasticity": "✋",
+      "Motor Ataxia": "🎯",
+      "Intention Tremor": "🫨",
+      "Motor Apraxia": "🧠",
+      "Wrist Drop": "🤚",
+    }[c] || "🩺");
+
+  function applyCondition(condition) {
+    const c = condition || "Hemiparesis";
+    conditionChip.textContent = c;
+    conditionChip.style.background = "";
+    conditionLabel.textContent = `${iconFor(c)} ${c}`;
+    conditionDesc.textContent = SPOTLIGHT[c] || SPOTLIGHT.Hemiparesis;
   }
 
-  // --- Load Profile ---
-  async function loadProfile() {
+  // Sync spotlight whenever the profile changes (top bar selector).
+  const profileSel = document.getElementById("tb-condition-select");
+  if (profileSel) {
+    profileSel.addEventListener("change", () => applyCondition(profileSel.value));
+    applyCondition(profileSel.value);
+  } else {
+    applyCondition(localStorage.getItem("selectedCondition") || "Hemiparesis");
+  }
+
+  // ---- Load recovery snapshot -------------------------------------------
+  async function loadSnapshot() {
     try {
-      const res = await fetch("/api/profile");
+      const res = await fetch("/api/report/stats");
       const data = await res.json();
-      if (data.status === "success") {
-        const p = data.profile;
-        patientIdEl.textContent = `🪪 ${p.patient_id}`;
-        streakEl.textContent = `🔥 ${p.current_streak || 1} Days Active`;
-        conditionSelect.value = p.selected_condition || "Hemiparesis";
-        localStorage.setItem("selectedCondition", p.selected_condition || "Hemiparesis");
+      if (data.status !== "success") return;
+      const s = data.stats;
+      snapStreak.textContent = s.streak;
+      snapSessions.textContent = s.total_sessions;
+      snapRom.textContent = `${Math.round(s.peak_rom)}°`;
+      snapSmooth.innerHTML = `${Math.round(s.avg_smoothness)}<span class="unit">/100</span>`;
+      localStorage.setItem("currentStreak", s.streak);
+      // Sync the streak chip in the top bar once profile data arrives too
+      const tbStreak = document.getElementById("tb-streak");
+      if (tbStreak) tbStreak.textContent = `🔥 ${s.streak} Days`;
+      // Keep the spotlight profile identical to the server truth
+      applyCondition(s.condition);
+      if (profileSel && profileSel.querySelector(`option[value="${s.condition}"]`)) {
+        profileSel.value = s.condition;
       }
     } catch (err) {
-      console.error("Profile load error:", err);
+      console.error("Snapshot load error:", err);
     }
   }
 
-  // --- Load Streak ---
-  async function loadStreak() {
-    try {
-      const res = await fetch("/api/streak");
-      const data = await res.json();
-      if (data.status === "success") {
-        streakEl.textContent = `🔥 ${data.streak} Days Active`;
-        localStorage.setItem("currentStreak", data.streak);
-      }
-    } catch (err) {
-      console.error("Streak error:", err);
-    }
-  }
-
-  // --- Condition Change ---
-  conditionSelect.addEventListener("change", async () => {
-    const condition = conditionSelect.value;
-    try {
-      const res = await fetch("/api/profile/condition", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ condition }),
-      });
-      const data = await res.json();
-      if (data.status === "success") {
-        localStorage.setItem("selectedCondition", condition);
-        showToast(`✅ Condition set to ${condition}`, "success");
-      } else {
-        showToast(`❌ ${data.message}`, "error");
-      }
-    } catch (err) {
-      showToast("❌ Failed to update condition", "error");
-    }
-  });
-
-  // --- Logout ---
-  logoutBtn.addEventListener("click", async () => {
-    try {
-      await fetch("/api/logout", { method: "POST" });
-      window.location.href = "/auth";
-    } catch (err) {
-      window.location.href = "/auth";
-    }
-  });
-
-  // --- Animate Background (Biometric Pulse Lattice) ---
-  const canvas = document.getElementById("bg-canvas");
-  const ctx = canvas.getContext("2d");
-  let w, h, particles = [];
-
-  function resize() {
-    w = canvas.width = window.innerWidth;
-    h = canvas.height = window.innerHeight;
-  }
-  let resizeTimer = null;
-  window.addEventListener("resize", () => {
-    clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(resize, 150);
-  });
-  resize();
-
-  class Particle {
-    constructor() {
-      this.x = Math.random() * w;
-      this.y = Math.random() * h;
-      this.vx = (Math.random() - 0.5) * 0.3;
-      this.vy = (Math.random() - 0.5) * 0.3;
-      this.r = Math.random() * 2 + 0.5;
-      this.alpha = Math.random() * 0.4 + 0.1;
-    }
-    update() {
-      this.x += this.vx;
-      this.y += this.vy;
-      if (this.x < 0 || this.x > w) this.vx *= -1;
-      if (this.y < 0 || this.y > h) this.vy *= -1;
-    }
-    draw() {
-      ctx.beginPath();
-      ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(255, 106, 0, ${this.alpha})`;
-      ctx.fill();
-    }
-  }
-
-  for (let i = 0; i < 25; i++) particles.push(new Particle());
-
-  let t = 0;
-  let lastFrame = 0;
-  const FRAME_INTERVAL = 33; // ~30fps cap
-  function animateBg(timestamp) {
-    requestAnimationFrame(animateBg);
-    if (timestamp - lastFrame < FRAME_INTERVAL) return;
-    lastFrame = timestamp;
-
-    ctx.fillStyle = "#08090c";
-    ctx.fillRect(0, 0, w, h);
-
-    // Draw grid (simplified)
-    ctx.strokeStyle = "rgba(255, 106, 0, 0.03)";
-    ctx.lineWidth = 1;
-    for (let x = 0; x < w; x += 60) {
-      ctx.beginPath();
-      ctx.moveTo(x, 0);
-      ctx.lineTo(x, h);
-      ctx.stroke();
-    }
-    for (let y = 0; y < h; y += 60) {
-      ctx.beginPath();
-      ctx.moveTo(0, y);
-      ctx.lineTo(w, y);
-      ctx.stroke();
-    }
-
-    particles.forEach((p) => {
-      p.update();
-      p.draw();
-    });
-
-    t += 0.01;
-  }
-  requestAnimationFrame(animateBg);
-
-  // Init
-  await loadProfile();
-  await loadStreak();
+  await loadSnapshot();
 });

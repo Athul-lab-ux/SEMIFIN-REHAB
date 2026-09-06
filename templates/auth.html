@@ -3,85 +3,115 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>RehabOpt AR — Sign In</title>
+  <meta name="theme-color" content="#0F2A4A" />
+  <title>RehabOpt AR — Secure Patient Portal</title>
+  <link rel="stylesheet" href="/static/css/clinical.css" />
   <link rel="stylesheet" href="/static/css/auth.css" />
 </head>
 <body>
-  <canvas id="bg-canvas"></canvas>
-
-  <div class="auth-container">
-    <div class="auth-card">
-      <div class="auth-header">
-        <span class="logo-icon">🏥</span>
+  <main class="auth-wrap">
+    <!-- Brand panel -->
+    <div class="auth-hero">
+      <div class="auth-brand">
+        <span class="auth-mark">🏥</span>
         <h1>RehabOpt AR</h1>
-        <p class="subtitle">Neuro-Rehabilitation Platform</p>
+        <p class="auth-tagline">Neuro-Rehabilitation Tele-Platform</p>
       </div>
-
-      <!-- Tabs -->
-      <div class="tab-bar">
-        <button id="sign-in-tab" class="tab active">Sign In</button>
-        <button id="register-tab" class="tab">Register</button>
-      </div>
-
-      <!-- Sign In Panel -->
-      <div id="sign-in-panel" class="panel visible">
-        <form id="sign-in-form">
-          <div class="input-group">
-            <label for="si-patient-id">🪪 Patient ID</label>
-            <input type="text" id="si-patient-id" placeholder="SP-000000001" required />
-          </div>
-          <div class="input-group">
-            <label for="si-password">🔒 Password</label>
-            <div class="pw-field">
-              <input type="password" id="si-password" placeholder="Enter password" required />
-              <button type="button" class="toggle-pw">👁️</button>
-            </div>
-          </div>
-          <button type="submit" class="btn-primary">🔓 Sign In</button>
-        </form>
-        <p class="switch-link">
-          Don't have a Patient ID yet? <a href="#" id="go-register">Register here ➜</a>
+      <div class="hero-note">
+        <p>
+          A hospital-grade motion-capture therapy suite for post-stroke
+          upper-limb motor recovery — guided exercise, adaptive games and
+          clinical AI documentation from your webcam.
         </p>
-        <button id="demo-btn" class="btn-demo">⚡ Fill Demo Account</button>
+        <ul class="hero-points">
+          <li>🦾 4 clinical therapy sessions</li>
+          <li>📐 13 deterministic biomechanical formulas</li>
+          <li>🔒 Zero-leak server-side AI (Gemini proxy)</li>
+          <li>🖨️ One-page printable SOAP report card</li>
+        </ul>
       </div>
-
-      <!-- Register Panel -->
-      <div id="register-panel" class="panel">
-        <form id="register-form">
-          <div class="input-group">
-            <label for="reg-email">📧 Email</label>
-            <input type="email" id="reg-email" placeholder="you@example.com" required />
-          </div>
-          <div class="input-group">
-            <label for="reg-password">🔒 Password</label>
-            <div class="pw-field">
-              <input type="password" id="reg-password" placeholder="Min 8 characters" required minlength="8" />
-              <button type="button" class="toggle-pw">👁️</button>
-            </div>
-          </div>
-          <div class="input-group">
-            <label for="reg-password2">🔒 Confirm Password</label>
-            <div class="pw-field">
-              <input type="password" id="reg-password2" placeholder="Repeat password" required minlength="8" />
-              <button type="button" class="toggle-pw">👁️</button>
-            </div>
-          </div>
-          <button type="submit" class="btn-primary">📋 Register New Patient</button>
-        </form>
-        <p class="switch-link">
-          Already have a Patient ID? <a href="#" id="go-signin">Sign In ➜</a>
-        </p>
-      </div>
+      <div class="auth-footnote">For rehabilitation use only — not a replacement for in-person care.</div>
     </div>
 
-    <div class="security-badge">🛡️ HIPAA Data Isolation Active</div>
-  </div>
+    <!-- Auth card -->
+    <section class="auth-card" aria-label="Patient portal">
+      <div class="auth-card-inner">
+        <div class="ac-head">
+          <h2 id="auth-title">Patient Sign In</h2>
+          <p class="ac-sub">Secure clinical access · session expires after 2 h</p>
+        </div>
+
+        <!-- Segmented tab switch -->
+        <div class="tab-bar" role="tablist" aria-label="Sign in or register">
+          <button id="sign-in-tab" class="tab active" role="tab" aria-selected="true">Sign In</button>
+          <button id="register-tab" class="tab" role="tab" aria-selected="false">New Patient</button>
+        </div>
+
+        <!-- Sign In Panel -->
+        <div id="sign-in-panel" class="panel visible" role="tabpanel" aria-live="polite">
+          <form id="sign-in-form" novalidate>
+            <div class="input-group">
+              <label for="si-patient-id">🪪 Patient ID</label>
+              <input type="text" id="si-patient-id" placeholder="SP-000000001" autocomplete="username" required />
+            </div>
+            <div class="input-group">
+              <label for="si-password">🔒 Password</label>
+              <div class="pw-field">
+                <input type="password" id="si-password" placeholder="Enter password" autocomplete="current-password" required />
+                <button type="button" class="toggle-pw" aria-label="Show password">👁️</button>
+              </div>
+            </div>
+            <button type="submit" class="clin-btn clin-btn-primary auth-submit">🔓 Sign In</button>
+          </form>
+          <p class="switch-link">
+            Don't have a Patient ID yet?
+            <a href="#" id="go-register">Register here ➜</a>
+          </p>
+          <button id="demo-btn" class="btn-demo">⚡ Fill Demo Account</button>
+          <div class="demo-hint">Demo: SP-000000001 · Password: PatientDemo@123</div>
+        </div>
+
+        <!-- Register Panel -->
+        <div id="register-panel" class="panel" role="tabpanel" aria-live="polite">
+          <form id="register-form" novalidate>
+            <div class="input-group">
+              <label for="reg-email">📧 Email</label>
+              <input type="email" id="reg-email" placeholder="you@hospital.org" autocomplete="email" required />
+            </div>
+            <div class="input-group">
+              <label for="reg-password">🔒 Create Password</label>
+              <div class="pw-field">
+                <input type="password" id="reg-password" placeholder="Min 8 characters" autocomplete="new-password" required minlength="8" />
+                <button type="button" class="toggle-pw" aria-label="Show password">👁️</button>
+              </div>
+            </div>
+            <div class="input-group">
+              <label for="reg-password2">🔒 Confirm Password</label>
+              <div class="pw-field">
+                <input type="password" id="reg-password2" placeholder="Repeat password" autocomplete="new-password" required minlength="8" />
+                <button type="button" class="toggle-pw" aria-label="Show password">👁️</button>
+              </div>
+            </div>
+            <button type="submit" class="clin-btn clin-btn-secondary auth-submit">📋 Register New Patient</button>
+          </form>
+          <p class="switch-link">
+            Already have a Patient ID?
+            <a href="#" id="go-signin">Sign In ➜</a>
+          </p>
+        </div>
+
+        <div class="security-row">
+          <span class="security-badge">🛡️ Patient Data Isolated</span>
+          <span class="security-badge">🔐 scrypt Encryption</span>
+        </div>
+      </div>
+    </section>
+  </main>
 
   <!-- Toast -->
-  <div id="toast" class="toast"></div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
   {% include '_ai_widget.html' %}
-  <script src="/static/js/auth_canvas.js"></script>
   <script src="/static/js/auth.js"></script>
 </body>
 </html>

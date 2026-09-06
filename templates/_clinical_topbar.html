@@ -1,0 +1,57 @@
+<!-- RehabOpt AR — Hospital Diagnostic Top Command Bar (Part 5.2) -->
+<div class="top-clinical-bar" role="toolbar" aria-label="Clinical controls">
+  <!-- Patient identity + streak -->
+  <div class="tb-group">
+    <div>
+      <div class="tb-patient">🪪 <span id="tb-patient-id">SP-000000001</span></div>
+      <div class="tb-sub"><span id="tb-streak">🔥 1 Day</span></div>
+    </div>
+  </div>
+
+  <!-- Deficit profile selector -->
+  <div class="tb-group">
+    <select id="tb-condition-select" class="tb-select" aria-label="Clinical deficit profile">
+      <option value="Hemiparesis">🦾 Hemiparesis</option>
+      <option value="Flexor Spasticity">✋ Flexor Spasticity</option>
+      <option value="Motor Ataxia">🎯 Motor Ataxia</option>
+      <option value="Intention Tremor">🫨 Intention Tremor</option>
+      <option value="Motor Apraxia">🧠 Motor Apraxia</option>
+      <option value="Wrist Drop">🤚 Wrist Drop</option>
+    </select>
+  </div>
+
+  <!-- Camera device (session pages only) -->
+  <div class="tb-group" id="tb-camera-group" style="display:none;">
+    <select id="tb-camera" class="tb-select" disabled aria-label="Camera input device">
+      <option value="">Loading cameras…</option>
+    </select>
+  </div>
+
+  <!-- Audio biofeedback toggle -->
+  <div class="tb-group">
+    <button id="tb-audio" class="tb-icon-btn active" aria-label="Toggle audio biofeedback" aria-pressed="true">🔊</button>
+  </div>
+
+  <!-- Visual mode -->
+  <div class="tb-group">
+    <select id="tb-visual" class="tb-select" aria-label="Visual mode">
+      <option value="standard">👁️ Standard Medical</option>
+      <option value="high-contrast">🔆 High Contrast</option>
+      <option value="reduced-motion">🐢 Reduced Motion</option>
+    </select>
+  </div>
+
+  <!-- Hemianopia HUD docking -->
+  <div class="tb-group">
+    <select id="tb-hemi" class="tb-select" aria-label="HUD visual field docking">
+      <option value="center">HUD: Centered</option>
+      <option value="left">HUD: Left Field</option>
+      <option value="right">HUD: Right Field</option>
+    </select>
+  </div>
+
+  <!-- Live telemetry badge -->
+  <div class="tb-group" style="margin-left:auto;">
+    <span class="tb-badge" id="tb-fps" aria-live="off">-- fps · —</span>
+  </div>
+</div>

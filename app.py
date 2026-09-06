@@ -406,6 +406,12 @@ def api_report_stats():
 @app.route("/api/generate-soap", methods=["POST"])
 @login_required
 def generate_soap():
+    """
+    End-of-session clinical SOAP proxy (zero-leak).
+    Accepts either the rich payload from report.js
+        { condition, streak, repetitions_completed, active_duration_seconds, metrics: {...} }
+    or the legacy flat payload { condition, peak_rom, smoothness, cheats_blocked }.
+    """
     api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key:
         return jsonify({"status": "error", "message": "Server AI key unconfigured"}), 500
@@ -413,34 +419,50 @@ def generate_soap():
     data = request.get_json() or {}
     patient_id = session["patient_id"]
     condition = data.get("condition", "Hemiparesis")
-    rom = data.get("peak_rom", 0)
-    smoothness = data.get("smoothness", 0)
-    cheats = data.get("cheats_blocked", 0)
     streak = data.get("streak", 1)
+    reps = data.get("repetitions_completed", 0)
+    active_seconds = data.get("active_duration_seconds", 0)
+
+    # Rich metric object OR legacy flat fallback
+    m = data.get("metrics") or {}
+    peak_rom = m.get("peak_elbow_rom_deg", data.get("peak_rom", 0))
+    baseline_rom = m.get("baseline_elbow_rom_deg", 60)
+    cheats = m.get("trunk_cheat_events", data.get("cheats_blocked", 0))
+    max_tilt = m.get("max_trunk_tilt_deg", 0)
+    jerk = m.get("normalized_jerk_score", data.get("smoothness", 0))
+    wrist_dev = m.get("mean_wrist_deviation_deg", 0)
+    dispersion = m.get("hand_dispersion_index", 0)
+    tremor = m.get("tremor_frequency_hz", 0)
+
+    duration_min = int(active_seconds or 0) // 60
 
     client = genai.Client(api_key=api_key)
     prompt = f"""
-    You are an expert clinical neuro-rehabilitation physical therapist documentation assistant.
-    Analyze this quantitative motor recovery telemetry and synthesize an objective, professional SOAP progress note under 120 words.
+    You are an attending neuro-physiatrist generating an official SOAP progress note for an
+    upper-limb stroke tele-rehabilitation session. Write under 140 words.
 
-    PATIENT TELEMETRY:
-    - Patient ID: {patient_id}
-    - Primary Deficit: {condition}
-    - Longitudinal Adherence Streak: {streak} consecutive days
-    - Peak Active Joint Range of Motion (C1): {rom}°
-    - Normalized Movement Fluidity Score (S1): {smoothness} / 100
-    - Compensatory Posture Trunk Tilts Blocked (E1): {cheats}
+    QUANTITATIVE BIOMECHANICAL TELEMETRY:
+    - Patient ID: {patient_id} | Primary Deficit: {condition} | Adherence streak: {streak} days
+    - Active Duration: {duration_min} min | Repetitions Completed: {reps}
+    - Peak Active Elbow ROM (C1): {peak_rom}° (Baseline: {baseline_rom}°)
+    - Trunk Compensatory Cheats (E1): {cheats} events (Max tilt: {max_tilt}°)
+    - Normalized Jerk / Fluidity (S1): {jerk} (0-100, higher = smoother)
+    - Signed Wrist Deviation (E3): {wrist_dev}°
+    - Hand Dispersion (C3): {dispersion} (open palm threshold > 0.25)
+    - Intention Tremor Frequency (E6): {tremor} Hz
 
-    DOCUMENTATION FORMAT:
+    DOCUMENTATION RULES:
+    Structure strictly under the headings:
     [S] Subjective patient effort and engagement.
     [O] Objective kinematic measurements and range achieved.
-    [A] Clinical assessment of motor control, spasticity/ataxia indicators, and compensatory strategy.
-    [P] Actionable progression recommendation for next session.
+    [A] Clinical assessment of motor control, spasticity/ataxia indicators, and compensatory strategy. Focus on functional neuroplastic adaptation and motor control. NEVER use the word "cure".
+    [P] Actionable progression recommendation with target ROM thresholds and compensatory-prevention drills for the next session.
     """
     try:
         response = client.models.generate_content(
-            model="gemini-2.5-flash",
+            model="gemini-3.7-flash",
             contents=prompt,
+            config=types.GenerateContentConfig(temperature=0.2),
         )
         return jsonify({"status": "success", "soap_note": response.text})
     except Exception as e:

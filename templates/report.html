@@ -3,79 +3,115 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0F2A4A" />
   <title>RehabOpt AR — Clinical Report Card</title>
+  <link rel="stylesheet" href="/static/css/clinical.css" />
   <link rel="stylesheet" href="/static/css/report.css" />
 </head>
 <body>
-  <canvas id="bg-canvas"></canvas>
+  <div class="app-frame">
+    {% include '_clinical_rail.html' %}
 
-  <div class="report-container">
-    <!-- Header -->
-    <div class="report-header">
-      <div>
-        <a href="/dashboard" class="back-btn">← Back</a>
-      </div>
-      <h1>📋 Clinical Report Card</h1>
-      <button id="print-btn">🖨️ Export PDF</button>
-    </div>
+    <main class="app-main">
+      {% include '_clinical_topbar.html' %}
 
-    <!-- Patient Info -->
-    <div style="text-align:center; margin-bottom:20px;">
-      <span id="report-patient-id" style="font-size:14px; color:#ff9a3c; font-weight:700;">🪪 SP-000000001</span>
-      <span style="margin: 0 12px; color:#a08a70;">|</span>
-      <span id="report-condition" style="font-size:13px; color:#c0a888;">Hemiparesis</span>
-    </div>
+      <div class="no-print actions-row">
+        <h1 style="margin:0; font-size:20px;">📋 Clinical Report Card</h1>
+        <div class="actions-right">
+          <button id="generate-soap-btn" class="clin-btn clin-btn-primary">🤖 Generate AI SOAP Note</button>
+          <button id="print-btn" class="clin-btn clin-btn-ghost">🖨️ Export 1-Page PDF</button>
+        </div>
+      </div>
 
-    <!-- Biomarkers Grid -->
-    <div class="stats-grid">
-      <div class="stat-card">
-        <div class="icon">🔥</div>
-        <div class="label">Recovery Streak</div>
-        <div class="value" id="report-streak">1 Days</div>
-      </div>
-      <div class="stat-card">
-        <div class="icon">📊</div>
-        <div class="label">Total Sessions</div>
-        <div class="value" id="report-sessions">0</div>
-      </div>
-      <div class="stat-card">
-        <div class="icon">🦾</div>
-        <div class="label">Peak ROM</div>
-        <div class="value" id="report-rom">0°</div>
-      </div>
-      <div class="stat-card">
-        <div class="icon">〰️</div>
-        <div class="label">Smoothness</div>
-        <div class="value" id="report-smoothness">0/100</div>
-      </div>
-      <div class="stat-card">
-        <div class="icon">⚠️</div>
-        <div class="label">Cheats Blocked</div>
-        <div class="value" id="report-cheats">0</div>
-      </div>
-      <div class="stat-card">
-        <div class="icon">⏱️</div>
-        <div class="label">Avg Duration</div>
-        <div class="value" id="report-duration">0s</div>
-      </div>
-    </div>
+      <!-- Printable medical sheet -->
+      <article class="report-sheet" aria-label="Clinical report card">
+        <!-- Letterhead -->
+        <header class="letterhead">
+          <div class="lh-left">
+            <div class="lh-brand">🏥 RehabOpt AR</div>
+            <div class="lh-sub">Neuro-Rehabilitation Tele-Platform</div>
+          </div>
+          <div class="lh-right">
+            <div class="lh-title">Clinical Progress Report</div>
+            <div class="lh-date" id="report-date">Date: —</div>
+          </div>
+        </header>
 
-    <!-- AI SOAP Note -->
-    <div class="soap-section">
-      <h2>🤖 AI Clinical SOAP Assessment</h2>
-      <div id="soap-note">
-        Click "Generate AI SOAP Note" to have Gemini analyze your telemetry data and produce a professional clinical progress note.
-      </div>
-      <div class="soap-actions">
-        <button id="generate-soap-btn">🤖 Generate AI SOAP Note</button>
-      </div>
-    </div>
+        <!-- Patient identity bar -->
+        <div class="patient-bar">
+          <div class="pb-item"><span class="pb-label">Patient ID</span><span id="report-patient-id" class="pb-value">SP-000000001</span></div>
+          <div class="pb-item"><span class="pb-label">Profile</span><span id="report-condition" class="pb-value">Hemiparesis</span></div>
+          <div class="pb-item"><span class="pb-label">Streak</span><span id="report-streak" class="pb-value">1 Day</span></div>
+          <div class="pb-item"><span class="pb-label">Report Date</span><span id="report-date2" class="pb-value">—</span></div>
+        </div>
+
+        <!-- Biomarker summary (4-key clinical metric grid) -->
+        <section class="sheet-section">
+          <h2 class="sheet-h">1 · Quantitative Biomarkers</h2>
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-ico">📋</div>
+              <div class="label">Total Sessions</div>
+              <div class="value" id="report-sessions">0</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-ico">🦾</div>
+              <div class="label">Peak Active ROM (C1)</div>
+              <div class="value" id="report-rom">0°</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-ico">〰️</div>
+              <div class="label">Fluidity Score (S1)</div>
+              <div class="value" id="report-smoothness">0/100</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-ico">⚠️</div>
+              <div class="label">Cheats Blocked (E1)</div>
+              <div class="value" id="report-cheats">0</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-ico">⏱️</div>
+              <div class="label">Avg Session</div>
+              <div class="value" id="report-duration">0s</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-ico">🔥</div>
+              <div class="label">Adherence</div>
+              <div class="value" id="report-adherence">—</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- AI SOAP note -->
+        <section class="sheet-section">
+          <h2 class="sheet-h">2 · AI Clinical SOAP Assessment</h2>
+          <div id="soap-note" class="soap-note" aria-live="polite">
+            Click <strong>Generate AI SOAP Note</strong> to have the clinical AI analyze the
+            patient's biomechanical telemetry into a structured progress note.
+          </div>
+        </section>
+
+        <!-- Attending sign-off -->
+        <footer class="signoff">
+          <div class="sign-line">
+            <span class="sig-field">Attending Clinician Signature</span>
+            <span class="sig-space"></span>
+            <span class="sig-field">License / Reg. No.</span>
+            <span class="sig-space"></span>
+            <span class="sig-field">Date</span>
+            <span class="sig-space short"></span>
+          </div>
+          <p class="sign-note">Generated by RehabOpt AR telemetry + Gemini clinical proxy · For therapist review · Not a legal medical record.</p>
+        </footer>
+      </article>
+    </main>
   </div>
 
   <!-- Toast -->
-  <div id="toast" class="toast"></div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
   {% include '_ai_widget.html' %}
+  <script src="/static/js/clinical_ui.js"></script>
   <script src="/static/js/report.js"></script>
 </body>
 </html>

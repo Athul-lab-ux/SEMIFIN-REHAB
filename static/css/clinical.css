@@ -1,0 +1,417 @@
+/* ==========================================================================
+   RehabOpt AR — Clinical Design System (Hospital-Grade Light Theme)
+   Palette per spec: #F8FAFC ice-white canvas · #FFFFFF cards · #0F2A4A navy
+   · #1E40AF cobalt · #FF6A00/#F97316 neural orange · #64748B slate
+   · #10B981 emerald · #EF4444 crimson  ·  WCAG 2.1 AA friendly
+   ========================================================================== */
+
+:root {
+  /* Clinical palette architecture */
+  --clin-canvas: #F8FAFC;            /* Clean ice white canvas base */
+  --clin-surface: #FFFFFF;           /* Pure clinical white cards */
+  --clin-border: #E2E8F0;            /* Hairline borders */
+  --clin-navy: #0F2A4A;              /* Deep hospital navy (headings) */
+  --clin-cobalt: #1E40AF;            /* Clinical cobalt (active headers) */
+  --clin-orange: #FF6A00;            /* Neuro-orange primary accent */
+  --clin-orange-soft: #F97316;
+  --clin-orange-tint: #FFF3E8;       /* Orange 6% wash for hovers */
+  --clin-slate: #64748B;             /* Muted slate for secondary text */
+  --clin-emerald: #10B981;           /* Kinematic success green */
+  --clin-emerald-tint: #E7F8F1;
+  --clin-red: #EF4444;               /* Vivid crimson (posture warnings) */
+  --clin-red-tint: #FDECEC;
+  --clin-text: #1E293B;              /* Body text (readable slate-navy) */
+  --clin-text-strong: #0F2A4A;
+  --shadow-card: 0 4px 20px rgba(15, 42, 74, 0.05);
+  --shadow-pop: 0 14px 44px rgba(15, 42, 74, 0.14);
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --topbar-h: 60px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Base                                                                */
+/* ------------------------------------------------------------------ */
+html, body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  background: var(--clin-canvas);
+  color: var(--clin-text);
+  font-size: 15px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1, h2, h3, h4 {
+  color: var(--clin-navy);
+  margin: 0 0 0.5em;
+  line-height: 1.25;
+  font-weight: 700;
+}
+
+a { color: var(--clin-cobalt); }
+
+/* WCAG 2.1 AA — visible focus ring on every interactive element */
+:focus-visible {
+  outline: 3px solid rgba(30, 64, 175, 0.45);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Everything interactive must honor the 48x48 accessibility floor */
+button, a, select, input, textarea, [role="button"] {
+  min-height: 44px;
+}
+button, .btn-link {
+  min-width: 44px;
+}
+
+::placeholder { color: #94A3B8; }
+
+/* ------------------------------------------------------------------ */
+/* Clinical surfaces & primitives                                      */
+/* ------------------------------------------------------------------ */
+.clin-card {
+  background: var(--clin-surface);
+  border: 1px solid var(--clin-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  padding: 22px;
+}
+
+.clin-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 20px;
+  height: 46px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  font-size: 14px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.2s ease, background 0.2s ease;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.clin-btn:hover { transform: translateY(-1px); }
+
+.clin-btn-primary {
+  background: linear-gradient(135deg, var(--clin-orange), var(--clin-orange-soft));
+  color: #fff;
+  box-shadow: 0 6px 18px rgba(255, 106, 0, 0.28);
+}
+.clin-btn-primary:hover { box-shadow: 0 9px 26px rgba(255, 106, 0, 0.36); }
+
+.clin-btn-secondary {
+  background: var(--clin-navy);
+  color: #fff;
+}
+.clin-btn-secondary:hover { background: #173a63; }
+
+.clin-btn-ghost {
+  background: var(--clin-surface);
+  border-color: var(--clin-border);
+  color: var(--clin-navy);
+}
+.clin-btn-ghost:hover { background: var(--clin-orange-tint); border-color: var(--clin-orange); color: var(--clin-orange); }
+
+.clin-btn-danger {
+  background: var(--clin-red-tint);
+  border-color: rgba(239, 68, 68, 0.35);
+  color: #B91C1C;
+}
+.clin-btn-danger:hover { background: #FBDCDC; }
+
+.clin-btn:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+
+.clin-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 14px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 600;
+  background: var(--clin-surface);
+  border: 1px solid var(--clin-border);
+  color: var(--clin-navy);
+}
+.clin-chip.accent {
+  background: linear-gradient(135deg, var(--clin-orange), var(--clin-orange-soft));
+  border: none;
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(255, 106, 0, 0.3);
+}
+.clin-chip.green { background: var(--clin-emerald-tint); border-color: rgba(16,185,129,0.4); color: #047857; }
+.clin-chip.red { background: var(--clin-red-tint); border-color: rgba(239,68,68,0.35); color: #B91C1C; }
+
+/* Labels for clinical forms */
+.clin-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--clin-navy);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin-bottom: 7px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Clinical top command bar (docked under the page header)             */
+/* ------------------------------------------------------------------ */
+.top-clinical-bar {
+  position: sticky;
+  top: 0;
+  z-index: 800;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  min-height: var(--topbar-h);
+  padding: 8px 18px;
+  background: var(--clin-surface);
+  border: 1px solid var(--clin-border);
+  border-radius: 14px;
+  box-shadow: var(--shadow-card);
+  margin-bottom: 20px;
+}
+
+.tb-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-right: 12px;
+  border-right: 1px solid var(--clin-border);
+  min-height: 40px;
+}
+.tb-group:last-child { border-right: none; padding-right: 0; }
+
+.tb-patient {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--clin-navy);
+  white-space: nowrap;
+}
+.tb-sub {
+  font-size: 11px;
+  color: var(--clin-slate);
+  white-space: nowrap;
+}
+
+.tb-select,
+.clin-select {
+  height: 42px;
+  padding: 0 12px;
+  border-radius: 9px;
+  border: 1px solid var(--clin-border);
+  background: var(--clin-surface);
+  color: var(--clin-navy);
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  outline: none;
+  max-width: 220px;
+}
+.tb-select:hover, .clin-select:hover { border-color: var(--clin-orange); }
+.tb-select:focus, .clin-select:focus { border-color: var(--clin-orange); box-shadow: 0 0 0 3px rgba(255,106,0,0.12); }
+
+.tb-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  min-width: 42px;
+  min-height: 42px;
+  border-radius: 10px;
+  background: var(--clin-surface);
+  border: 1px solid var(--clin-border);
+  font-size: 17px;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+.tb-icon-btn:hover { background: var(--clin-orange-tint); border-color: var(--clin-orange); }
+.tb-icon-btn.active {
+  background: var(--clin-emerald-tint);
+  border-color: var(--clin-emerald);
+}
+
+.tb-badge {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--clin-slate);
+  padding: 6px 10px;
+  background: var(--clin-canvas);
+  border-radius: 8px;
+  border: 1px solid var(--clin-border);
+  white-space: nowrap;
+}
+.tb-badge b { color: var(--clin-emerald); font-weight: 800; }
+
+@media (max-width: 900px) {
+  .top-clinical-bar { gap: 8px; }
+  .tb-group { border-right: none; }
+}
+
+/* ------------------------------------------------------------------ */
+/* Left navigation rail (Part 3 workspace shell)                       */
+/* ------------------------------------------------------------------ */
+.app-frame {
+  display: flex;
+  min-height: 100vh;
+}
+
+.app-rail {
+  flex: 0 0 240px;
+  width: 240px;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+  background: var(--clin-surface);
+  border-right: 1px solid var(--clin-border);
+  padding: 18px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  box-sizing: border-box;
+}
+
+.rail-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px 18px;
+  border-bottom: 1px solid var(--clin-border);
+  margin-bottom: 14px;
+}
+.rail-brand .rb-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 11px;
+  background: linear-gradient(135deg, var(--clin-orange), var(--clin-orange-soft));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  color: #fff;
+}
+.rail-brand .rb-name { font-size: 15px; font-weight: 800; color: var(--clin-navy); line-height: 1.15; }
+.rail-brand .rb-sub { font-size: 10.5px; color: var(--clin-slate); font-weight: 600; letter-spacing: 0.3px; }
+
+.rail-label {
+  font-size: 10.5px;
+  font-weight: 800;
+  color: var(--clin-slate);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  padding: 14px 10px 6px;
+}
+
+.rail-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  text-decoration: none;
+  color: var(--clin-text);
+  font-size: 13.5px;
+  font-weight: 600;
+  border-left: 4px solid transparent;
+  transition: background 0.15s ease;
+  min-height: 44px;
+}
+.rail-link .rl-ico { font-size: 17px; width: 24px; text-align: center; }
+.rail-link:hover { background: var(--clin-canvas); }
+.rail-link.active {
+  background: #EFF6FF;
+  color: var(--clin-navy);
+  border-left-color: var(--clin-orange); /* orange left notch */
+}
+.rail-link.active .rl-ico { }
+.rail-link .rl-tag {
+  margin-left: auto;
+  font-size: 9.5px;
+  font-weight: 800;
+  color: var(--clin-orange);
+  background: var(--clin-orange-tint);
+  padding: 2px 7px;
+  border-radius: 999px;
+}
+
+.rail-foot {
+  margin-top: auto;
+  border-top: 1px solid var(--clin-border);
+  padding-top: 12px;
+}
+.rail-foot .rail-link { color: #B91C1C; }
+.rail-foot .rail-link:hover { background: var(--clin-red-tint); }
+
+.app-main {
+  flex: 1;
+  min-width: 0;
+  padding: 20px 26px 60px;
+  box-sizing: border-box;
+}
+
+@media (max-width: 860px) {
+  .app-frame { flex-direction: column; }
+  .app-rail {
+    position: static;
+    width: 100%;
+    height: auto;
+    flex-direction: row;
+    flex-wrap: wrap;
+    border-right: none;
+    border-bottom: 1px solid var(--clin-border);
+    padding: 10px 12px;
+  }
+  .rail-brand { border-bottom: none; padding: 0 12px 0 4px; margin: 0; }
+  .rail-label { display: none; }
+  .rail-link { padding: 8px 10px; }
+  .rail-foot { margin: 0; border: none; padding: 0; }
+  .app-main { padding: 16px 14px 70px; }
+}
+
+/* ------------------------------------------------------------------ */
+/* Accessibility mode flags (applied on <html> by clinical_ui.js)      */
+/* ------------------------------------------------------------------ */
+/* High-Contrast Diagnostic Mode — thick, white-outlined skeleton lines */
+html.hc-mode body { background: #fff; }
+html.hc-mode .hc-target { outline: 3px solid #fff; outline-offset: -3px; }
+
+/* Reduced Motion — kill animations & smooth transitions for vertigo / fatigue */
+html.rm-mode *, html.rm-mode *::before, html.rm-mode *::after {
+  animation-duration: 0.001s !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001s !important;
+  scroll-behavior: auto !important;
+}
+
+/* Hemianopia adaptation — HUD cluster can be docked to either field */
+.hemi-cluster { transition: left 0.3s ease, right 0.3s ease; }
+html.hemi-left .hemi-cluster { left: 14px !important; right: auto !important; }
+html.hemi-right .hemi-cluster { right: 14px !important; left: auto !important; }
+
+/* ------------------------------------------------------------------ */
+/* Print foundations — shared single-page clinical export              */
+/* ------------------------------------------------------------------ */
+@media print {
+  body { background: #fff !important; }
+  .app-rail, .top-clinical-bar, .no-print { display: none !important; }
+  .app-frame { display: block; }
+  .app-main { padding: 0; }
+  .clin-card { box-shadow: none; border-color: #ccc; }
+  @page { margin: 0.55in; size: A4; }
+}
