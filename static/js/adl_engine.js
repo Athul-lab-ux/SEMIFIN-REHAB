@@ -52,7 +52,9 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   function onHandResults(results) {
     if (!results.multiHandLandmarks || results.multiHandLandmarks.length === 0) return;
-    const lm = results.multiHandLandmarks[0];
+    // Mirrored into selfie-view coordinates (video is displayed with
+    // scaleX(-1)) so the hand follows you exactly as you move it.
+    const lm = results.multiHandLandmarks[0].map((p) => ({ x: 1 - p.x, y: p.y, z: p.z || 0 }));
 
     const indexTip = lm[8];
     const thumbTip = lm[4];

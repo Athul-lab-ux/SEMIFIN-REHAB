@@ -504,9 +504,14 @@ document.addEventListener("DOMContentLoaded", async () => {
       );
     } else engine.dev = 0;
 
-    // Elbow flexion angle (C1) from pose
+    // Elbow flexion angle (C1) from pose.
+    // Prefer the loader's single tracking chain (the arm whose hand is
+    // visible) so only ONE arm + ONE hand ever drive the games.
     let a = null;
-    if (res.pose) {
+    if (res.chain && res.chain.sh && res.chain.el && res.chain.wr &&
+        (res.chain.sh.x !== 0 || res.chain.sh.y !== 0)) {
+      a = { sh: res.chain.sh, el: res.chain.el, wr: res.chain.wr };
+    } else if (res.pose) {
       const cands = [
         { sh: res.pose[12], el: res.pose[14], wr: res.pose[16] },
         { sh: res.pose[11], el: res.pose[13], wr: res.pose[15] },

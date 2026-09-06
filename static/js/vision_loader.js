@@ -169,29 +169,61 @@ const VisionLoader = (() => {
         lastVideoHeight = videoElement.videoHeight;
       }
       const now = performance.now();
-      const results = { pose: null, poseAll: null, hand: null, handAll: null, hand_side: null };
+      const results = { pose: null, poseAll: null, hand: null, handAll: null, hand_side: null, chain: null };
+
+      // ---- Pose (mirrored into selfie-view coordinates) ----------------
       try {
         const p = poseLandmarker.detectForVideo(videoElement, now);
         if (p.landmarks && p.landmarks.length > 0) {
-          results.poseAll = p.landmarks[0];
+          const src = p.landmarks[0];
+          results.poseAll = src.map((lm) => ({ x: 1 - lm.x, y: lm.y, z: lm.z || 0 }));
           results.pose = {};
-          for (let i = 0; i < p.landmarks[0].length; i++) {
-            results.pose[i] = { x: p.landmarks[0][i].x, y: p.landmarks[0][i].y, z: p.landmarks[0][i].z || 0 };
+          for (let i = 0; i < src.length; i++) {
+            results.pose[i] = { x: 1 - src[i].x, y: src[i].y, z: src[i].z || 0 };
           }
         }
       } catch (e) { /* pose frame skipped */ }
+
+      // ---- Hand (single hand only — never two simultaneously) ----------
       try {
         const h = handLandmarker.detectForVideo(videoElement, now);
         if (h.landmarks && h.landmarks.length > 0) {
-          results.handAll = h.landmarks[0];
+          const src = h.landmarks[0]; // pipeline runs numHands = 1
+          results.handAll = src.map((lm) => ({ x: 1 - lm.x, y: lm.y, z: lm.z || 0 }));
           results.hand = {};
-          for (let i = 0; i < h.landmarks[0].length; i++) {
-            results.hand[i] = { x: h.landmarks[0][i].x, y: h.landmarks[0][i].y, z: h.landmarks[0][i].z || 0 };
+          for (let i = 0; i < src.length; i++) {
+            results.hand[i] = { x: 1 - src[i].x, y: src[i].y, z: src[i].z || 0 };
           }
-          const lm = h.landmarks[0];
-          results.hand_side = (lm[17].x < lm[5].x) ? "right" : "left";
+          results.hand_side = (results.hand[17].x < results.hand[5].x) ? "right" : "left";
         }
       } catch (e) { /* hand frame skipped */ }
+
+      // ---- Single tracking chain: ONE arm (shoulder→elbow→wrist) + the ----
+      // ---- ONE tracked hand matched to that wrist (no second skeleton) ----
+      if (results.pose) {
+        let shIdx = 12; // right arm default
+        if (results.hand && results.hand[0]) {
+          const hw = results.hand[0];
+          const dL = results.pose[15] ? Math.hypot(hw.x - results.pose[15].x, hw.y - results.pose[15].y) : 9;
+          const dR = results.pose[16] ? Math.hypot(hw.x - results.pose[16].x, hw.y - results.pose[16].y) : 9;
+          shIdx = dR <= dL ? 12 : 11;
+        } else {
+          // No hand visible: prefer the arm nearer the screen centre for a
+          // single clean skeleton instead of drawing both arms
+          const c = 0.5;
+          const dl = results.pose[15] ? Math.abs(results.pose[15].x - c) : 9;
+          const dr = results.pose[16] ? Math.abs(results.pose[16].x - c) : 9;
+          shIdx = dr <= dl ? 12 : 11;
+        }
+        const sh = results.pose[shIdx], el = results.pose[shIdx + 2], wr = results.pose[shIdx + 4];
+        if (sh && el && wr) {
+          results.chain = {
+            side: shIdx === 12 ? "right" : "left",
+            sh, el, wr,
+            hasHand: !!(results.hand && results.hand[8]),
+          };
+        }
+      }
       if (onResultsCallback) onResultsCallback(results);
       if (window.RehabQA) window.RehabQA.tick();
     } catch (e) {

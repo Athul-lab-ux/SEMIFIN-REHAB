@@ -34,6 +34,59 @@ document.addEventListener("DOMContentLoaded", () => {
     return `${String((s / 60) | 0).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
   };
 
+  // ---------- Single-arm skeleton overlay ----------------------------------
+  // Only the loader's ONE tracking chain (arm matched to the one detected
+  // hand) is drawn — never a second skeleton — on top of the mirrored video.
+  const overlayCanvas = $("overlay-canvas");
+  const oCtx = overlayCanvas.getContext("2d");
+
+  function sizeOverlay() {
+    const stage = overlayCanvas.parentElement;
+    if (!stage) return;
+    overlayCanvas.width = Math.max(1, Math.round(stage.clientWidth));
+    overlayCanvas.height = Math.max(1, Math.round(stage.clientHeight));
+  }
+  sizeOverlay();
+  let ovResizeTimer = null;
+  window.addEventListener("resize", () => {
+    clearTimeout(ovResizeTimer);
+    ovResizeTimer = setTimeout(sizeOverlay, 150);
+  });
+
+  function drawOverlay(res) {
+    const W = overlayCanvas.width, H = overlayCanvas.height;
+    oCtx.clearRect(0, 0, W, H);
+    const c = res && res.chain;
+    if (!c || !c.sh || !c.el || !c.wr) return;
+    const X = (p) => p.x * W, Y = (p) => p.y * H;
+    oCtx.lineCap = "round";
+    // Bones — shoulder → elbow → wrist (single arm)
+    oCtx.strokeStyle = "rgba(255, 106, 0, 0.9)";
+    oCtx.lineWidth = 5;
+    oCtx.beginPath();
+    oCtx.moveTo(X(c.sh), Y(c.sh));
+    oCtx.lineTo(X(c.el), Y(c.el));
+    oCtx.lineTo(X(c.wr), Y(c.wr));
+    oCtx.stroke();
+    // Joints — shoulder slate, elbow + wrist amber rings with white outline
+    [[c.sh, "rgba(100, 116, 139, 0.9)"], [c.el, "#FF6A00"], [c.wr, "#FF6A00"]].forEach(([p, col]) => {
+      oCtx.beginPath();
+      oCtx.arc(X(p), Y(p), 7, 0, Math.PI * 2);
+      oCtx.fillStyle = col;
+      oCtx.fill();
+      oCtx.strokeStyle = "rgba(255, 255, 255, 0.9)";
+      oCtx.lineWidth = 2.5;
+      oCtx.stroke();
+    });
+    // Fingertip marker of the one tracked hand (emerald dot)
+    if (res.hand && res.hand[8]) {
+      oCtx.beginPath();
+      oCtx.arc(res.hand[8].x * W, res.hand[8].y * H, 5, 0, Math.PI * 2);
+      oCtx.fillStyle = "#10B981";
+      oCtx.fill();
+    }
+  }
+
   // ---------- Config UI -------------------------------------------------
   const profilePills = $("profile-pills");
   const exGrid = $("ex-grid");
@@ -413,7 +466,8 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function onFrame(res) {
-    if (S.phase === "workout") handleWorkoutFrame(res);
+    if (S.phase === "workout") { handleWorkoutFrame(res); drawOverlay(res); }
+    else oCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
   }
 
   // ---------- Start / controls ---------------------------------------------
