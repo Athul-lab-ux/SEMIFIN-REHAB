@@ -46,9 +46,10 @@ document.addEventListener("DOMContentLoaded", async () => {
       const res = await fetch("/api/report/stats");
       const data = await res.json();
       if (data.status !== "success") return;
-      const s = data.stats;
-      const pid = localStorage.getItem("patientId") || "SP-000000001";
-      if (els.patientId) els.patientId.textContent = pid;
+      const pid = s.patient_id || localStorage.getItem("patientId") || "SP-000000001";
+      if (els.patientId) {
+        els.patientId.textContent = s.patient_name ? `${pid} · ${s.patient_name}` : pid;
+      }
       if (els.condition) els.condition.textContent = s.condition;
       if (els.streak) els.streak.textContent = `${s.streak} Day${s.streak === 1 ? "" : "s"}`;
       if (els.sessions) els.sessions.textContent = s.total_sessions;

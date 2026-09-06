@@ -391,26 +391,87 @@ document.addEventListener("DOMContentLoaded", async () => {
     gameListEl.appendChild(btn);
   });
 
+  let arcadeCountdownTimer = null;
+  function runArcadeCountdown(label, seconds, onComplete) {
+    const overlay = document.getElementById("arcade-countdown-overlay");
+    const numEl = document.getElementById("aco-num");
+    const labEl = document.getElementById("aco-label");
+    if (!overlay || !numEl) {
+      if (onComplete) onComplete();
+      return;
+    }
+    if (arcadeCountdownTimer) clearInterval(arcadeCountdownTimer);
+    let remaining = seconds;
+    labEl.textContent = label;
+    numEl.textContent = remaining;
+    overlay.classList.add("show");
+    if (window.RehabBio) window.RehabBio.speak(`${label}. ${remaining}`);
+
+    arcadeCountdownTimer = setInterval(() => {
+      remaining--;
+      if (remaining > 0) {
+        numEl.textContent = remaining;
+        if (window.RehabBio) window.RehabBio.speak(`${remaining}`);
+      } else {
+        clearInterval(arcadeCountdownTimer);
+        arcadeCountdownTimer = null;
+        numEl.textContent = "GO!";
+        if (window.RehabBio) window.RehabBio.speak("Go!");
+        setTimeout(() => {
+          overlay.classList.remove("show");
+          if (onComplete) onComplete();
+        }, 500);
+      }
+    }, 1000);
+  }
+
+  function pauseGame() {
+    if (!engine.playing || engine.paused) return;
+    engine.paused = true;
+    document.getElementById("btn-pause").style.display = "none";
+    document.getElementById("btn-resume").style.display = "inline-flex";
+    document.getElementById("arcade-paused-overlay").classList.add("show");
+    if (window.RehabBio) window.RehabBio.speak("Game paused");
+  }
+
+  function resumeGame() {
+    document.getElementById("arcade-paused-overlay").classList.remove("show");
+    runArcadeCountdown("RESUMING IN", 4, () => {
+      engine.paused = false;
+      document.getElementById("btn-resume").style.display = "none";
+      document.getElementById("btn-pause").style.display = "inline-flex";
+    });
+  }
+
   async function selectGame(id) {
     engine.key = id;
     engine.game = { ...GAMES[id] };
     engine.game.$engine = { addScore, loseLife, state: engine };
     engine.game.$speed = engine.speed;
-    engine.game.init.call(engine.game);
-    engine.score = 0; engine.combo = 0; engine.lives = 3;
-    engine.paused = false; engine.playing = true;
-    engine.startedAt = Date.now();
     setKPI(engine.game);
     placeholder.style.display = "none";
     guideLine.textContent = `💬 ${GAMES[id].guide}`;
-    showToast(`${GAMES[id].emoji} ${GAMES[id].name} — GO!`, "success");
-    if (window.RehabBio) window.RehabBio.playSetChime();
+    document.querySelectorAll(".game-btn").forEach((b) => b.classList.toggle("selected", b.dataset.game === id));
     if (!engine.visionStarted) await startVision();
-    updateHUD();
+
+    runArcadeCountdown("GET READY", 4, () => {
+      engine.game.init.call(engine.game);
+      engine.score = 0; engine.combo = 0; engine.lives = 3;
+      engine.paused = false; engine.playing = true;
+      engine.startedAt = Date.now();
+      document.getElementById("btn-start").style.display = "none";
+      document.getElementById("btn-pause").style.display = "inline-flex";
+      document.getElementById("btn-resume").style.display = "none";
+      document.getElementById("btn-stop").style.display = "inline-flex";
+      showToast(`${GAMES[id].emoji} ${GAMES[id].name} — GO!`, "success");
+      if (window.RehabBio) window.RehabBio.playSetChime();
+      updateHUD();
+    });
   }
 
   function stopGame(message) {
     engine.playing = false;
+    engine.paused = false;
     if (engine.game) logSession();
     engine.game = null; engine.key = null;
     placeholder.style.display = "";
@@ -419,6 +480,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     gCtx.clearRect(0, 0, gameCanvas.width, gameCanvas.height);
     oCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
     document.querySelectorAll(".game-btn").forEach((b) => b.classList.remove("selected"));
+    document.getElementById("arcade-paused-overlay").classList.remove("show");
+    document.getElementById("arcade-countdown-overlay").classList.remove("show");
+    document.getElementById("btn-start").style.display = "inline-flex";
+    document.getElementById("btn-pause").style.display = "none";
+    document.getElementById("btn-resume").style.display = "none";
+    document.getElementById("btn-stop").style.display = "none";
     updateHUD();
     if (message) showToast(message, "error");
   }
@@ -603,9 +670,27 @@ document.addEventListener("DOMContentLoaded", async () => {
   setInterval(updateHUD, 500);
 
   // ---------------- Controls ---------------------------------------------
+  const btnStart = document.getElementById("btn-start");
+  const btnPause = document.getElementById("btn-pause");
+  const btnResume = document.getElementById("btn-resume");
+  const btnStop = document.getElementById("btn-stop");
+  const modalResume = document.getElementById("modal-game-resume");
+  const modalStop = document.getElementById("modal-game-stop");
+
+  if (btnStart) {
+    btnStart.addEventListener("click", () => {
+      const targetKey = engine.key || "flappy";
+      selectGame(targetKey);
+    });
+  }
+  if (btnPause) btnPause.addEventListener("click", pauseGame);
+  if (btnResume) btnResume.addEventListener("click", resumeGame);
+  if (modalResume) modalResume.addEventListener("click", resumeGame);
+  if (btnStop) btnStop.addEventListener("click", () => stopGame("Session stopped"));
+  if (modalStop) modalStop.addEventListener("click", () => stopGame("Session stopped"));
+
   document.getElementById("btn-slower").addEventListener("click", () => setSpeed(-0.5));
   document.getElementById("btn-faster").addEventListener("click", () => setSpeed(0.5));
-  document.getElementById("btn-stop").addEventListener("click", () => stopGame("Session stopped"));
 
   function setSpeed(d) {
     engine.speed = Math.max(0.5, Math.min(3.0, engine.speed + d));
@@ -616,8 +701,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   document.addEventListener("keydown", (e) => {
     if (!engine.playing) return;
     if (e.key === "q" || e.key === "Q") stopGame("Session stopped");
-    else if (e.key === "p" || e.key === "P") engine.paused = true;
-    else if (e.key === "r" || e.key === "R") engine.paused = false;
+    else if (e.key === "p" || e.key === "P") pauseGame();
+    else if (e.key === "r" || e.key === "R") resumeGame();
   });
 
   async function logSession() {

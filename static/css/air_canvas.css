@@ -228,3 +228,101 @@ body {
   border: 1px solid rgba(255, 154, 60, 0.3);
   color: #ff9a3c;
 }
+
+/* Canvas Controls */
+.canvas-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.c-ctrl-btn {
+  height: 34px;
+  padding: 0 14px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.06);
+  color: #E2E8F0;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+.c-ctrl-btn:hover { background: rgba(255, 255, 255, 0.15); }
+.c-ctrl-btn.primary { background: #FF6A00; color: #fff; border-color: #FF6A00; }
+.c-ctrl-btn.primary:hover { background: #EA580C; }
+.c-ctrl-btn.danger { background: rgba(239, 68, 68, 0.2); color: #FCA5A5; border-color: rgba(239, 68, 68, 0.4); }
+.c-ctrl-btn.danger:hover { background: rgba(239, 68, 68, 0.35); }
+
+.palette-lab {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--clin-slate);
+  align-self: center;
+  margin-right: 2px;
+}
+
+.palette-tool {
+  padding: 6px 14px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  color: #E2E8F0;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.2s;
+}
+
+.palette-tool:hover, .palette-tool.active {
+  background: rgba(255, 106, 0, 0.2);
+  border-color: #FF6A00;
+  color: #FF9A3C;
+}
+
+.palette-tool.clear {
+  margin-left: auto;
+  background: rgba(255, 68, 68, 0.15);
+  border-color: rgba(255, 68, 68, 0.3);
+  color: #FFAAAA;
+}
+
+.palette-tool.clear:hover {
+  background: rgba(255, 68, 68, 0.3);
+}
+
+/* 4-second Countdown Overlay */
+.aircanvas-countdown-overlay {
+  position: absolute; inset: 0; z-index: 10;
+  display: none; align-items: center; justify-content: center;
+  background: rgba(5, 5, 5, 0.85);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.aircanvas-countdown-overlay.show { display: flex; }
+.aircanvas-countdown-overlay .aco-box { text-align: center; color: #fff; }
+.aircanvas-countdown-overlay .aco-label { font-size: 15px; font-weight: 800; letter-spacing: 2px; color: #00FF88; margin-bottom: 6px; text-transform: uppercase; }
+.aircanvas-countdown-overlay .aco-num { font-size: 96px; font-weight: 900; line-height: 1; color: #fff; text-shadow: 0 0 35px rgba(0, 255, 136, 0.7); font-variant-numeric: tabular-nums; }
+.aircanvas-countdown-overlay .aco-hint { font-size: 14px; color: #CBD5E1; margin-top: 10px; font-weight: 600; }
+
+/* Paused Overlay */
+.aircanvas-paused-overlay {
+  position: absolute; inset: 0; z-index: 9;
+  display: none; align-items: center; justify-content: center;
+  background: rgba(5, 5, 5, 0.85);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.aircanvas-paused-overlay.show { display: flex; }
+.aircanvas-paused-overlay .apo-box {
+  background: #0F172A; border: 1px solid #334155;
+  border-radius: 16px; padding: 30px 26px; text-align: center;
+  max-width: 360px; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+}
+.aircanvas-paused-overlay .apo-icon { font-size: 44px; margin-bottom: 8px; }
+.aircanvas-paused-overlay h2 { font-size: 20px; color: #F8FAFC; margin: 0 0 6px; }
+.aircanvas-paused-overlay p { font-size: 13.5px; color: #94A3B8; margin: 0 0 20px; }
+.aircanvas-paused-overlay .apo-actions { display: flex; gap: 10px; justify-content: center; }

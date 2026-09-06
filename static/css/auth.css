@@ -1,88 +1,67 @@
 /* ==========================================================================
-   RehabOpt AR — Auth Portal (Clinical Light Theme)
-   Hospital-grade: ice-white canvas, navy typography, orange primary CTA.
+   RehabOpt AR — Auth Portal
+   Doctor Stethoscope Background (25-30% Optical Blur), Centered Auth Card
    ========================================================================== */
 
-.auth-bg {
+.auth-bg-layer {
   position: fixed;
   inset: 0;
   width: 100%;
   height: 100%;
   z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.auth-bg-img {
+  position: absolute;
+  inset: -30px; /* Overshoot to hide perimeter blur radius */
+  background-image: url('/static/images/doctor_stethoscope.jpg');
+  background-size: cover;
+  background-position: center 20%;
+  background-repeat: no-repeat;
+  filter: blur(9px) brightness(0.88); /* 25-30% optical blur */
+  transform: scale(1.05);
+}
+
+.auth-bg-tint {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at center, rgba(15, 42, 74, 0.42) 0%, rgba(12, 10, 20, 0.72) 100%);
 }
 
 body {
   min-height: 100vh;
-  background:
-    radial-gradient(1000px 500px at 85% -10%, rgba(255, 106, 0, 0.07), transparent 60%),
-    radial-gradient(900px 480px at -10% 110%, rgba(30, 64, 175, 0.06), transparent 60%),
-    #0C0A14;
+  margin: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24px;
+  padding: 24px 16px;
   box-sizing: border-box;
+  background: #0C0A14;
 }
-
-.auth-wrap { position: relative; z-index: 2; }
 
 .auth-wrap {
   position: relative;
-  z-index: 1;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 460px);
-  gap: 44px;
+  z-index: 2;
   width: 100%;
-  max-width: 1080px;
-  align-items: center;
+  max-width: 480px;
+  margin: 0 auto;
 }
-
-/* ---------- Hero / brand panel ---------- */
-.auth-hero { color: var(--clin-navy); max-width: 520px; }
-
-.auth-brand { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
-.auth-mark {
-  width: 54px;
-  height: 54px;
-  border-radius: 15px;
-  background: linear-gradient(135deg, var(--clin-orange), var(--clin-orange-soft));
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 27px;
-  box-shadow: 0 10px 26px rgba(255, 106, 0, 0.32);
-}
-.auth-brand h1 { font-size: 30px; margin: 0; letter-spacing: -0.2px; }
-.auth-tagline { margin: 2px 0 0; font-size: 12.5px; font-weight: 700; color: var(--clin-orange); letter-spacing: 0.8px; text-transform: uppercase; }
-
-.hero-note {
-  background: var(--clin-surface);
-  border: 1px solid var(--clin-border);
-  border-left: 4px solid var(--clin-orange);
-  border-radius: 0 var(--radius-md) var(--radius-md) 0;
-  padding: 20px 22px;
-  box-shadow: var(--shadow-card);
-  font-size: 14.5px;
-  color: var(--clin-text);
-  line-height: 1.6;
-}
-.hero-note p { margin: 0 0 12px; }
-
-.hero-points { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 8px 14px; }
-.hero-points li { font-size: 13px; font-weight: 600; color: var(--clin-navy); }
-
-.auth-footnote { margin-top: 16px; font-size: 11.5px; color: var(--clin-slate); }
 
 /* ---------- Auth card ---------- */
 .auth-card {
-  background: var(--clin-surface);
-  border: 1px solid var(--clin-border);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-pop);
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-radius: 20px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.38), 0 4px 12px rgba(0, 0, 0, 0.1);
   overflow: hidden;
   position: relative;
 }
-/* orange diagnostic top stripe */
+
+/* Orange diagnostic top stripe */
 .auth-card::before {
   content: "";
   display: block;
@@ -90,9 +69,52 @@ body {
   background: linear-gradient(90deg, var(--clin-orange), var(--clin-orange-soft) 55%, var(--clin-cobalt));
 }
 
-.auth-card-inner { padding: 26px 30px 22px; position: relative; z-index: 3; }
+.auth-card-inner {
+  padding: 28px 32px 24px;
+  position: relative;
+  z-index: 3;
+}
 
-.ac-head h2 { margin: 0 0 2px; font-size: 21px; }
+/* Centered brand heading inside card */
+.auth-brand-center {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--clin-border);
+}
+
+.auth-brand-center .auth-mark {
+  width: 50px;
+  height: 50px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, var(--clin-orange), var(--clin-orange-soft));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 25px;
+  box-shadow: 0 8px 20px rgba(255, 106, 0, 0.32);
+  flex-shrink: 0;
+}
+
+.auth-brand-center h1 {
+  font-size: 25px;
+  margin: 0;
+  letter-spacing: -0.2px;
+  color: var(--clin-navy);
+}
+
+.auth-brand-center .auth-tagline {
+  margin: 2px 0 0;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--clin-orange);
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+}
+
+.ac-head h2 { margin: 0 0 2px; font-size: 20px; color: var(--clin-navy); }
 .ac-sub { margin: 0 0 16px; font-size: 12.5px; color: var(--clin-slate); }
 
 /* Tabs */
@@ -107,7 +129,7 @@ body {
 }
 .tab {
   flex: 1;
-  height: 46px;
+  height: 44px;
   border: none;
   border-radius: 9px;
   background: transparent;
@@ -170,7 +192,7 @@ body {
 }
 .toggle-pw:hover { background: var(--clin-orange-tint); }
 
-.auth-submit { width: 100%; margin-top: 6px; height: 50px; font-size: 15px; }
+.auth-submit { width: 100%; margin-top: 6px; height: 48px; font-size: 15px; }
 
 .switch-link { text-align: center; font-size: 13px; color: var(--clin-slate); margin-top: 14px; }
 .switch-link a { color: var(--clin-orange); font-weight: 700; text-decoration: none; }
@@ -178,7 +200,7 @@ body {
 
 .btn-demo {
   width: 100%;
-  height: 46px;
+  height: 44px;
   margin-top: 12px;
   border: 1.5px dashed var(--clin-cobalt);
   border-radius: 10px;
@@ -228,10 +250,7 @@ body {
 .toast.info { background: var(--clin-orange-tint); border: 1px solid rgba(255, 106, 0, 0.4); color: #9A3412; }
 
 /* ---------- Responsive ---------- */
-@media (max-width: 900px) {
-  .auth-wrap { grid-template-columns: 1fr; gap: 26px; max-width: 480px; }
-  .auth-hero { max-width: 480px; }
-  .hero-points { grid-template-columns: 1fr; }
-  body { padding: 18px 14px; align-items: flex-start; }
+@media (max-width: 600px) {
   .auth-card-inner { padding: 22px 18px 20px; }
+  .auth-brand-center h1 { font-size: 21px; }
 }

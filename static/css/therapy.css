@@ -206,6 +206,39 @@
 .toast.error { background: #FEE2E2; border: 1px solid #FCA5A5; color: #991B1B; }
 .toast.info { background: var(--clin-orange-tint); border: 1px solid rgba(255, 106, 0, 0.4); color: #9A3412; }
 
+/* 4-second Countdown Overlay */
+.therapy-countdown-overlay {
+  position: absolute; inset: 0; z-index: 10;
+  display: none; align-items: center; justify-content: center;
+  background: rgba(11, 18, 32, 0.82);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.therapy-countdown-overlay.show { display: flex; }
+.tco-box { text-align: center; color: #fff; }
+.tco-label { font-size: 15px; font-weight: 800; letter-spacing: 2px; color: var(--clin-orange); margin-bottom: 6px; text-transform: uppercase; }
+.tco-num { font-size: 96px; font-weight: 900; line-height: 1; color: #fff; text-shadow: 0 0 35px rgba(255, 106, 0, 0.7); font-variant-numeric: tabular-nums; }
+.tco-hint { font-size: 14px; color: #CBD5E1; margin-top: 10px; font-weight: 600; }
+
+/* Paused Overlay */
+.therapy-paused-overlay {
+  position: absolute; inset: 0; z-index: 9;
+  display: none; align-items: center; justify-content: center;
+  background: rgba(11, 18, 32, 0.82);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.therapy-paused-overlay.show { display: flex; }
+.tpo-box {
+  background: var(--clin-surface); border: 1px solid var(--clin-border);
+  border-radius: var(--radius-lg); padding: 30px 26px; text-align: center;
+  max-width: 380px; box-shadow: var(--shadow-pop);
+}
+.tpo-icon { font-size: 44px; margin-bottom: 8px; }
+.tpo-box h2 { font-size: 20px; color: var(--clin-navy); margin: 0 0 6px; }
+.tpo-box p { font-size: 13.5px; color: var(--clin-slate); margin: 0 0 20px; }
+.tpo-actions { display: flex; gap: 10px; justify-content: center; }
+
 @media (max-width: 720px) {
   .ex-grid { grid-template-columns: 1fr; }
   .cfg-summary { position: static; }

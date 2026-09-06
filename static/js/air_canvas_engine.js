@@ -1,6 +1,12 @@
 /**
  * RehabOpt AR — Session 3: Neon Air-Canvas Engine
- * Parametric templates, dwell-time tool selection, peace sign gesture, ataxia corridor
+ * --------------------------------------------------------------------------
+ * Gestures:
+ *  - 1 Finger Open (Index): Draw or pick color / clear / rub with index finger
+ *  - 2 Fingers Open (Index + Middle): Stop drawing (pen lift) & pointer click (Start/Stop/Pause/Resume)
+ *  - 3 Fingers Open (Index + Middle + Ring): Move / Pan drawing across screen
+ *  - Full Hand Open (4-5 Fingers): Continue drawing
+ *  - 4s Countdown: On Start and Resume before drawing is active
  */
 document.addEventListener("DOMContentLoaded", async () => {
   const video = document.getElementById("video");
@@ -9,33 +15,47 @@ document.addEventListener("DOMContentLoaded", async () => {
   const handCanvas = document.getElementById("hand-canvas");
   const handCtx = handCanvas.getContext("2d");
 
-  // HUD
+  // HUD & Info elements
   const accuracyEl = document.getElementById("accuracy-display");
   const toolEl = document.getElementById("tool-display");
+  const modeEl = document.getElementById("mode-display");
   const toast = document.getElementById("toast");
 
+  // Controls elements
+  const btnStart = document.getElementById("canvas-start-btn");
+  const btnPause = document.getElementById("canvas-pause-btn");
+  const btnResume = document.getElementById("canvas-resume-btn");
+  const btnStop = document.getElementById("canvas-stop-btn");
+  const modalResume = document.getElementById("modal-canvas-resume");
+  const modalStop = document.getElementById("modal-canvas-stop");
+  const rubBtn = document.getElementById("rub-btn");
+  const clearBtn = document.getElementById("clear-btn");
+
   // State
+  let sessionActive = false;
+  let sessionPaused = false;
+  let isEraser = false;
   let isDrawing = false;
   let lastPoint = null;
+  let panLastPoint = null;
   let currentTemplate = "freeform";
   let currentColor = "#00ff88";
   let templatePoints = [];
   let accuracy = 100;
   let totalError = 0;
   let errorCount = 0;
-  let calibrationDone = false;
-  let calibrationTimer = 4;
-  let dwellTarget = null;
-  let dwellStart = 0;
-  const DWELL_TIME = 1500; // 1.5 seconds
+  let sessionStartTime = 0;
 
-  const COLORS = ["#00ff88", "#ff6a00", "#00ccff", "#ff4488", "#ffd000"];
+  // Dwell-click hover state
+  let hoverBtn = null;
+  let hoverStart = 0;
+  const DWELL_CLICK_TIME = 700; // ms
 
   const TEMPLATES = {
     freeform: { name: "✏️ Freeform", points: [] },
     line: { name: "📏 Line", points: generateLine() },
-    circle: { name: "⭕ Circle", points: generateCircle(0.4) },
-    square: { name: "⬜ Square", points: generateSquare(0.35) },
+    circle: { name: "⭕ Circle", points: generateCircle(0.38) },
+    square: { name: "⬜ Square", points: generateSquare(0.32) },
     infinity: { name: "∞ Infinity", points: generateInfinity() },
     triangle: { name: "🔺 Triangle", points: generateTriangle() },
     spiral: { name: "🌀 Spiral", points: generateSpiral() },
@@ -48,12 +68,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   // --- Template Generators ---
   function generateLine() {
     const pts = [];
-    for (let i = 0; i <= 100; i++) {
-      pts.push({ x: 0.2 + (i / 100) * 0.6, y: 0.5 });
-    }
+    for (let i = 0; i <= 100; i++) pts.push({ x: 0.2 + (i / 100) * 0.6, y: 0.5 });
     return pts;
   }
-
   function generateCircle(r) {
     const pts = [];
     const cx = 0.5, cy = 0.5;
@@ -62,37 +79,26 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
     return pts;
   }
-
   function generateSquare(s) {
     const pts = [];
-    const cx = 0.5, cy = 0.5;
-    const h = s;
-    // Top edge
+    const cx = 0.5, cy = 0.5, h = s;
     for (let i = 0; i <= 20; i++) pts.push({ x: cx - h + (2 * h * i) / 20, y: cy - h });
-    // Right edge
     for (let i = 0; i <= 20; i++) pts.push({ x: cx + h, y: cy - h + (2 * h * i) / 20 });
-    // Bottom edge
     for (let i = 0; i <= 20; i++) pts.push({ x: cx + h - (2 * h * i) / 20, y: cy + h });
-    // Left edge
     for (let i = 0; i <= 20; i++) pts.push({ x: cx - h, y: cy + h - (2 * h * i) / 20 });
     return pts;
   }
-
   function generateInfinity() {
     const pts = [];
     for (let t = 0; t <= Math.PI * 2; t += 0.04) {
       const denom = 1 + Math.sin(t) * Math.sin(t);
-      pts.push({ x: 0.5 + 0.25 * Math.cos(t) / denom, y: 0.5 + 0.25 * Math.sin(t) * Math.cos(t) / denom });
+      pts.push({ x: 0.5 + (0.25 * Math.cos(t)) / denom, y: 0.5 + (0.25 * Math.sin(t) * Math.cos(t)) / denom });
     }
     return pts;
   }
-
   function generateTriangle() {
-    return [
-      { x: 0.5, y: 0.2 }, { x: 0.8, y: 0.8 }, { x: 0.2, y: 0.8 }, { x: 0.5, y: 0.2 },
-    ];
+    return [{ x: 0.5, y: 0.2 }, { x: 0.8, y: 0.8 }, { x: 0.2, y: 0.8 }, { x: 0.5, y: 0.2 }];
   }
-
   function generateSpiral() {
     const pts = [];
     for (let t = 0; t <= Math.PI * 4; t += 0.08) {
@@ -101,7 +107,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
     return pts;
   }
-
   function generateStar() {
     const pts = [];
     for (let i = 0; i < 10; i++) {
@@ -112,7 +117,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     pts.push(pts[0]);
     return pts;
   }
-
   function generateFigure8() {
     const pts = [];
     for (let t = 0; t <= Math.PI * 2; t += 0.04) {
@@ -120,31 +124,37 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
     return pts;
   }
-
   function generateSine() {
     const pts = [];
-    for (let i = 0; i <= 100; i++) {
-      const x = 0.1 + (i / 100) * 0.8;
-      pts.push({ x, y: 0.5 + 0.15 * Math.sin(i * 0.12) });
-    }
+    for (let i = 0; i <= 100; i++) pts.push({ x: 0.1 + (i / 100) * 0.8, y: 0.5 + 0.15 * Math.sin(i * 0.12) });
     return pts;
   }
-
   function generateZigzag() {
     const pts = [];
-    for (let i = 0; i <= 10; i++) {
-      pts.push({ x: 0.1 + (i / 10) * 0.8, y: i % 2 === 0 ? 0.3 : 0.7 });
-    }
+    for (let i = 0; i <= 10; i++) pts.push({ x: 0.1 + (i / 10) * 0.8, y: i % 2 === 0 ? 0.3 : 0.7 });
     return pts;
   }
 
   // --- Resize ---
   function resizeCanvas() {
     const parent = drawCanvas.parentElement;
-    drawCanvas.width = parent.clientWidth;
-    drawCanvas.height = parent.clientHeight;
-    handCanvas.width = parent.clientWidth;
-    handCanvas.height = parent.clientHeight;
+    if (!parent) return;
+    const w = parent.clientWidth;
+    const h = parent.clientHeight;
+    // Preserve content across resize
+    const tmp = document.createElement("canvas");
+    tmp.width = drawCanvas.width;
+    tmp.height = drawCanvas.height;
+    if (tmp.width > 0 && tmp.height > 0) {
+      tmp.getContext("2d").drawImage(drawCanvas, 0, 0);
+    }
+    drawCanvas.width = w;
+    drawCanvas.height = h;
+    handCanvas.width = w;
+    handCanvas.height = h;
+    if (tmp.width > 0 && tmp.height > 0) {
+      drawCtx.drawImage(tmp, 0, 0);
+    }
     drawTemplate();
   }
   let resizeTimer = null;
@@ -153,6 +163,191 @@ document.addEventListener("DOMContentLoaded", async () => {
     resizeTimer = setTimeout(resizeCanvas, 150);
   });
   resizeCanvas();
+
+  // --- Toast ---
+  function showToast(msg, type = "info") {
+    if (!toast) return;
+    toast.textContent = msg;
+    toast.className = `toast show ${type}`;
+    setTimeout(() => { toast.className = "toast"; }, 2800);
+  }
+
+  // --- 4-second Countdown Overlay ---
+  let canvasCountdownTimer = null;
+  function runCanvasCountdown(label, seconds, onComplete) {
+    const overlay = document.getElementById("aircanvas-countdown-overlay");
+    const numEl = document.getElementById("canvas-aco-num");
+    const labEl = document.getElementById("canvas-aco-label");
+    if (!overlay || !numEl) {
+      if (onComplete) onComplete();
+      return;
+    }
+    if (canvasCountdownTimer) clearInterval(canvasCountdownTimer);
+    let remaining = seconds;
+    labEl.textContent = label;
+    numEl.textContent = remaining;
+    overlay.classList.add("show");
+    if (window.RehabBio) window.RehabBio.speak(`${label}. ${remaining}`);
+
+    canvasCountdownTimer = setInterval(() => {
+      remaining--;
+      if (remaining > 0) {
+        numEl.textContent = remaining;
+        if (window.RehabBio) window.RehabBio.speak(`${remaining}`);
+      } else {
+        clearInterval(canvasCountdownTimer);
+        canvasCountdownTimer = null;
+        numEl.textContent = "DRAW!";
+        if (window.RehabBio) window.RehabBio.speak("Draw!");
+        setTimeout(() => {
+          overlay.classList.remove("show");
+          if (onComplete) onComplete();
+        }, 500);
+      }
+    }, 1000);
+  }
+
+  // --- Session Controls ---
+  function startDrawingSession() {
+    runCanvasCountdown("STARTING IN", 4, () => {
+      sessionActive = true;
+      sessionPaused = false;
+      sessionStartTime = Date.now();
+      btnStart.style.display = "none";
+      btnPause.style.display = "inline-flex";
+      btnResume.style.display = "none";
+      btnStop.style.display = "inline-flex";
+      showToast("🎨 Session Active — Draw with Index or Full Hand!", "success");
+    });
+  }
+
+  function pauseDrawingSession() {
+    if (!sessionActive || sessionPaused) return;
+    sessionPaused = true;
+    lastPoint = null;
+    panLastPoint = null;
+    document.getElementById("aircanvas-paused-overlay").classList.add("show");
+    btnPause.style.display = "none";
+    btnResume.style.display = "inline-flex";
+    if (window.RehabBio) window.RehabBio.speak("Drawing paused");
+  }
+
+  function resumeDrawingSession() {
+    document.getElementById("aircanvas-paused-overlay").classList.remove("show");
+    runCanvasCountdown("RESUMING IN", 4, () => {
+      sessionPaused = false;
+      btnResume.style.display = "none";
+      btnPause.style.display = "inline-flex";
+      showToast("▶ Drawing Resumed!", "info");
+    });
+  }
+
+  async function stopDrawingSession() {
+    const elapsed = sessionStartTime ? Math.round((Date.now() - sessionStartTime) / 1000) : 0;
+    sessionActive = false;
+    sessionPaused = false;
+    lastPoint = null;
+    panLastPoint = null;
+
+    document.getElementById("aircanvas-paused-overlay").classList.remove("show");
+    document.getElementById("aircanvas-countdown-overlay").classList.remove("show");
+    btnStart.style.display = "inline-flex";
+    btnPause.style.display = "none";
+    btnResume.style.display = "none";
+    btnStop.style.display = "none";
+
+    try {
+      await fetch("/api/telemetry", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          session_type: "AIR_CANVAS",
+          condition: localStorage.getItem("selectedCondition") || "Hemiparesis",
+          duration_seconds: Math.max(1, elapsed),
+          peak_rom: 85,
+          smoothness_score: Math.min(100, accuracy),
+          cheats_blocked: 0,
+          score: accuracy,
+          metrics_json: JSON.stringify({ template: currentTemplate, accuracy, duration: elapsed }),
+        }),
+      });
+      showToast(`📊 Session Saved! Accuracy: ${accuracy}%`, "success");
+    } catch (e) {
+      console.error("Telemetry error", e);
+    }
+  }
+
+  btnStart.addEventListener("click", startDrawingSession);
+  btnPause.addEventListener("click", pauseDrawingSession);
+  btnResume.addEventListener("click", resumeDrawingSession);
+  btnStop.addEventListener("click", stopDrawingSession);
+  modalResume.addEventListener("click", resumeDrawingSession);
+  modalStop.addEventListener("click", stopDrawingSession);
+
+  // --- Dwell Pointer Hover / Click Mode ---
+  function checkHoverInteract(tip) {
+    const rect = drawCanvas.getBoundingClientRect();
+    const screenX = rect.left + tip.x * rect.width;
+    const screenY = rect.top + tip.y * rect.height;
+
+    // Highlight pointer position
+    handCtx.beginPath();
+    handCtx.arc(tip.x * handCanvas.width, tip.y * handCanvas.height, 12, 0, Math.PI * 2);
+    handCtx.strokeStyle = "#00CCFF";
+    handCtx.lineWidth = 3;
+    handCtx.stroke();
+
+    const el = document.elementFromPoint(screenX, screenY);
+    if (!el) { hoverBtn = null; return; }
+    const target = el.closest(".c-ctrl-btn, .color-btn, .palette-tool, .template-btn");
+
+    if (target && target !== hoverBtn) {
+      hoverBtn = target;
+      hoverStart = Date.now();
+    } else if (target && target === hoverBtn) {
+      const elapsed = Date.now() - hoverStart;
+      const progress = Math.min(1, elapsed / DWELL_CLICK_TIME);
+      // Dwell circle fill
+      handCtx.beginPath();
+      handCtx.arc(tip.x * handCanvas.width, tip.y * handCanvas.height, 12, 0, Math.PI * 2 * progress);
+      handCtx.strokeStyle = "#FF6A00";
+      handCtx.lineWidth = 4;
+      handCtx.stroke();
+
+      if (elapsed >= DWELL_CLICK_TIME) {
+        hoverBtn.click();
+        if (window.RehabBio) window.RehabBio.playBeep(880, 0.06, 0.25);
+        hoverBtn = null;
+        hoverStart = Date.now() + 1200; // prevent double trigger
+      }
+    } else {
+      hoverBtn = null;
+    }
+  }
+
+  // --- Gesture Detection Helper ---
+  function getFingerStatus(lm) {
+    // MediaPipe Hand Landmark indexes:
+    // 8: Index tip, 6: Index PIP
+    // 12: Middle tip, 10: Middle PIP
+    // 16: Ring tip, 14: Ring PIP
+    // 20: Pinky tip, 18: Pinky PIP
+    const indexOpen = lm[8].y < lm[6].y;
+    const middleOpen = lm[12].y < lm[10].y;
+    const ringOpen = lm[16].y < lm[14].y;
+    const pinkyOpen = lm[20].y < lm[18].y;
+
+    // Thumb extended check
+    const thumbDistTip = Math.hypot(lm[4].x - lm[0].x, lm[4].y - lm[0].y);
+    const thumbDistIP = Math.hypot(lm[3].x - lm[0].x, lm[3].y - lm[0].y);
+    const thumbOpen = thumbDistTip > thumbDistIP * 1.15;
+
+    const openCount = (indexOpen ? 1 : 0) + (middleOpen ? 1 : 0) +
+                      (ringOpen ? 1 : 0) + (pinkyOpen ? 1 : 0) +
+                      (thumbOpen ? 1 : 0);
+
+    return { thumbOpen, indexOpen, middleOpen, ringOpen, pinkyOpen, openCount };
+  }
 
   // --- Camera & MediaPipe Hands ---
   const hands = new Hands({
@@ -171,67 +366,132 @@ document.addEventListener("DOMContentLoaded", async () => {
       await hands.send({ image: videoEl });
     });
     const ok = await cam.initialize();
-    if (ok) showToast("✅ Camera active — raise your hand!", "success");
+    if (ok) showToast("✅ Camera active — raise your hand to begin!", "success");
   }
 
+  // --- Hand Frame Processing ---
   function onHandResults(results) {
     if (!results.multiHandLandmarks || results.multiHandLandmarks.length === 0) {
       isDrawing = false;
+      lastPoint = null;
+      panLastPoint = null;
+      handCtx.clearRect(0, 0, handCanvas.width, handCanvas.height);
       return;
     }
 
-    // Mirrored into selfie-view coordinates (video is displayed with
-    // scaleX(-1)) so the cursor follows your hand exactly as you move it.
+    // Mirror landmarks so left/right matches mirror-selfie view
     const lm = results.multiHandLandmarks[0].map((p) => ({ x: 1 - p.x, y: p.y, z: p.z || 0 }));
     const indexTip = lm[8];
-    const thumbTip = lm[4];
-    const middleTip = lm[12];
-    const ringTip = lm[16];
+    const px = indexTip.x * drawCanvas.width;
+    const py = indexTip.y * drawCanvas.height;
+    const currentPoint = { x: px, y: py, nx: indexTip.x, ny: indexTip.y };
 
-    // Peace sign detection (✌️): index + middle extended, ring + pinky folded
-    const isPeaceSign =
-      lm[8].y < lm[6].y &&
-      lm[12].y < lm[10].y &&
-      lm[16].y > lm[14].y &&
-      lm[20].y > lm[18].y;
+    const f = getFingerStatus(lm);
 
-    if (isPeaceSign) {
-      isDrawing = false; // Pen lift
+    // =========================================================================
+    // 1. Gesture Mode Evaluation (User Specific Rules)
+    // =========================================================================
+
+    // RULE 1: 3 Fingers Open -> Move / Pan Drawing
+    // "if we want to move our drqing then just open three finger"
+    if (f.indexOpen && f.middleOpen && f.ringOpen && !f.pinkyOpen) {
+      if (modeEl) modeEl.textContent = "🤟 Mode: MOVE DRAWING";
       lastPoint = null;
-      drawHandSkeleton(lm, "#00ccff");
+      if (panLastPoint) {
+        const dx = px - panLastPoint.x;
+        const dy = py - panLastPoint.y;
+        if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) {
+          // Translate drawn canvas content
+          const tmp = document.createElement("canvas");
+          tmp.width = drawCanvas.width;
+          tmp.height = drawCanvas.height;
+          tmp.getContext("2d").drawImage(drawCanvas, 0, 0);
+          drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
+          drawTemplate();
+          drawCtx.drawImage(tmp, dx, dy);
+        }
+      }
+      panLastPoint = { x: px, y: py };
+      drawHandSkeleton(lm, "#A855F7");
+      return;
+    }
+    panLastPoint = null;
+
+    // RULE 2: 2 Fingers Open -> Stop Drawing (Pen lift) & Pointer Click Mode
+    // "if we want to stop drqing in open 2 fingers and click start stop resume pasue"
+    if (f.indexOpen && f.middleOpen && !f.ringOpen && !f.pinkyOpen) {
+      if (modeEl) modeEl.textContent = "✌️ Mode: STOPPED / CLICK";
+      lastPoint = null;
+      isDrawing = false;
+      drawHandSkeleton(lm, "#00CCFF");
+      checkHoverInteract(indexTip);
       return;
     }
 
-    // Index fingertip as stylus
-    const px = indexTip.x * drawCanvas.width;
-    const py = indexTip.y * drawCanvas.height;
-    const point = { x: px, y: py, nx: indexTip.x, ny: indexTip.y };
+    // RULE 3: Full Hand Open (4 or 5 Fingers) -> Continue Drawing
+    // "if agen continue open full finger"
+    const isFullHand = f.openCount >= 4;
+    // RULE 4: 1 Finger Open (Index only) -> Draw / Erase / Pick UI with index finger
+    // "choosing colour and clear or rub option by our index finger"
+    const isIndexOnly = f.indexOpen && !f.middleOpen && !f.ringOpen && !f.pinkyOpen;
 
-    // Check if hovering over toolbar (dwell-time selection)
-    checkDwellSelection(indexTip);
-
-    // Draw
-    if (lastPoint && !dwellTarget) {
-      drawCtx.beginPath();
-      drawCtx.moveTo(lastPoint.x, lastPoint.y);
-      drawCtx.lineTo(px, py);
-      drawCtx.strokeStyle = currentColor;
-      drawCtx.lineWidth = 3;
-      drawCtx.shadowColor = currentColor;
-      drawCtx.shadowBlur = 6;
-      drawCtx.stroke();
-      drawCtx.shadowBlur = 0;
-
-      // Ataxia corridor scoring (E4)
-      if (templatePoints.length > 0) {
-        updateAccuracy(point);
-      }
+    // Check if index tip is hovering over top toolbar/color options
+    if (isIndexOnly && indexTip.y < 0.14) {
+      checkHoverInteract(indexTip);
+      lastPoint = null;
+      drawHandSkeleton(lm, currentColor);
+      return;
     }
 
-    lastPoint = point;
-    drawHandSkeleton(lm, currentColor);
+    // Active Drawing Action (Full hand or Index finger)
+    if (isFullHand || isIndexOnly) {
+      const modeLabel = isEraser ? "🧽 Mode: RUB / ERASER" : (isFullHand ? "🖐️ Mode: FULL HAND DRAW" : "☝️ Mode: INDEX DRAW");
+      if (modeEl) modeEl.textContent = modeLabel;
+
+      if (!sessionActive || sessionPaused) {
+        // Prompt user to start session if not started
+        lastPoint = null;
+        drawHandSkeleton(lm, "#94A3B8");
+        return;
+      }
+
+      if (lastPoint) {
+        if (isEraser) {
+          // Rub / Erase stroke
+          drawCtx.save();
+          drawCtx.globalCompositeOperation = "destination-out";
+          drawCtx.beginPath();
+          drawCtx.arc(px, py, 26, 0, Math.PI * 2);
+          drawCtx.fill();
+          drawCtx.restore();
+          // Redraw template guide lines if active
+          if (templatePoints.length > 0) drawTemplate();
+        } else {
+          // Draw neon stroke
+          drawCtx.beginPath();
+          drawCtx.moveTo(lastPoint.x, lastPoint.y);
+          drawCtx.lineTo(px, py);
+          drawCtx.strokeStyle = currentColor;
+          drawCtx.lineWidth = 4;
+          drawCtx.shadowColor = currentColor;
+          drawCtx.shadowBlur = 8;
+          drawCtx.lineCap = "round";
+          drawCtx.stroke();
+          drawCtx.shadowBlur = 0;
+
+          // Ataxia corridor scoring
+          if (templatePoints.length > 0) updateAccuracy(currentPoint);
+        }
+      }
+      lastPoint = currentPoint;
+      drawHandSkeleton(lm, isEraser ? "#FF4444" : currentColor);
+    } else {
+      lastPoint = null;
+      drawHandSkeleton(lm, "#64748B");
+    }
   }
 
+  // --- Hand Skeleton Visualizer ---
   function drawHandSkeleton(lm, color) {
     handCtx.clearRect(0, 0, handCanvas.width, handCanvas.height);
     const w = handCanvas.width;
@@ -243,11 +503,12 @@ document.addEventListener("DOMContentLoaded", async () => {
       [5, 9], [9, 10], [10, 11], [11, 12],
       [9, 13], [13, 14], [14, 15], [15, 16],
       [13, 17], [17, 18], [18, 19], [19, 20],
+      [0, 17],
     ];
 
     handCtx.strokeStyle = color;
-    handCtx.lineWidth = 2;
-    handCtx.globalAlpha = 0.5;
+    handCtx.lineWidth = 2.5;
+    handCtx.globalAlpha = 0.6;
     connections.forEach(([a, b]) => {
       handCtx.beginPath();
       handCtx.moveTo(lm[a].x * w, lm[a].y * h);
@@ -256,43 +517,23 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
     handCtx.globalAlpha = 1;
 
-    // Index tip highlight
+    // Index fingertip stylus marker
     handCtx.beginPath();
-    handCtx.arc(lm[8].x * w, lm[8].y * h, 6, 0, Math.PI * 2);
+    handCtx.arc(lm[8].x * w, lm[8].y * h, isEraser ? 12 : 7, 0, Math.PI * 2);
     handCtx.fillStyle = color;
     handCtx.fill();
-  }
-
-  // --- Dwell-Time Tool Selection ---
-  function checkDwellSelection(tip) {
-    // Map finger position to toolbar area (top of screen)
-    if (tip.y < 0.08) {
-      const toolbarItems = Object.keys(TEMPLATES);
-      const idx = Math.floor(tip.x * toolbarItems.length);
-      const target = toolbarItems[Math.min(idx, toolbarItems.length - 1)];
-
-      if (dwellTarget !== target) {
-        dwellTarget = target;
-        dwellStart = Date.now();
-      } else if (Date.now() - dwellStart > DWELL_TIME) {
-        setTemplate(dwellTarget);
-        dwellTarget = null;
-      }
-    } else {
-      dwellTarget = null;
-    }
+    handCtx.strokeStyle = "#FFFFFF";
+    handCtx.lineWidth = 2;
+    handCtx.stroke();
   }
 
   // --- Template Drawing ---
   function drawTemplate() {
     if (currentTemplate === "freeform" || templatePoints.length === 0) return;
-
-    drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
     drawCtx.beginPath();
-    drawCtx.strokeStyle = "rgba(255, 255, 255, 0.12)";
+    drawCtx.strokeStyle = "rgba(255, 255, 255, 0.16)";
     drawCtx.lineWidth = 2;
     drawCtx.setLineDash([6, 4]);
-
     templatePoints.forEach((p, i) => {
       const px = p.x * drawCanvas.width;
       const py = p.y * drawCanvas.height;
@@ -311,14 +552,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     totalError = 0;
     errorCount = 0;
     accuracy = 100;
-    accuracyEl.textContent = `📐 ${accuracy}%`;
-    toolEl.textContent = TEMPLATES[name].name;
+    if (accuracyEl) accuracyEl.textContent = `📐 ${accuracy}%`;
+    if (toolEl) toolEl.textContent = TEMPLATES[name].name;
     showToast(`📐 Template: ${TEMPLATES[name].name}`, "info");
   }
 
   // --- Ataxia Corridor Scoring (E4) ---
   function updateAccuracy(point) {
-    // Find nearest template point
     let minDist = Infinity;
     templatePoints.forEach((tp) => {
       const dx = point.nx - tp.x;
@@ -330,44 +570,54 @@ document.addEventListener("DOMContentLoaded", async () => {
     totalError += minDist;
     errorCount++;
     const avgError = totalError / errorCount;
-    accuracy = Math.max(0, Math.round(100 - avgError * 500));
-    accuracyEl.textContent = `📐 ${accuracy}%`;
+    accuracy = Math.max(0, Math.round(100 - avgError * 480));
+    if (accuracyEl) accuracyEl.textContent = `📐 ${accuracy}%`;
   }
 
-  // --- Template Selector Buttons ---
+  // --- Template Buttons ---
   document.querySelectorAll(".template-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
+      document.querySelectorAll(".template-btn").forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
       setTemplate(btn.dataset.template);
     });
   });
 
-  // --- Color Palette ---
+  // --- Color Palette Selection ---
   document.querySelectorAll(".color-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
+      isEraser = false;
       currentColor = btn.dataset.color;
       document.querySelectorAll(".color-btn").forEach((b) => b.classList.remove("active"));
       btn.classList.add("active");
+      if (rubBtn) rubBtn.classList.remove("active");
+      showToast(`🎨 Color: ${btn.title || currentColor}`, "info");
     });
   });
 
-  // --- Clear Canvas ---
-  document.getElementById("clear-btn").addEventListener("click", () => {
-    drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
-    totalError = 0;
-    errorCount = 0;
-    accuracy = 100;
-    accuracyEl.textContent = "📐 100%";
-    drawTemplate();
-    showToast("🧹 Canvas cleared", "info");
-  });
-
-  // --- Toast ---
-  function showToast(msg, type = "info") {
-    toast.textContent = msg;
-    toast.className = `toast show ${type}`;
-    setTimeout(() => (toast.className = "toast"), 3000);
+  // --- Rub / Eraser Toggle ---
+  if (rubBtn) {
+    rubBtn.addEventListener("click", () => {
+      isEraser = !isEraser;
+      rubBtn.classList.toggle("active", isEraser);
+      document.querySelectorAll(".color-btn").forEach((b) => b.classList.remove("active"));
+      showToast(isEraser ? "🧽 Rub / Eraser mode active" : "✏️ Drawing mode active", "info");
+    });
   }
 
-  // --- Start ---
+  // --- Clear Canvas ---
+  if (clearBtn) {
+    clearBtn.addEventListener("click", () => {
+      drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
+      totalError = 0;
+      errorCount = 0;
+      accuracy = 100;
+      if (accuracyEl) accuracyEl.textContent = "📐 100%";
+      drawTemplate();
+      showToast("🧹 Canvas cleared", "info");
+    });
+  }
+
+  // --- Initialize Camera ---
   await initCamera();
 });

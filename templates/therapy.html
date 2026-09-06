@@ -78,8 +78,9 @@
       <div class="wo-now" id="wo-now">—</div>
       <div class="wo-set" id="wo-set">Set 1/3</div>
       <div class="wo-spacer"></div>
-      <button id="pause-btn" class="hud-btn">⏸ Pause</button>
-      <button id="quit-btn" class="hud-btn danger">✕ Quit</button>
+      <button id="pause-btn" class="hud-btn" title="Pause session">⏸ Pause</button>
+      <button id="resume-btn" class="hud-btn clin-btn-primary" style="display:none;" title="Resume session">▶ Resume (4s)</button>
+      <button id="stop-btn" class="hud-btn danger" title="Stop and finish session">⏹ Stop</button>
     </div>
 
     <div class="wo-stage">
@@ -97,6 +98,28 @@
       <!-- Cheat alert -->
       <div id="cheat-banner" class="cheat-banner" role="alert" aria-live="assertive">
         ⚠️ POSTURE CHEAT: KEEP YOUR SHOULDERS LEVEL
+      </div>
+
+      <!-- 4s Countdown Overlay -->
+      <div id="therapy-countdown-overlay" class="therapy-countdown-overlay">
+        <div class="tco-box">
+          <div class="tco-label" id="tco-label">GET READY</div>
+          <div class="tco-num" id="tco-num">4</div>
+          <div class="tco-hint" id="tco-hint">Position yourself in front of the camera</div>
+        </div>
+      </div>
+
+      <!-- Paused Overlay -->
+      <div id="therapy-paused-overlay" class="therapy-paused-overlay">
+        <div class="tpo-box">
+          <div class="tpo-icon">⏸️</div>
+          <h2>Session Paused</h2>
+          <p>Take a breath. Click Resume when you are ready to continue.</p>
+          <div class="tpo-actions">
+            <button id="modal-resume-btn" class="clin-btn clin-btn-primary">▶ Resume (4s)</button>
+            <button id="modal-stop-btn" class="clin-btn clin-btn-ghost">⏹ Stop</button>
+          </div>
+        </div>
       </div>
     </div>
 

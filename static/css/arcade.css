@@ -256,6 +256,44 @@
 .toast.error { background: #FEE2E2; border: 1px solid #FCA5A5; color: #991B1B; }
 .toast.info { background: var(--clin-orange-tint); border: 1px solid rgba(255, 106, 0, 0.4); color: #9A3412; }
 
+/* 4-second Countdown Overlay */
+.arcade-countdown-overlay {
+  position: absolute; inset: 0; z-index: 10;
+  display: none; align-items: center; justify-content: center;
+  background: rgba(11, 18, 32, 0.82);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.arcade-countdown-overlay.show { display: flex; }
+.aco-box { text-align: center; color: #fff; }
+.aco-label { font-size: 15px; font-weight: 800; letter-spacing: 2px; color: var(--clin-orange); margin-bottom: 6px; text-transform: uppercase; }
+.aco-num { font-size: 96px; font-weight: 900; line-height: 1; color: #fff; text-shadow: 0 0 35px rgba(255, 106, 0, 0.7); font-variant-numeric: tabular-nums; }
+.aco-hint { font-size: 14px; color: #CBD5E1; margin-top: 10px; font-weight: 600; }
+
+/* Paused Overlay */
+.arcade-paused-overlay {
+  position: absolute; inset: 0; z-index: 9;
+  display: none; align-items: center; justify-content: center;
+  background: rgba(11, 18, 32, 0.82);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.arcade-paused-overlay.show { display: flex; }
+.apo-box {
+  background: var(--clin-surface); border: 1px solid var(--clin-border);
+  border-radius: var(--radius-lg); padding: 30px 26px; text-align: center;
+  max-width: 360px; box-shadow: var(--shadow-pop);
+}
+.apo-icon { font-size: 44px; margin-bottom: 8px; }
+.apo-box h2 { font-size: 20px; color: var(--clin-navy); margin: 0 0 6px; }
+.apo-box p { font-size: 13.5px; color: var(--clin-slate); margin: 0 0 20px; }
+.apo-actions { display: flex; gap: 10px; justify-content: center; }
+
+.ctl-btn.primary { background: var(--clin-orange); color: #fff; border-color: var(--clin-orange); font-weight: 800; }
+.ctl-btn.primary:hover { background: var(--clin-orange-soft); }
+.speed-row { display: flex; align-items: center; gap: 6px; width: 100%; margin-top: 6px; }
+.ctl-btn.sm { min-height: 34px; font-size: 11.5px; }
+
 /* ---------------- Responsive ---------------- */
 @media (max-width: 1200px) {
   .arcade-layout { grid-template-columns: 1fr; }

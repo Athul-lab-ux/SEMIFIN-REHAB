@@ -4,7 +4,7 @@
  */
 class RehabAIAssistant {
   constructor() {
-    this.selectedModel = "gemini-2.5-flash";
+    this.selectedModel = "gemini-3.7-flash";
     this.attachments = [];
     this.recognition = null;
     this.isRecording = false;

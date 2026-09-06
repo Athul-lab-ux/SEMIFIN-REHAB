@@ -30,6 +30,28 @@
           <p><strong>Pick a game</strong> from the left shelf to begin.</p>
           <p class="sp-sub">Your webcam stream starts automatically — camera data never leaves your device. Moves match your hand directly.</p>
         </div>
+
+        <!-- 4s Countdown Overlay -->
+        <div id="arcade-countdown-overlay" class="arcade-countdown-overlay">
+          <div class="aco-box">
+            <div class="aco-label" id="aco-label">GET READY</div>
+            <div class="aco-num" id="aco-num">4</div>
+            <div class="aco-hint" id="aco-hint">Position your hand in front of the camera</div>
+          </div>
+        </div>
+
+        <!-- Paused Overlay -->
+        <div id="arcade-paused-overlay" class="arcade-paused-overlay">
+          <div class="apo-box">
+            <div class="apo-icon">⏸️</div>
+            <h2>Game Paused</h2>
+            <p>Catch your breath. Click Resume to continue.</p>
+            <div class="apo-actions">
+              <button id="modal-game-resume" class="clin-btn clin-btn-primary">▶ Resume (4s)</button>
+              <button id="modal-game-stop" class="clin-btn clin-btn-ghost">⏹ Stop</button>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- HUD strip -->
@@ -67,10 +89,15 @@
       </div>
 
       <div class="kpi-controls">
-        <button id="btn-slower" class="ctl-btn" title="Slow the game down">🐢 Slower</button>
-        <span class="ctl-speed" id="speed-display">1.0x</span>
-        <button id="btn-faster" class="ctl-btn" title="Speed the game up">🚀 Faster</button>
-        <button id="btn-stop" class="ctl-btn stop">⏹ Stop</button>
+        <button id="btn-start" class="ctl-btn primary" title="Start game with 4s countdown">▶ Start Game (4s)</button>
+        <button id="btn-pause" class="ctl-btn" title="Pause game" style="display:none;">⏸ Pause</button>
+        <button id="btn-resume" class="ctl-btn primary" title="Resume game with 4s countdown" style="display:none;">▶ Resume (4s)</button>
+        <button id="btn-stop" class="ctl-btn stop" title="Stop game" style="display:none;">⏹ Stop</button>
+        <div class="speed-row">
+          <button id="btn-slower" class="ctl-btn sm" title="Slow the game down">🐢 Slower</button>
+          <span class="ctl-speed" id="speed-display">1.0x</span>
+          <button id="btn-faster" class="ctl-btn sm" title="Speed the game up">🚀 Faster</button>
+        </div>
       </div>
       <div class="keys-hint">
         <span><kbd>P</kbd> Pause</span>

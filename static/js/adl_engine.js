@@ -102,20 +102,103 @@ document.addEventListener("DOMContentLoaded", async () => {
     handCtx.fill();
   }
 
+  // --- Session Controls & 4s Countdown ---
+  let adlCountdownTimer = null;
+  let adlPaused = false;
+
+  function runAdlCountdown(label, seconds, onComplete) {
+    const overlay = document.getElementById("adl-countdown-overlay");
+    const numEl = document.getElementById("adl-aco-num");
+    const labEl = document.getElementById("adl-aco-label");
+    if (!overlay || !numEl) { if (onComplete) onComplete(); return; }
+    if (adlCountdownTimer) clearInterval(adlCountdownTimer);
+    let remaining = seconds;
+    labEl.textContent = label;
+    numEl.textContent = remaining;
+    overlay.classList.add("show");
+    if (window.RehabBio) window.RehabBio.speak(`${label}. ${remaining}`);
+
+    adlCountdownTimer = setInterval(() => {
+      remaining--;
+      if (remaining > 0) {
+        numEl.textContent = remaining;
+        if (window.RehabBio) window.RehabBio.speak(`${remaining}`);
+      } else {
+        clearInterval(adlCountdownTimer);
+        adlCountdownTimer = null;
+        numEl.textContent = "GO!";
+        if (window.RehabBio) window.RehabBio.speak("Go!");
+        setTimeout(() => {
+          overlay.classList.remove("show");
+          if (onComplete) onComplete();
+        }, 500);
+      }
+    }, 1000);
+  }
+
+  function pauseAdl() {
+    if (currentTask === "menu" || adlPaused) return;
+    adlPaused = true;
+    document.getElementById("adl-pause").style.display = "none";
+    document.getElementById("adl-resume").style.display = "inline-flex";
+    document.getElementById("adl-paused-overlay").classList.add("show");
+    if (window.RehabBio) window.RehabBio.speak("Task paused");
+  }
+
+  function resumeAdl() {
+    document.getElementById("adl-paused-overlay").classList.remove("show");
+    runAdlCountdown("RESUMING IN", 4, () => {
+      adlPaused = false;
+      document.getElementById("adl-resume").style.display = "none";
+      document.getElementById("adl-pause").style.display = "inline-flex";
+    });
+  }
+
+  function stopAdl() {
+    if (currentTask !== "menu") {
+      logSession();
+    }
+    currentTask = "menu";
+    adlPaused = false;
+    document.getElementById("task-menu").classList.remove("hidden");
+    document.getElementById("adl-paused-overlay").classList.remove("show");
+    document.getElementById("adl-countdown-overlay").classList.remove("show");
+    document.getElementById("adl-pause").style.display = "none";
+    document.getElementById("adl-resume").style.display = "none";
+    document.getElementById("adl-stop").style.display = "none";
+    taskEl.textContent = "Choose a task";
+    statusEl.textContent = "Ready";
+    gCtx.clearRect(0, 0, gameCanvas.width, gameCanvas.height);
+  }
+
+  document.getElementById("adl-pause").addEventListener("click", pauseAdl);
+  document.getElementById("adl-resume").addEventListener("click", resumeAdl);
+  document.getElementById("modal-adl-resume").addEventListener("click", resumeAdl);
+  document.getElementById("adl-stop").addEventListener("click", stopAdl);
+  document.getElementById("modal-adl-stop").addEventListener("click", stopAdl);
+
   // --- Task Selection ---
   document.querySelectorAll(".task-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
-      currentTask = btn.dataset.task;
-      tasksCompleted = 0;
-      startTime = Date.now();
+      const selectedTask = btn.dataset.task;
       document.getElementById("task-menu").classList.add("hidden");
-      taskEl.textContent = btn.textContent.trim();
-      showToast(`🔑 Starting: ${btn.textContent.trim()}`, "info");
+      taskEl.textContent = btn.textContent.trim().split("\n")[0];
+      statusEl.textContent = "Get ready...";
+      runAdlCountdown("GET READY", 4, () => {
+        currentTask = selectedTask;
+        tasksCompleted = 0;
+        startTime = Date.now();
+        document.getElementById("adl-pause").style.display = "inline-flex";
+        document.getElementById("adl-resume").style.display = "none";
+        document.getElementById("adl-stop").style.display = "inline-flex";
+        showToast(`🔑 Task Started: ${taskEl.textContent}`, "info");
+      });
     });
   });
 
   // --- Task Update ---
   function updateTask() {
+    if (adlPaused) return;
     gCtx.clearRect(0, 0, gameCanvas.width, gameCanvas.height);
     const w = gameCanvas.width, h = gameCanvas.height;
     const hx = handPos.x * w, hy = handPos.y * h;

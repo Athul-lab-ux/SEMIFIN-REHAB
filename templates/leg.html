@@ -1,5 +1,6 @@
 {% extends "app_shell.html" %}
 {% block extra_head %}
+  <link rel="stylesheet" href="/static/css/therapy.css" />
   <link rel="stylesheet" href="/static/css/leg.css" />
 {% endblock %}
 {% block content %}
@@ -37,7 +38,7 @@
 
     <div class="lg-summary" id="lg-summary">
       <span>🦵 <b id="lg-reps">10</b> reps per leg · <b>20</b> total</span>
-      <button id="btn-start" class="clin-btn clin-btn-primary">▶ Begin Leg Routine</button>
+      <button id="btn-start" class="clin-btn clin-btn-primary">▶ Begin Leg Routine (4s)</button>
     </div>
 
     <p class="lx-fine">The app reports your active-side knee angle and a side-to-side symmetry ratio (C6) after both legs finish.</p>
@@ -51,13 +52,36 @@
         <span class="side-badge" id="side-badge">Left Leg</span>
       </div>
       <div class="lg-spacer"></div>
-      <button id="lg-pause" class="hud-btn">⏸ Pause</button>
-      <button id="lg-quit" class="hud-btn danger">✕ Quit</button>
+      <button id="lg-pause" class="hud-btn" title="Pause session">⏸ Pause</button>
+      <button id="lg-resume" class="hud-btn clin-btn-primary" style="display:none;" title="Resume session">▶ Resume (4s)</button>
+      <button id="lg-quit" class="hud-btn danger" title="Stop session">⏹ Stop</button>
     </div>
 
     <div class="lg-stage">
       <video id="video" autoplay playsinline muted></video>
       <canvas id="overlay-canvas"></canvas>
+
+      <!-- 4s Countdown Overlay -->
+      <div id="leg-countdown-overlay" class="therapy-countdown-overlay">
+        <div class="tco-box">
+          <div class="tco-label" id="leg-tco-label">GET READY</div>
+          <div class="tco-num" id="leg-tco-num">4</div>
+          <div class="tco-hint" id="leg-tco-hint">Position both knees in view of camera</div>
+        </div>
+      </div>
+
+      <!-- Paused Overlay -->
+      <div id="leg-paused-overlay" class="therapy-paused-overlay">
+        <div class="tpo-box">
+          <div class="tpo-icon">⏸️</div>
+          <h2>Session Paused</h2>
+          <p>Rest your leg. Click Resume when ready to continue.</p>
+          <div class="tpo-actions">
+            <button id="modal-leg-resume" class="clin-btn clin-btn-primary">▶ Resume (4s)</button>
+            <button id="modal-leg-stop" class="clin-btn clin-btn-ghost">⏹ Stop</button>
+          </div>
+        </div>
+      </div>
 
       <div class="hemi-cluster hud-cluster">
         <div class="hud-box metric">

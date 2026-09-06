@@ -9,35 +9,25 @@
   <link rel="stylesheet" href="/static/css/auth.css" />
 </head>
 <body>
-  <canvas id="auth-bg" class="auth-bg"></canvas>
+  <!-- Doctor Stethoscope Background with 25-30% Optical Blur -->
+  <div class="auth-bg-layer" aria-hidden="true">
+    <div class="auth-bg-img"></div>
+    <div class="auth-bg-tint"></div>
+  </div>
 
   <main class="auth-wrap">
-    <!-- Brand panel -->
-    <div class="auth-hero">
-      <div class="auth-brand">
-        <span class="auth-mark">🏥</span>
-        <h1>RehabOpt</h1>
-        <p class="auth-tagline">Neuro-Rehabilitation Tele-Platform</p>
-      </div>
-      <div class="hero-note">
-        <p>
-          A hospital-grade motion-capture exercise suite for post-stroke
-          motor recovery — guided exercises, adaptive games and
-          clinical AI documentation from your webcam.
-        </p>
-        <ul class="hero-points">
-          <li>🦾 Guided exercise &amp; game sessions</li>
-          <li>📐 Deterministic biomechanical formulas</li>
-          <li>🔒 Zero-leak server-side AI (Gemini proxy)</li>
-          <li>🖨️ One-page printable SOAP report card</li>
-        </ul>
-      </div>
-      <div class="auth-footnote">For rehabilitation use only — not a replacement for in-person care.</div>
-    </div>
-
-    <!-- Auth card -->
+    <!-- Focused Patient Authentication Card -->
     <section class="auth-card" aria-label="Patient portal">
       <div class="auth-card-inner">
+        <!-- Top branding inside card -->
+        <div class="auth-brand-center">
+          <span class="auth-mark">🏥</span>
+          <div>
+            <h1>RehabOpt</h1>
+            <p class="auth-tagline">Neuro-Rehabilitation Tele-Platform</p>
+          </div>
+        </div>
+
         <div class="ac-head">
           <h2 id="auth-title">Patient Sign In</h2>
           <p class="ac-sub">Secure clinical access · session expires after 2 h</p>
@@ -98,22 +88,20 @@
           </form>
           <p class="switch-link">
             Already have a Patient ID?
-            <a href="#" id="go-signin">Sign In ➜</a>
+            <a href="#" id="go-signin">Sign in here ➜</a>
           </p>
         </div>
 
         <div class="security-row">
-          <span class="security-badge">🛡️ Patient Data Isolated</span>
-          <span class="security-badge">🔐 scrypt Encryption</span>
+          <span class="security-badge">🔒 Zero-Leak Privacy</span>
+          <span class="security-badge">🏥 Hospital Grade</span>
         </div>
       </div>
     </section>
   </main>
 
-  <!-- Toast -->
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-  <script src="/static/js/auth_canvas.js"></script>
   <script src="/static/js/auth.js"></script>
 </body>
 </html>

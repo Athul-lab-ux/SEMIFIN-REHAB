@@ -206,6 +206,12 @@ def auth_portal():
     return render_template("auth.html")
 
 
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect(url_for("auth_portal"))
+
+
 @app.route("/onboarding")
 @login_required
 def onboarding():
@@ -580,7 +586,7 @@ def api_report_stats():
     pid = session["patient_id"]
 
     user = db.execute(
-        "SELECT current_streak, selected_condition FROM patients WHERE patient_id = ?",
+        "SELECT patient_id, patient_name, current_streak, selected_condition FROM patients WHERE patient_id = ?",
         (pid,),
     ).fetchone()
 
@@ -595,9 +601,18 @@ def api_report_stats():
         (pid,),
     ).fetchone()
 
+    pname = ""
+    if user:
+        try:
+            pname = user["patient_name"] or ""
+        except (IndexError, KeyError):
+            pname = ""
+
     return jsonify({
         "status": "success",
         "stats": {
+            "patient_id": pid,
+            "patient_name": pname,
             "streak": user["current_streak"] if user else 1,
             "condition": user["selected_condition"] if user else "Hemiparesis",
             "total_sessions": stats["total_sessions"],
@@ -688,8 +703,9 @@ def generate_soap():
 # ---------------------------------------------------------------------------
 ALLOWED_MODELS = {
     "gemini-3.7-flash": "gemini-3.7-flash",
-    "gemini-2.5-pro": "gemini-2.5-pro",
     "gemini-3.6-flash": "gemini-3.6-flash",
+    "gemini-2.5-pro": "gemini-3.7-flash",
+    "gemini-2.5-flash": "gemini-3.7-flash",
 }
 
 
@@ -730,8 +746,8 @@ def ai_chat():
     attachments = data.get("attachments", [])  # List of { mime_type, data_base64 }
     patient_id = session["patient_id"]
 
-    # Validate model selection against allowlist — fallback to gemini-3.6-flash
-    selected_model = ALLOWED_MODELS.get(requested_model, "gemini-3.6-flash")
+    # Validate model selection against allowlist — fallback to gemini-3.7-flash
+    selected_model = ALLOWED_MODELS.get(requested_model, "gemini-3.7-flash")
 
     if not user_message and not attachments:
         return jsonify({"error": "Empty message"}), 400

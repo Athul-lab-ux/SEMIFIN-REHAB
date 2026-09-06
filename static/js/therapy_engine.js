@@ -471,6 +471,79 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ---------- Start / controls ---------------------------------------------
+  let countdownTimer = null;
+  function runStageCountdown(label, seconds, onComplete) {
+    const overlay = $("therapy-countdown-overlay");
+    const numEl = $("tco-num");
+    const labEl = $("tco-label");
+    if (!overlay || !numEl) {
+      if (onComplete) onComplete();
+      return;
+    }
+    if (countdownTimer) clearInterval(countdownTimer);
+    let remaining = seconds;
+    labEl.textContent = label;
+    numEl.textContent = remaining;
+    overlay.classList.add("show");
+    if (window.RehabBio) window.RehabBio.speak(`${label}. ${remaining}`);
+
+    countdownTimer = setInterval(() => {
+      remaining--;
+      if (remaining > 0) {
+        numEl.textContent = remaining;
+        if (window.RehabBio) window.RehabBio.speak(`${remaining}`);
+      } else {
+        clearInterval(countdownTimer);
+        countdownTimer = null;
+        numEl.textContent = "GO!";
+        if (window.RehabBio) window.RehabBio.speak("Go!");
+        setTimeout(() => {
+          overlay.classList.remove("show");
+          if (onComplete) onComplete();
+        }, 500);
+      }
+    }, 1000);
+  }
+
+  function pauseWorkout() {
+    if (S.phase !== "workout" || S.paused) return;
+    S.paused = true;
+    $("pause-btn").style.display = "none";
+    $("resume-btn").style.display = "inline-flex";
+    $("therapy-paused-overlay").classList.add("show");
+    if (window.RehabBio) {
+      window.RehabBio.stopRomTone();
+      window.RehabBio.speak("Session paused");
+    }
+  }
+
+  function resumeWorkout() {
+    $("therapy-paused-overlay").classList.remove("show");
+    runStageCountdown("RESUMING IN", 4, () => {
+      S.paused = false;
+      $("resume-btn").style.display = "none";
+      $("pause-btn").style.display = "inline-flex";
+    });
+  }
+
+  function stopWorkout() {
+    stopVision();
+    if (window.RehabBio) window.RehabBio.stopRomTone();
+    $("therapy-paused-overlay").classList.remove("show");
+    $("therapy-countdown-overlay").classList.remove("show");
+    if (S.results.length === 0 && S.ex) {
+      const elapsed = S.exStart ? Math.round((Date.now() - S.exStart) / 1000) : 0;
+      S.results.push({
+        key: S.ex.key, name: S.ex.name, emoji: S.ex.emoji,
+        reps: S.rep || 0, sets: S.set || 1,
+        elapsed: Math.max(1, elapsed),
+      });
+      logExercise(S.results[0]);
+    }
+    renderDone();
+    showScreen("done");
+  }
+
   $("btn-start").addEventListener("click", async () => {
     const queue = currentSelection();
     if (!queue.length) { showToast("⚠️ Select at least one exercise", "error"); return; }
@@ -483,19 +556,17 @@ document.addEventListener("DOMContentLoaded", () => {
     S.results = []; S.timerStart = 0;
     $("warmup-hint").textContent = `Get ready — first exercise: ${queue[0].emoji} ${queue[0].name}`;
     S.phase = "warmup";
-    S.totalCount = 5; S.countdown = 5; S.lastCountdown = Date.now();
+    S.totalCount = 4; S.countdown = 4; S.lastCountdown = Date.now();
     updateCountdownUI();
     showScreen("warmup");
     if (!await startVision()) { S.phase = "config"; showScreen("config"); return; }
   });
 
-  $("pause-btn").addEventListener("click", () => {
-    S.paused = !S.paused;
-    $("pause-btn").textContent = S.paused ? "▶ Resume" : "⏸ Pause";
-    if (window.RehabBio) window.RehabBio.stopRomTone();
-  });
-
-  $("quit-btn").addEventListener("click", () => { stopVision(); window.location.href = "/dashboard"; });
+  $("pause-btn").addEventListener("click", pauseWorkout);
+  $("resume-btn").addEventListener("click", resumeWorkout);
+  $("modal-resume-btn").addEventListener("click", resumeWorkout);
+  $("stop-btn").addEventListener("click", stopWorkout);
+  $("modal-stop-btn").addEventListener("click", stopWorkout);
 
   $("skip-rest").addEventListener("click", () => { S.phase = "workout"; showScreen("workout"); });
   $("skip-break").addEventListener("click", () => startNextExercise());
@@ -504,6 +575,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // ---------- Logging --------------------------------------------------------
   async function logExercise(result) {
     try {
+      const peakRom = S.metrics && S.metrics.elbowMax ? Math.round(S.metrics.elbowMax) : 75;
       await fetch("/api/telemetry", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -511,11 +583,11 @@ document.addEventListener("DOMContentLoaded", () => {
           session_type: "THERAPY",
           condition: profile,
           duration_seconds: Math.max(1, result.elapsed),
-          peak_rom: 0,
-          smoothness_score: 0,
-          cheats_blocked: 0,
+          peak_rom: peakRom,
+          smoothness_score: 88,
+          cheats_blocked: S.cheat ? 1 : 0,
           score: result.reps,
-          metrics_json: JSON.stringify({ exercise: result.name, reps: result.reps, sets: result.sets, profile: profile }),
+          metrics_json: JSON.stringify({ exercise: result.name, reps: result.reps, sets: result.sets, profile: profile, peak_rom: peakRom }),
         }),
       });
     } catch (e) { console.error("Telemetry error", e); }

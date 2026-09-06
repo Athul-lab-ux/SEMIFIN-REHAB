@@ -453,6 +453,71 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ---------- Start / controls ------------------------------------------
+  let legCountdownTimer = null;
+  function runLegCountdown(label, seconds, onComplete) {
+    const overlay = $("leg-countdown-overlay");
+    const numEl = $("leg-tco-num");
+    const labEl = $("leg-tco-label");
+    if (!overlay || !numEl) {
+      if (onComplete) onComplete();
+      return;
+    }
+    if (legCountdownTimer) clearInterval(legCountdownTimer);
+    let remaining = seconds;
+    labEl.textContent = label;
+    numEl.textContent = remaining;
+    overlay.classList.add("show");
+    if (window.RehabBio) window.RehabBio.speak(`${label}. ${remaining}`);
+
+    legCountdownTimer = setInterval(() => {
+      remaining--;
+      if (remaining > 0) {
+        numEl.textContent = remaining;
+        if (window.RehabBio) window.RehabBio.speak(`${remaining}`);
+      } else {
+        clearInterval(legCountdownTimer);
+        legCountdownTimer = null;
+        numEl.textContent = "GO!";
+        if (window.RehabBio) window.RehabBio.speak("Go!");
+        setTimeout(() => {
+          overlay.classList.remove("show");
+          if (onComplete) onComplete();
+        }, 500);
+      }
+    }, 1000);
+  }
+
+  function pauseLeg() {
+    if (S.phase !== "stage" || S.paused) return;
+    S.paused = true;
+    S.pauseStart = Date.now();
+    $("lg-pause").style.display = "none";
+    $("lg-resume").style.display = "inline-flex";
+    $("leg-paused-overlay").classList.add("show");
+    if (window.RehabBio) {
+      window.RehabBio.stopRomTone();
+      window.RehabBio.speak("Leg routine paused");
+    }
+  }
+
+  function resumeLeg() {
+    $("leg-paused-overlay").classList.remove("show");
+    runLegCountdown("RESUMING IN", 4, () => {
+      S.paused = false;
+      S.pauseStart = 0;
+      $("lg-resume").style.display = "none";
+      $("lg-pause").style.display = "inline-flex";
+    });
+  }
+
+  function stopLeg() {
+    stopVision();
+    if (window.RehabBio) window.RehabBio.stopRomTone();
+    $("leg-paused-overlay").classList.remove("show");
+    $("leg-countdown-overlay").classList.remove("show");
+    finishProgram();
+  }
+
   $("btn-start").addEventListener("click", async () => {
     S.repsTarget = Math.max(1, parseInt(repsInput.value) || 10);
     S.tsec = Math.max(2, parseInt(tsecInput.value) || 8);
@@ -472,20 +537,18 @@ document.addEventListener("DOMContentLoaded", () => {
       S.phase = "config"; showScreen("config"); return;
     }
     lastT = Date.now();
+    S.paused = true;
+    runLegCountdown("GET READY", 4, () => {
+      S.paused = false;
+      lastT = Date.now();
+    });
   });
 
-  $("lg-pause").addEventListener("click", () => {
-    S.paused = !S.paused;
-    $("lg-pause").textContent = S.paused ? "▶ Resume" : "⏸ Pause";
-    if (S.paused) {
-      S.pauseStart = Date.now();
-      if (window.RehabBio) window.RehabBio.stopRomTone();
-    } else {
-      // Time still stopped while paused — keep totalSec frozen.
-      S.pauseStart = 0;
-    }
-  });
-  $("lg-quit").addEventListener("click", () => { stopVision(); window.location.href = "/dashboard"; });
+  $("lg-pause").addEventListener("click", pauseLeg);
+  $("lg-resume").addEventListener("click", resumeLeg);
+  $("modal-leg-resume").addEventListener("click", resumeLeg);
+  $("lg-quit").addEventListener("click", stopLeg);
+  $("modal-leg-stop").addEventListener("click", stopLeg);
   $("lg-again").addEventListener("click", () => window.location.reload());
 
   // ---------- Tick loop (timers) -----------------------------------------

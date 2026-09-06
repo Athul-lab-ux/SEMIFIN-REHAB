@@ -1,6 +1,7 @@
 {% extends "app_shell.html" %}
 {% block extra_head %}
   <link rel="stylesheet" href="/static/css/adl.css" />
+  <link rel="stylesheet" href="/static/css/air_canvas.css" />
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
 {% endblock %}
@@ -10,6 +11,11 @@
     <div class="top-bar">
       <a href="/dashboard" class="back-btn">← Back</a>
       <h2>🔑 ADL Functional Lab</h2>
+      <div class="hud-controls" style="display:flex; gap:8px;">
+        <button id="adl-pause" class="c-ctrl-btn" style="display:none;" title="Pause task">⏸ Pause</button>
+        <button id="adl-resume" class="c-ctrl-btn primary" style="display:none;" title="Resume task (4s)">▶ Resume (4s)</button>
+        <button id="adl-stop" class="c-ctrl-btn danger" style="display:none;" title="Stop task">⏹ Stop</button>
+      </div>
       <span style="font-size:12px; color:var(--clin-slate);">Session 4 · Daily Task Simulation</span>
     </div>
 
@@ -30,6 +36,28 @@
       <video id="video" autoplay playsinline muted></video>
       <canvas id="hand-canvas"></canvas>
       <canvas id="game-canvas"></canvas>
+
+      <!-- 4s Countdown Overlay -->
+      <div id="adl-countdown-overlay" class="aircanvas-countdown-overlay">
+        <div class="aco-box">
+          <div class="aco-label" id="adl-aco-label">GET READY</div>
+          <div class="aco-num" id="adl-aco-num">4</div>
+          <div class="aco-hint" id="adl-aco-hint">Position your hand in front of the camera</div>
+        </div>
+      </div>
+
+      <!-- Paused Overlay -->
+      <div id="adl-paused-overlay" class="aircanvas-paused-overlay">
+        <div class="apo-box">
+          <div class="apo-icon">⏸️</div>
+          <h2>Task Paused</h2>
+          <p>Click Resume to continue.</p>
+          <div class="apo-actions">
+            <button id="modal-adl-resume" class="clin-btn clin-btn-primary">▶ Resume (4s)</button>
+            <button id="modal-adl-stop" class="clin-btn clin-btn-ghost">⏹ Stop</button>
+          </div>
+        </div>
+      </div>
 
       <!-- Task Menu -->
       <div id="task-menu">

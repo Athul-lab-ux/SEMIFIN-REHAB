@@ -200,14 +200,15 @@
   }
 
   // ---- Sign out -------------------------------------------------------
-  const logoutBtn = $("tb-brand");
+  const logoutBtn = $("tb-logout");
   if (logoutBtn && window.location.pathname !== "/auth") {
     logoutBtn.addEventListener("click", async (e) => {
       e.preventDefault();
-      logoutBtn.disabled = true;
       try {
         await fetch("/api/logout", { method: "POST" });
-      } catch (e) {}
+      } catch (err) {}
+      localStorage.removeItem("patientId");
+      localStorage.removeItem("selectedCondition");
       window.location.href = "/auth";
     });
   }
@@ -325,6 +326,8 @@
       $("tb-setting-logout").addEventListener("click", async () => {
         close();
         try { await fetch("/api/logout", { method: "POST" }); } catch (e) {}
+        localStorage.removeItem("patientId");
+        localStorage.removeItem("selectedCondition");
         window.location.href = "/auth";
       });
     }
