@@ -3,67 +3,106 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0F2A4A" />
   <title>RehabOpt AR — Arcade Arena</title>
+  <link rel="stylesheet" href="/static/css/clinical.css" />
   <link rel="stylesheet" href="/static/css/arcade.css" />
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
 </head>
 <body>
-  <div class="arcade-container">
-    <!-- Top Bar -->
-    <div class="top-bar">
-      <a href="/dashboard" class="back-btn">← Back</a>
-      <h2>🎮 Arcade Arena</h2>
-      <span style="font-size:12px; color:#a08a70;">Session 2</span>
-    </div>
+  <div class="app-frame">
+    {% include '_clinical_rail.html' %}
 
-    <!-- HUD Bar -->
-    <div class="hud-bar">
-      <div class="hud-item">
-        <div class="label">Score</div>
-        <div class="value" id="score-display">0</div>
-      </div>
-      <div class="hud-item">
-        <div class="label">⏱️ Time</div>
-        <div class="value" id="timer-display">00:00</div>
-      </div>
-      <div class="hud-item">
-        <div class="label">⚡ Combo</div>
-        <div class="value" id="combo-display">—</div>
-      </div>
-      <div class="hud-item">
-        <div class="label">Lives</div>
-        <div class="value" id="hearts-display">❤️❤️❤️</div>
-      </div>
-    </div>
+    <main class="app-main">
+      {% include '_clinical_topbar.html' %}
 
-    <!-- Game Area -->
-    <div class="game-area">
-      <video id="video" autoplay playsinline muted></video>
-      <canvas id="hand-canvas"></canvas>
-      <canvas id="game-canvas"></canvas>
-
-      <!-- Mode Menu -->
-      <div id="mode-menu">
-        <button id="btn-flappy" class="mode-btn">
-          🐦 Flappy Kinetic
-          <span class="desc">Wrist extension to flap • Navigate through pipes</span>
-        </button>
-        <button id="btn-fruit" class="mode-btn">
-          🍉 Fruit Ballistic
-          <span class="desc">Open palm to slice • Avoid 💣 hazards</span>
-        </button>
+      <div class="arcade-head">
+        <div>
+          <h1>🎮 Arcade Arena</h1>
+          <p class="ah-sub">Hand & arm-driven motor games · each trains a specific post-stroke movement</p>
+        </div>
+        <span class="clin-chip green">11 Therapeutic Games</span>
       </div>
-    </div>
+
+      <div class="arcade-layout">
+        <!-- Game shelf -->
+        <aside class="game-shelf" aria-label="Game selection">
+          <div class="shelf-label">🕹️ Select a Game</div>
+          <div id="game-list" class="game-list"><!-- injected by engine --></div>
+          <div class="shelf-hint">Tip: sit at arm's length from the camera so your full arm and hand are visible.</div>
+        </aside>
+
+        <!-- Stage -->
+        <section class="stage-col">
+          <div class="video-frame">
+            <video id="video" autoplay playsinline muted></video>
+            <canvas id="game-canvas"></canvas>
+            <canvas id="overlay-canvas"></canvas>
+            <div id="stage-placeholder" class="stage-placeholder">
+              <div class="sp-icon">🕹️</div>
+              <p><strong>Pick a game</strong> from the left shelf to begin.</p>
+              <p class="sp-sub">Your webcam stream starts automatically — camera data never leaves your device.</p>
+            </div>
+          </div>
+
+          <!-- HUD strip -->
+          <div class="hud-strip">
+            <div class="hud-chip"><span class="hud-lab">Score</span><span class="hud-val" id="score-display">0</span></div>
+            <div class="hud-chip"><span class="hud-lab">⏱️ Time</span><span class="hud-val" id="timer-display">00:00</span></div>
+            <div class="hud-chip"><span class="hud-lab">⚡ Combo</span><span class="hud-val" id="combo-display">—</span></div>
+            <div class="hud-chip"><span class="hud-lab">Lives</span><span class="hud-val" id="hearts-display">❤️❤️❤️</span></div>
+            <div class="hud-chip"><span class="hud-lab">Drive Metric</span><span class="hud-val" id="metric-display">—</span></div>
+          </div>
+
+          <!-- Live coaching line -->
+          <div class="guide-line" id="guide-line" role="status" aria-live="polite">
+            💬 Select a game to see how to play it.
+          </div>
+        </section>
+
+        <!-- KPI + controls panel -->
+        <aside class="kpi-panel" aria-label="Session telemetry">
+          <div class="kpi-card">
+            <div class="kpi-label">Active Game</div>
+            <div class="kpi-value" id="kpi-game">—</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Trains</div>
+            <div class="kpi-value kpi-sm" id="kpi-trains">—</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Formula</div>
+            <div class="kpi-value kpi-sm" id="kpi-formula">—</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Hand State</div>
+            <div class="kpi-value" id="kpi-hand">—</div>
+          </div>
+
+          <div class="kpi-controls">
+            <button id="btn-slower" class="ctl-btn" title="Slow the game down">🐢 Slower</button>
+            <span class="ctl-speed" id="speed-display">1.0x</span>
+            <button id="btn-faster" class="ctl-btn" title="Speed the game up">🚀 Faster</button>
+            <button id="btn-stop" class="ctl-btn stop">⏹ Stop</button>
+          </div>
+          <div class="keys-hint">
+            <span><kbd>P</kbd> Pause</span>
+            <span><kbd>R</kbd> Resume</span>
+            <span><kbd>Q</kbd> Quit</span>
+          </div>
+        </aside>
+      </div>
+    </main>
   </div>
 
   <!-- Toast -->
-  <div id="toast" class="toast"></div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
   {% include '_ai_widget.html' %}
   <script src="/static/js/kinematics.js"></script>
-  <script src="/static/js/camera.js"></script>
+  <script src="/static/js/qa_watchdog.js"></script>
   <script src="/static/js/streak_manager.js"></script>
+  <script src="/static/js/clinical_ui.js"></script>
+  <script src="/static/js/vision_loader.js"></script>
   <script src="/static/js/arcade_engine.js"></script>
 </body>
 </html>
