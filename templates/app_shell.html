@@ -6,17 +6,17 @@
   <meta name="theme-color" content="#0F2A4A" />
   <title>RehabOpt AR — Main Workspace</title>
   <link rel="stylesheet" href="/static/css/clinical.css" />
-  <link rel="stylesheet" href="/static/css/session_shell.css" />
+  {% block extra_head %}{% endblock %}
 </head>
 <body>
-  <canvas id="auth-bg" class="auth-bg"></canvas>
-
   <div class="app-frame" data-shell="true">
     {% include '_clinical_rail.html' %}
 
     <main class="app-main" id="app-main">
       {% include '_clinical_topbar.html' %}
-      <div id="session-slot"></div>
+      {% block content %}
+        {% block extra_body %}{% endblock %}
+      {% endblock %}
     </main>
   </div>
 
@@ -24,7 +24,6 @@
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
   {% include '_ai_widget.html' %}
-  {% block extra_head %}{% endblock %}
-  {% block extra_body %}{% endblock %}
+  {% block scripts %}{% endblock %}
 </body>
 </html>

@@ -1,93 +1,65 @@
 {% extends "app_shell.html" %}
 {% block extra_head %}
   <link rel="stylesheet" href="/static/css/air_canvas.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
 {% endblock %}
-{% block extra_body %}
-  <!-- Neon Air-Canvas workspace -->
-  <section class="session-shell">
-    <div class="sess-head">
-      <div>
-        <h2>🎨 Neon Air-Canvas</h2>
-        <p class="sess-sub">Fingertip drawing · trajectory corridors · tremor readout</p>
-      </div>
-      <div class="sess-status">
-        <span class="sess-badge" id="canvas-status">⏸ Paused</span>
-        <span class="sess-badge" id="canvas-cam">📷 Camera off</span>
-      </div>
+{% block content %}
+  <div class="canvas-container">
+    <!-- Top Bar -->
+    <div class="top-bar">
+      <a href="/dashboard" class="back-btn">← Back</a>
+      <h2>🎨 Neon Air-Canvas</h2>
+      <span style="font-size:12px; color:var(--clin-slate);">Session 3 · Ataxia &amp; Tremor Tracking</span>
     </div>
 
-    <div class="sess-workspace canvas-grid">
-      <div class="canvas-cam-stage">
-        <video id="air-video" autoplay muted playsinline webkit-playsinline></video>
-        <canvas id="air-overlay" class="overlay-canvas"></canvas>
-
-        <div class="hud-cluster hemi-cluster">
-          <div class="hud-row">
-            <div class="hud-chip canvas-hud">
-              <span class="hud-ico">📐</span>
-              <div>
-                <div class="hud-val" id="canvas-mode">Freeform</div>
-                <div class="hud-lab">Active mode</div>
-              </div>
-            </div>
-            <div class="hud-chip canvas-hud">
-              <span class="hud-ico">📏</span>
-              <div>
-                <div class="hud-val" id="canvas-precision">—</div>
-                <div class="hud-lab">Precision</div>
-              </div>
-            </div>
-            <div class="hud-chip canvas-hud">
-              <span class="hud-ico">🫨</span>
-              <div>
-                <div class="hud-val" id="canvas-tremor">— Hz</div>
-                <div class="hud-lab">Tremor</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="canvas-countdown" id="canvas-countdown" role="status" aria-live="polite" hidden>
-          <span class="count-num" id="count-num">4</span>
-          <span class="count-label">Calibrating</span>
-        </div>
-      </div>
-
-      <div class="canvas-tools" id="canvas-tools">
-        <div class="canvas-tool-group">
-          <span class="tool-group-label">Shapes</span>
-          <div class="tool-row" id="shape-tools">
-            <button type="button" class="tool-btn active" data-mode="free">✏️ Free</button>
-            <button type="button" class="tool-btn" data-mode="line">📏 Line</button>
-            <button type="button" class="tool-btn" data-mode="circle">⭕ Circle</button>
-            <button type="button" class="tool-btn" data-mode="square">🟥 Square</button>
-            <button type="button" class="tool-btn" data-mode="infinity">∞ Infinity</button>
-            <button type="button" class="tool-btn" data-mode="triangle">🔺 Triangle</button>
-          </div>
-        </div>
-        <div class="canvas-tool-group">
-          <span class="tool-group-label">Templates</span>
-          <div class="tool-row" id="template-tools">
-            <button type="button" class="tool-btn" data-mode="spiral">🌀 Spiral</button>
-            <button type="button" class="tool-btn" data-mode="star">⭐ Star</button>
-            <button type="button" class="tool-btn" data-mode="figure8">8 Figure-8</button>
-            <button type="button" class="tool-btn" data-mode="sine">〰️ Sine</button>
-            <button type="button" class="tool-btn" data-mode="zigzag">⚡ Zigzag</button>
-          </div>
-        </div>
-        <div class="canvas-tool-group">
-          <span class="tool-group-label">Actions</span>
-          <div class="tool-row">
-            <button type="button" class="tool-btn tool-btn-warn" id="canvas-clear">🧹 Clear</button>
-            <button type="button" class="tool-btn tool-btn-gesture" id="canvas-gesture-hint">✌️ Peace lift</button>
-          </div>
-        </div>
-      </div>
+    <!-- Template Toolbar -->
+    <div class="toolbar">
+      <button class="template-btn active" data-template="freeform">✏️ Freeform</button>
+      <button class="template-btn" data-template="line">📏 Line</button>
+      <button class="template-btn" data-template="circle">⭕ Circle</button>
+      <button class="template-btn" data-template="square">⬜ Square</button>
+      <button class="template-btn" data-template="infinity">∞ Infinity</button>
+      <button class="template-btn" data-template="triangle">🔺 Triangle</button>
+      <button class="template-btn" data-template="spiral">🌀 Spiral</button>
+      <button class="template-btn" data-template="star">⭐ Star</button>
+      <button class="template-btn" data-template="figure8">8 Figure-8</button>
+      <button class="template-btn" data-template="sine">〰️ Sine</button>
+      <button class="template-btn" data-template="zigzag">⚡ Zig-zag</button>
     </div>
 
-    <div class="sess-controls">
-      <button id="canvas-start" class="clin-btn clin-btn-primary">▶ Start Canvas</button>
-      <button id="canvas-stop" class="clin-btn clin-btn-secondary" disabled>⏹ Stop</button>
+    <!-- Color Palette -->
+    <div class="color-palette">
+      <button class="color-btn active" data-color="#00ff88" style="background:#00ff88;"></button>
+      <button class="color-btn" data-color="#ff6a00" style="background:#ff6a00;"></button>
+      <button class="color-btn" data-color="#00ccff" style="background:#00ccff;"></button>
+      <button class="color-btn" data-color="#ff4488" style="background:#ff4488;"></button>
+      <button class="color-btn" data-color="#ffd000" style="background:#ffd000;"></button>
+      <button id="clear-btn">🧹 Clear</button>
     </div>
-  </section>
+
+    <!-- Drawing Area -->
+    <div class="drawing-area">
+      <video id="video" autoplay playsinline muted></video>
+      <canvas id="draw-canvas"></canvas>
+      <canvas id="hand-canvas"></canvas>
+
+      <!-- HUD -->
+      <div class="canvas-hud">
+        <div class="hud-pill" id="accuracy-display">📐 100%</div>
+        <div class="hud-pill" id="tool-display">✏️ Freeform</div>
+      </div>
+
+      <!-- Gesture Hint -->
+      <div class="gesture-hint">✌️ Peace sign = pen lift</div>
+    </div>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+  <script src="/static/js/kinematics.js"></script>
+  <script src="/static/js/camera.js"></script>
+  <script src="/static/js/streak_manager.js"></script>
+  <script src="/static/js/clinical_ui.js"></script>
+  <script src="/static/js/air_canvas_engine.js"></script>
 {% endblock %}

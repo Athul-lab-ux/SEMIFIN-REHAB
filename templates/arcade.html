@@ -2,81 +2,90 @@
 {% block extra_head %}
   <link rel="stylesheet" href="/static/css/arcade.css" />
 {% endblock %}
-{% block extra_body %}
-  <!-- Games workspace -->
-  <section class="session-shell">
-    <div class="sess-head">
-      <div>
-        <h2>🎮 Games</h2>
-        <p class="sess-sub">Gamified motor games driven by wrist velocity, open palm and forearm rotation</p>
-      </div>
-      <div class="sess-status">
-        <span class="sess-badge" id="arcade-status">⏸ Paused</span>
-        <span class="sess-badge" id="arcade-cam">📷 Camera off</span>
-      </div>
+{% block content %}
+  <div class="arcade-head">
+    <div>
+      <h1>🎮 Games</h1>
+      <p class="ah-sub">Hand &amp; arm-driven motor games · each trains a specific post-stroke movement</p>
     </div>
+    <span class="clin-chip green">11 Therapeutic Games</span>
+  </div>
 
-    <div class="sess-workspace">
-      <div class="cam-stage" id="arcade-stage">
-        <video id="arcade-video" autoplay muted playsinline webkit-playsinline></video>
-        <canvas id="arcade-canvas" class="overlay-canvas"></canvas>
+  <div class="arcade-layout">
+    <!-- Game shelf -->
+    <aside class="game-shelf" aria-label="Game selection">
+      <div class="shelf-label">🕹️ Select a Game</div>
+      <div id="game-list" class="game-list"><!-- injected by engine --></div>
+      <div class="shelf-hint">Tip: sit at arm's length from the camera so your full arm and hand are visible.</div>
+    </aside>
 
-        <div class="hud-cluster hemi-cluster">
-          <div class="hud-row">
-            <div class="hud-chip">
-              <span class="hud-ico">🎮</span>
-              <div>
-                <div class="hud-val" id="arcade-game-label">Select a game</div>
-                <div class="hud-lab">Active game</div>
-              </div>
-            </div>
-            <div class="hud-chip">
-              <span class="hud-ico">❤️</span>
-              <div>
-                <div class="hud-val" id="arcade-hearts">❤️❤️❤️</div>
-                <div class="hud-lab">Lives</div>
-              </div>
-            </div>
-            <div class="hud-chip">
-              <span class="hud-ico">⭐</span>
-              <div>
-                <div class="hud-val" id="arcade-score">0</div>
-                <div class="hud-lab">Score</div>
-              </div>
-            </div>
-          </div>
-          <div class="hud-row">
-            <div class="hud-chip">
-              <span class="hud-ico">⚡</span>
-              <div>
-                <div class="hud-val" id="arcade-combo">×1</div>
-                <div class="hud-lab">Combo</div>
-              </div>
-            </div>
-            <div class="hud-chip">
-              <span class="hud-ico">⏱</span>
-              <div>
-                <div class="hud-val" id="arcade-timer">00:00</div>
-                <div class="hud-lab">Survival</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div id="arcade-hint" class="hint-banner" role="status" aria-live="polite">
-          <span class="hint-ico">💬</span>
-          <div class="hint-text" id="arcade-hint-text">Select a game to see how to play it. Your hand moves match what you see.</div>
+    <!-- Stage -->
+    <section class="stage-col">
+      <div class="video-frame">
+        <video id="video" autoplay playsinline muted></video>
+        <canvas id="game-canvas"></canvas>
+        <canvas id="overlay-canvas"></canvas>
+        <div id="stage-placeholder" class="stage-placeholder">
+          <div class="sp-icon">🕹️</div>
+          <p><strong>Pick a game</strong> from the left shelf to begin.</p>
+          <p class="sp-sub">Your webcam stream starts automatically — camera data never leaves your device. Moves match your hand directly.</p>
         </div>
       </div>
-    </div>
 
-    <div class="sess-controls" id="arcade-controls">
-      <div class="arcade-game-picker" id="arcade-picker">
-        <span class="arcade-picker-label">Pick a game:</span>
-        <div class="arcade-picker-grid" id="arcade-picker-grid"></div>
+      <!-- HUD strip -->
+      <div class="hud-strip">
+        <div class="hud-chip"><span class="hud-lab">Score</span><span class="hud-val" id="score-display">0</span></div>
+        <div class="hud-chip"><span class="hud-lab">⏱️ Time</span><span class="hud-val" id="timer-display">00:00</span></div>
+        <div class="hud-chip"><span class="hud-lab">⚡ Combo</span><span class="hud-val" id="combo-display">—</span></div>
+        <div class="hud-chip"><span class="hud-lab">Lives</span><span class="hud-val" id="hearts-display">❤️❤️❤️</span></div>
+        <div class="hud-chip"><span class="hud-lab">Drive Metric</span><span class="hud-val" id="metric-display">—</span></div>
       </div>
-      <button id="arcade-play" class="clin-btn clin-btn-primary" disabled>▶ Play</button>
-      <button id="arcade-stop" class="clin-btn clin-btn-secondary" disabled>⏹ Stop</button>
-    </div>
-  </section>
+
+      <!-- Live coaching line -->
+      <div class="guide-line" id="guide-line" role="status" aria-live="polite">
+        💬 Select a game to see how to play it.
+      </div>
+    </section>
+
+    <!-- KPI + controls panel -->
+    <aside class="kpi-panel" aria-label="Session telemetry">
+      <div class="kpi-card">
+        <div class="kpi-label">Active Game</div>
+        <div class="kpi-value" id="kpi-game">—</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Trains</div>
+        <div class="kpi-value kpi-sm" id="kpi-trains">—</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Formula</div>
+        <div class="kpi-value kpi-sm" id="kpi-formula">—</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Hand State</div>
+        <div class="kpi-value" id="kpi-hand">—</div>
+      </div>
+
+      <div class="kpi-controls">
+        <button id="btn-slower" class="ctl-btn" title="Slow the game down">🐢 Slower</button>
+        <span class="ctl-speed" id="speed-display">1.0x</span>
+        <button id="btn-faster" class="ctl-btn" title="Speed the game up">🚀 Faster</button>
+        <button id="btn-stop" class="ctl-btn stop">⏹ Stop</button>
+      </div>
+      <div class="keys-hint">
+        <span><kbd>P</kbd> Pause</span>
+        <span><kbd>R</kbd> Resume</span>
+        <span><kbd>Q</kbd> Quit</span>
+      </div>
+    </aside>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+  <script src="/static/js/kinematics.js"></script>
+  <script src="/static/js/qa_watchdog.js"></script>
+  <script src="/static/js/streak_manager.js"></script>
+  <script src="/static/js/clinical_ui.js"></script>
+  <script src="/static/js/vision_loader.js"></script>
+  <script src="/static/js/arcade_engine.js"></script>
 {% endblock %}
