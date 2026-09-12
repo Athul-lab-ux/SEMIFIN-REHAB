@@ -62,6 +62,7 @@ def get_db():
         g.db.row_factory = sqlite3.Row
         g.db.execute("PRAGMA journal_mode=WAL")
         g.db.execute("PRAGMA foreign_keys=ON")
+        ensure_schema_columns(g.db)
     return g.db
 
 
@@ -90,6 +91,7 @@ def ensure_schema_columns(db):
         "patient_phone": "TEXT DEFAULT ''",
         "primary_color": "TEXT DEFAULT ''",
         "secondary_color": "TEXT DEFAULT ''",
+        "profile_photo": "TEXT DEFAULT ''",
     }
     for col, ddl in additions.items():
         if col not in existing:
@@ -278,35 +280,47 @@ def leg():
 def report():
     return render_template("report.html")
 
+
+@app.route("/profile")
+@login_required
+@onboarding_required
+def profile():
+    return render_template("profile.html")
+
 # ---------------------------------------------------------------------------
 # API Routes — Authentication
 # ---------------------------------------------------------------------------
 @app.route("/api/register", methods=["POST"])
 def api_register():
     data = request.get_json() or {}
-    email = (data.get("email") or "").strip().lower()
+    email = (data.get("email") or data.get("username") or "").strip().lower()
+    name = (data.get("patient_name") or data.get("name") or "").strip()[:60]
     password = data.get("password") or ""
 
     if not email or not password:
-        return jsonify({"status": "error", "message": "Email and password are required"}), 400
+        return jsonify({"status": "error", "message": "Email or Username and password are required"}), 400
 
-    if not re.match(r"[^@]+@[^@]+\.[^@]+", email):
-        return jsonify({"status": "error", "message": "Invalid email format"}), 400
+    is_email = bool(re.match(r"[^@]+@[^@]+\.[^@]+", email))
+    is_username = bool(re.match(r"^[a-zA-Z0-9_\.\-]{2,50}$", email))
+    if not is_email and not is_username:
+        return jsonify({"status": "error", "message": "Please enter a valid email (e.g. user@hospital.org) or username (e.g. u1)"}), 400
 
-    if len(password) < 8:
-        return jsonify({"status": "error", "message": "Password must be at least 8 characters"}), 400
+    if len(password) < 6:
+        return jsonify({"status": "error", "message": "Password must be at least 6 characters"}), 400
 
     db = get_db()
 
     # Check duplicate email
-    existing = db.execute("SELECT id FROM patients WHERE email = ?", (email,)).fetchone()
+    existing = db.execute("SELECT id FROM patients WHERE LOWER(email) = ?", (email,)).fetchone()
     if existing:
-        return jsonify({"status": "error", "message": "Email already registered"}), 409
+        return jsonify({"status": "error", "message": "This email/username is already registered. Please sign in."}), 409
 
     patient_id = generate_next_patient_id(db)
     password_hash = generate_password_hash(password, method="scrypt")
 
-    name = (data.get("patient_name") or "").strip()[:60]
+    if not name:
+        name = email.split("@")[0].capitalize()
+
     dob = (data.get("patient_dob") or "").strip()[:10]
     phone = (data.get("patient_phone") or "").strip()[:20]
     primary_color = (data.get("primary_color") or "").strip().lower()
@@ -318,8 +332,8 @@ def api_register():
 
     db.execute(
         """INSERT INTO patients (patient_id, email, password_hash, selected_condition, current_streak, last_session_date,
-           patient_name, patient_dob, patient_phone, primary_color, secondary_color)
-           VALUES (?, ?, ?, 'Hemiparesis', 1, NULL, ?, ?, ?, ?, ?)""",
+           patient_name, patient_dob, patient_phone, primary_color, secondary_color, profile_photo)
+           VALUES (?, ?, ?, 'Hemiparesis', 1, NULL, ?, ?, ?, ?, ?, '')""",
         (patient_id, email, password_hash, name, dob, phone, primary_color, secondary_color),
     )
     db.commit()
@@ -327,33 +341,60 @@ def api_register():
     return jsonify({
         "status": "success",
         "patient_id": patient_id,
-        "message": f"Account created! Your Patient ID is {patient_id}",
+        "email": email,
+        "patient_name": name,
+        "message": f"Account permanently created! Patient ID: {patient_id}. You can sign in anytime using your Email, Username, or Patient ID.",
     })
 
 
 @app.route("/api/login", methods=["POST"])
 def api_login():
     data = request.get_json() or {}
-    patient_id = (data.get("patient_id") or "").strip().upper()
+    raw_ident = (data.get("patient_id") or data.get("email") or data.get("identifier") or data.get("username") or "").strip()
     password = data.get("password") or ""
 
-    if not patient_id or not password:
-        return jsonify({"status": "error", "message": "Patient ID and password are required"}), 400
+    if not raw_ident or not password:
+        return jsonify({"status": "error", "message": "Patient ID, Email, or Username and password are required"}), 400
 
     db = get_db()
-    user = db.execute("SELECT * FROM patients WHERE patient_id = ?", (patient_id,)).fetchone()
+    user = None
+
+    # 1. Match on exact patient_id (case-insensitive)
+    user = db.execute("SELECT * FROM patients WHERE UPPER(patient_id) = ?", (raw_ident.upper(),)).fetchone()
+
+    # 2. Match on email (case-insensitive)
+    if not user:
+        user = db.execute("SELECT * FROM patients WHERE LOWER(email) = ?", (raw_ident.lower(),)).fetchone()
+
+    # 3. Match on patient_name (case-insensitive)
+    if not user:
+        user = db.execute("SELECT * FROM patients WHERE LOWER(patient_name) = ?", (raw_ident.lower(),)).fetchone()
+
+    # 4. Numeric matching (e.g. "2", "02", "SP-2" -> "SP-000000002")
+    if not user:
+        num_clean = re.sub(r"[^0-9]", "", raw_ident)
+        if num_clean and (raw_ident.isdigit() or raw_ident.upper().startswith("SP-")):
+            try:
+                formatted_id = f"SP-{int(num_clean):09d}"
+                user = db.execute("SELECT * FROM patients WHERE patient_id = ?", (formatted_id,)).fetchone()
+            except ValueError:
+                pass
 
     if not user or not check_password_hash(user["password_hash"], password):
-        return jsonify({"status": "error", "message": "Invalid credentials"}), 401
+        return jsonify({"status": "error", "message": "Invalid credentials. Please verify your Patient ID, Email, or Password."}), 401
 
     session.permanent = True
     session["patient_id"] = user["patient_id"]
     session["email"] = user["email"]
+    session["patient_name"] = user["patient_name"]
 
     return jsonify({
         "status": "success",
         "patient_id": user["patient_id"],
+        "email": user["email"],
+        "patient_name": user["patient_name"],
         "condition": user["selected_condition"],
+        "onboarding_done": bool(user["onboarding_done"]),
     })
 
 
@@ -370,23 +411,99 @@ def api_logout():
 @login_required
 def api_profile():
     db = get_db()
+    pid = session["patient_id"]
     user = db.execute(
         """SELECT patient_id, email, selected_condition, current_streak, last_session_date,
                   onboarding_done, stroke_onset, affected_side, onset_ago,
                   daily_struggles, doing_therapy, pain_level, rehab_goal, goal_note,
                   patient_name, patient_dob, patient_phone,
-                  primary_color, secondary_color
+                  primary_color, secondary_color, profile_photo, created_at
            FROM patients WHERE patient_id = ?""",
-        (session["patient_id"],),
+        (pid,),
     ).fetchone()
     if not user:
         return jsonify({"status": "error", "message": "Patient not found"}), 404
 
+    # Calculate aggregate telemetry statistics
+    stats = db.execute(
+        """SELECT COUNT(*) as total_sessions,
+                  COALESCE(SUM(duration_seconds), 0) as total_seconds,
+                  COALESCE(MAX(peak_rom), 0) as best_rom,
+                  COALESCE(SUM(score), 0) as total_score
+           FROM telemetry_logs WHERE patient_id = ?""",
+        (pid,),
+    ).fetchone()
+
     profile = dict(user)
+    profile["total_sessions"] = stats["total_sessions"] if stats else 0
+    profile["total_minutes"] = round((stats["total_seconds"] if stats else 0) / 60, 1)
+    profile["best_rom"] = round(stats["best_rom"] if stats else 0, 1)
+    profile["total_score"] = stats["total_score"] if stats else 0
+
     return jsonify({
         "status": "success",
         "profile": profile,
     })
+
+
+@app.route("/api/profile/update", methods=["POST"])
+@login_required
+def api_profile_update():
+    data = request.get_json() or {}
+    db = get_db()
+    pid = session["patient_id"]
+
+    patient_name = (data.get("patient_name") or "").strip()[:60]
+    patient_phone = (data.get("patient_phone") or "").strip()[:20]
+    patient_dob = (data.get("patient_dob") or "").strip()[:10]
+    selected_condition = (data.get("selected_condition") or "").strip()
+    affected_side = (data.get("affected_side") or "").strip().lower()
+    onset_ago = (data.get("onset_ago") or "").strip()[:40]
+    doing_therapy = (data.get("doing_therapy") or "").strip().lower()
+    pain_level = (data.get("pain_level") or "").strip().lower()
+    rehab_goal = (data.get("rehab_goal") or "").strip()[:500]
+    primary_color = (data.get("primary_color") or "").strip().lower()
+    secondary_color = (data.get("secondary_color") or "").strip().lower()
+
+    if selected_condition and selected_condition not in VALID_CONDITIONS:
+        selected_condition = "Hemiparesis"
+
+    db.execute(
+        """UPDATE patients SET
+           patient_name = COALESCE(NULLIF(?, ''), patient_name),
+           patient_phone = ?,
+           patient_dob = ?,
+           selected_condition = COALESCE(NULLIF(?, ''), selected_condition),
+           affected_side = ?,
+           onset_ago = ?,
+           doing_therapy = ?,
+           pain_level = ?,
+           rehab_goal = ?,
+           primary_color = ?,
+           secondary_color = ?
+           WHERE patient_id = ?""",
+        (patient_name, patient_phone, patient_dob, selected_condition, affected_side,
+         onset_ago, doing_therapy, pain_level, rehab_goal, primary_color, secondary_color, pid)
+    )
+    db.commit()
+    return jsonify({"status": "success", "message": "Profile updated successfully"})
+
+
+@app.route("/api/profile/photo", methods=["POST"])
+@login_required
+def api_profile_photo():
+    data = request.get_json() or {}
+    photo_data = data.get("photo") or ""
+    if photo_data and len(photo_data) > 3_000_000:
+        return jsonify({"status": "error", "message": "Photo size too large (max 3MB)"}), 400
+
+    db = get_db()
+    db.execute(
+        "UPDATE patients SET profile_photo = ? WHERE patient_id = ?",
+        (photo_data, session["patient_id"])
+    )
+    db.commit()
+    return jsonify({"status": "success", "message": "Profile photo updated successfully", "profile_photo": photo_data})
 
 
 @app.route("/api/profile/colors", methods=["POST"])

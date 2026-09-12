@@ -1,5 +1,7 @@
 /**
- * Auth Portal — Login/Register Logic
+ * Auth Portal — Clinical Login & Permanent Patient Registration
+ * Handles flexible identifiers (Patient ID, Email, Username, or Numeric ID)
+ * and seamless routing for returning patients.
  */
 document.addEventListener("DOMContentLoaded", () => {
   const signInTab = document.getElementById("sign-in-tab");
@@ -7,6 +9,13 @@ document.addEventListener("DOMContentLoaded", () => {
   const signInPanel = document.getElementById("sign-in-panel");
   const registerPanel = document.getElementById("register-panel");
   const toast = document.getElementById("toast");
+  const siInput = document.getElementById("si-patient-id");
+
+  // Pre-fill previous identifier if remembered on this device
+  const savedIdent = localStorage.getItem("last_identifier") || localStorage.getItem("last_patient_id");
+  if (savedIdent && siInput) {
+    siInput.value = savedIdent;
+  }
 
   // --- Tab Switching ---
   signInTab.addEventListener("click", () => {
@@ -50,9 +59,15 @@ document.addEventListener("DOMContentLoaded", () => {
   const signInForm = document.getElementById("sign-in-form");
   signInForm.addEventListener("submit", async (e) => {
     e.preventDefault();
-    const pid = document.getElementById("si-patient-id").value.trim();
+    const ident = document.getElementById("si-patient-id").value.trim();
     const pw = document.getElementById("si-password").value;
     const btn = signInForm.querySelector('button[type="submit"]');
+
+    if (!ident || !pw) {
+      showToast("⚠️ Please enter your Patient ID/Email and password", "error");
+      return;
+    }
+
     btn.disabled = true;
     btn.textContent = "⏳ Signing in...";
 
@@ -60,21 +75,20 @@ document.addEventListener("DOMContentLoaded", () => {
       const res = await fetch("/api/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ patient_id: pid, password: pw }),
+        body: JSON.stringify({ patient_id: ident, password: pw }),
       });
       const data = await res.json();
       if (data.status === "success") {
-        showToast("✅ Login successful! Redirecting...", "success");
-        // First-time patients must complete onboarding before the dashboard
-        setTimeout(async () => {
-          try {
-            const sres = await fetch("/api/onboarding/status");
-            const sdata = await sres.json();
-            window.location.href = sdata.onboarding_done ? "/dashboard" : "/onboarding";
-          } catch (e) {
-            window.location.href = "/dashboard";
-          }
-        }, 800);
+        showToast("✅ Welcome back! Loading your clinical workspace…", "success");
+        localStorage.setItem("last_identifier", ident);
+        localStorage.setItem("last_patient_id", data.patient_id);
+        if (data.patient_name) localStorage.setItem("patient_name", data.patient_name);
+        if (data.condition) localStorage.setItem("selectedCondition", data.condition);
+
+        // If patient already completed onboarding, go straight to Dashboard; never ask steps again
+        setTimeout(() => {
+          window.location.href = data.onboarding_done ? "/dashboard" : "/onboarding";
+        }, 500);
       } else {
         showToast(`❌ ${data.message}`, "error");
       }
@@ -90,61 +104,85 @@ document.addEventListener("DOMContentLoaded", () => {
   const registerForm = document.getElementById("register-form");
   registerForm.addEventListener("submit", async (e) => {
     e.preventDefault();
+    const name = document.getElementById("reg-name").value.trim();
     const email = document.getElementById("reg-email").value.trim();
     const pw = document.getElementById("reg-password").value;
     const pw2 = document.getElementById("reg-password2").value;
     const btn = registerForm.querySelector('button[type="submit"]');
+
+    if (!email || !pw) {
+      showToast("⚠️ Email/Username and password are required", "error");
+      return;
+    }
 
     if (pw !== pw2) {
       showToast("❌ Passwords do not match", "error");
       return;
     }
 
+    if (pw.length < 6) {
+      showToast("❌ Password must be at least 6 characters", "error");
+      return;
+    }
+
     btn.disabled = true;
-    btn.textContent = "⏳ Creating account...";
+    btn.textContent = "⏳ Creating permanent account...";
 
     try {
       const res = await fetch("/api/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password: pw }),
+        body: JSON.stringify({ patient_name: name, email, password: pw }),
       });
       const data = await res.json();
       if (data.status === "success") {
-        showToast(
-          `🎉 Patient ID Assigned: ${data.patient_id}`,
-          "success"
-        );
-        // Copy to clipboard and switch to sign-in
-        navigator.clipboard.writeText(data.patient_id).catch(() => {});
+        showToast(`🎉 Account Created! Your Patient ID is ${data.patient_id}`, "success");
+        localStorage.setItem("last_identifier", data.patient_id);
+        localStorage.setItem("last_patient_id", data.patient_id);
+        if (data.patient_name) localStorage.setItem("patient_name", data.patient_name);
+
+        // Pre-fill Sign-In field and switch tab smoothly
         document.getElementById("si-patient-id").value = data.patient_id;
-        document.getElementById("si-password").value = "";
-        setTimeout(() => signInTab.click(), 1500);
+        document.getElementById("si-password").value = pw;
+        setTimeout(() => {
+          signInTab.click();
+          showToast(`ℹ️ You can now sign in using '${data.patient_id}' or '${email}'`, "info");
+        }, 1200);
       } else {
         showToast(`❌ ${data.message}`, "error");
       }
     } catch (err) {
-      showToast("❌ Network error. Please try again.", "error");
+      showToast("❌ Network connection failed. Please try again.", "error");
     } finally {
       btn.disabled = false;
-      btn.textContent = "📋 Register New Patient";
+      btn.textContent = "📋 Register Patient Profile";
     }
   });
 
-  // --- Demo Account ---
-  document.getElementById("demo-btn").addEventListener("click", () => {
-    document.getElementById("si-patient-id").value = "SP-000000001";
-    document.getElementById("si-password").value = "PatientDemo@123";
-    showToast("⚡ Demo credentials filled!", "info");
-  });
+  // --- Quick Demo Account ---
+  const demoBtn = document.getElementById("demo-btn");
+  if (demoBtn) {
+    demoBtn.addEventListener("click", () => {
+      document.getElementById("si-patient-id").value = "SP-000000001";
+      document.getElementById("si-password").value = "PatientDemo@123";
+      showToast("⚡ Demo credentials filled (SP-000000001)", "info");
+    });
+  }
 
   // --- Navigation Links ---
-  document.getElementById("go-register").addEventListener("click", (e) => {
-    e.preventDefault();
-    registerTab.click();
-  });
-  document.getElementById("go-signin").addEventListener("click", (e) => {
-    e.preventDefault();
-    signInTab.click();
-  });
+  const goRegister = document.getElementById("go-register");
+  if (goRegister) {
+    goRegister.addEventListener("click", (e) => {
+      e.preventDefault();
+      registerTab.click();
+    });
+  }
+
+  const goSignin = document.getElementById("go-signin");
+  if (goSignin) {
+    goSignin.addEventListener("click", (e) => {
+      e.preventDefault();
+      signInTab.click();
+    });
+  }
 });

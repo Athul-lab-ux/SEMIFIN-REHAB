@@ -1,0 +1,184 @@
+{% extends "app_shell.html" %}
+{% block extra_head %}
+  <link rel="stylesheet" href="/static/css/profile.css" />
+{% endblock %}
+
+{% block content %}
+<div class="profile-container">
+  <!-- Page Header -->
+  <header class="profile-page-header">
+    <div>
+      <h1 class="profile-title">👤 Patient Medical Profile</h1>
+      <p class="profile-subtitle">Permanent clinical records, stroke deficit settings, and personal identity.</p>
+    </div>
+    <div class="profile-header-actions">
+      <a href="/dashboard" class="clin-btn clin-btn-ghost">← Back to Dashboard</a>
+      <button id="save-profile-btn" class="clin-btn clin-btn-primary">💾 Save Changes</button>
+    </div>
+  </header>
+
+  <!-- Layout Grid -->
+  <div class="profile-grid">
+    <!-- Left Column: Patient Identity & Avatar Card -->
+    <aside class="profile-sidebar-card">
+      <div class="avatar-wrap">
+        <div class="avatar-circle" id="avatar-preview">
+          <span id="avatar-initials">P</span>
+          <img id="avatar-img" src="" alt="Profile Photo" style="display:none;" />
+        </div>
+        <label for="photo-input" class="avatar-upload-badge" title="Change Profile Photo">
+          📷 <span class="aub-text">Change</span>
+        </label>
+        <input type="file" id="photo-input" accept="image/*" style="display:none;" />
+      </div>
+
+      <h2 class="patient-display-name" id="disp-name">Patient</h2>
+      <div class="patient-id-badge">
+        <span class="pid-text" id="disp-patient-id">SP-000000001</span>
+        <button id="copy-id-btn" class="btn-copy-id" title="Copy Patient ID">📋 Copy</button>
+      </div>
+
+      <div class="profile-streak-pill" id="disp-streak-wrap">
+        <span class="psp-icon">🔥</span>
+        <span class="psp-text" id="disp-streak">1 Day Streak</span>
+      </div>
+
+      <!-- Quick Lifetime Stats -->
+      <div class="profile-stat-box">
+        <div class="psb-item">
+          <span class="psb-val" id="stat-sessions">0</span>
+          <span class="psb-label">Sessions</span>
+        </div>
+        <div class="psb-item">
+          <span class="psb-val" id="stat-minutes">0</span>
+          <span class="psb-label">Rehab Mins</span>
+        </div>
+        <div class="psb-item">
+          <span class="psb-val" id="stat-rom">0°</span>
+          <span class="psb-label">Peak ROM</span>
+        </div>
+      </div>
+
+      <div class="account-meta">
+        <div class="meta-row">
+          <span class="mr-label">Account Status</span>
+          <span class="mr-val active">● Active Patient</span>
+        </div>
+        <div class="meta-row">
+          <span class="mr-label">Login Identifier</span>
+          <span class="mr-val" id="disp-email">—</span>
+        </div>
+        <div class="meta-row">
+          <span class="mr-label">Member Since</span>
+          <span class="mr-val" id="disp-created">—</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Right Column: Medical & Personal Profile Settings -->
+    <main class="profile-main-content">
+      <!-- Section 1: Personal Details -->
+      <section class="prof-card">
+        <h3 class="prof-card-title"><span class="pct-icon">🪪</span> Personal Identification</h3>
+        <div class="form-row-2">
+          <div class="form-field">
+            <label for="input-name">Full Name / Display Name</label>
+            <input type="text" id="input-name" placeholder="Your name (e.g. Athul)" />
+          </div>
+          <div class="form-field">
+            <label for="input-email">Permanent Email / Username</label>
+            <input type="text" id="input-email" disabled title="Permanent account login identifier" />
+          </div>
+        </div>
+        <div class="form-row-2">
+          <div class="form-field">
+            <label for="input-dob">Date of Birth</label>
+            <input type="date" id="input-dob" />
+          </div>
+          <div class="form-field">
+            <label for="input-phone">Contact Phone Number</label>
+            <input type="tel" id="input-phone" placeholder="+1 (555) 000-0000" />
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 2: Clinical Stroke Rehabilitation Details -->
+      <section class="prof-card">
+        <h3 class="prof-card-title"><span class="pct-icon">🧠</span> Clinical Deficit & Condition</h3>
+        <div class="form-row-2">
+          <div class="form-field">
+            <label for="select-condition">Assigned Stroke Category</label>
+            <select id="select-condition">
+              <option value="Hemiparesis">🦾 Hemiparesis (One-Sided Weakness)</option>
+              <option value="Flexor Spasticity">✋ Flexor Spasticity (Clenched Hand)</option>
+              <option value="Motor Ataxia">🎯 Motor Ataxia (Coordination Loss)</option>
+              <option value="Intention Tremor">🫨 Intention Tremor (Movement Shaking)</option>
+              <option value="Motor Apraxia">🧠 Motor Apraxia (Motor Planning)</option>
+              <option value="Wrist Drop">🤚 Wrist Drop (Radial Nerve Palsy)</option>
+              <option value="Lower-Limb">🦵 Lower-Limb / Knee Mobility</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label for="select-side">Paretic / Affected Side</label>
+            <select id="select-side">
+              <option value="left">Left Side</option>
+              <option value="right">Right Side</option>
+              <option value="both">Bilateral / Both Sides</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row-2">
+          <div class="form-field">
+            <label for="select-onset">Time Since Stroke Event</label>
+            <select id="select-onset">
+              <option value="<1m">Less than 1 month</option>
+              <option value="1-3m">1 to 3 months</option>
+              <option value="3-6m">3 to 6 months</option>
+              <option value="6-12m">6 to 12 months</option>
+              <option value="1y+">More than 1 year</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label for="select-pain">Current Joint / Muscle Pain Level</label>
+            <select id="select-pain">
+              <option value="none">🟢 None (No pain)</option>
+              <option value="mild">🟡 Mild (Comfortable to exercise)</option>
+              <option value="moderate">🟠 Moderate (Needs gentle pacing)</option>
+              <option value="severe">🔴 Severe (Consult physical therapist)</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-field" style="margin-top:14px;">
+          <label for="input-goal">Personal Rehabilitation Recovery Goal</label>
+          <textarea id="input-goal" rows="2" placeholder="e.g., Hold a cup without spilling, lift my arm above shoulder level, walk independently..."></textarea>
+        </div>
+      </section>
+
+      <!-- Section 3: App Theme Personalization -->
+      <section class="prof-card">
+        <h3 class="prof-card-title"><span class="pct-icon">🎨</span> Personal Theme Color</h3>
+        <p class="prof-card-desc">Choose an accent color that feels energizing and comfortable for your daily sessions.</p>
+        <div class="color-picker-grid">
+          <button type="button" class="color-swatch active" data-color="#FF6A00" style="background:#FF6A00;" title="Neuro Orange"></button>
+          <button type="button" class="color-swatch" data-color="#0284C7" style="background:#0284C7;" title="Clinical Cyan"></button>
+          <button type="button" class="color-swatch" data-color="#10B981" style="background:#10B981;" title="Emerald Recovery"></button>
+          <button type="button" class="color-swatch" data-color="#8B5CF6" style="background:#8B5CF6;" title="Violet Harmony"></button>
+          <button type="button" class="color-swatch" data-color="#EC4899" style="background:#EC4899;" title="Rose Energy"></button>
+          <button type="button" class="color-swatch" data-color="#1E40AF" style="background:#1E40AF;" title="Cobalt Hospital"></button>
+        </div>
+      </section>
+
+      <!-- Bottom Action Bar -->
+      <div class="profile-bottom-bar">
+        <button id="save-profile-btn-bottom" class="clin-btn clin-btn-primary" style="padding: 12px 28px; font-size: 15px;">
+          💾 Save All Changes
+        </button>
+      </div>
+    </main>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+  <script src="/static/js/profile.js"></script>
+{% endblock %}

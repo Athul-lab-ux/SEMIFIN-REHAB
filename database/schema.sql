@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS patients (
     patient_phone TEXT DEFAULT '',           -- optional phone number
     primary_color TEXT DEFAULT '',           -- user's chosen primary accent
     secondary_color TEXT DEFAULT '',         -- user's chosen secondary accent
+    profile_photo TEXT DEFAULT '',           -- base64 data URL or photo path
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
