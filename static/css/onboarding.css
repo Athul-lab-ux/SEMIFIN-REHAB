@@ -527,13 +527,24 @@
 
 /* Responsive Adjustments */
 @media (max-width: 640px) {
+  .obo-body {
+    padding: 16px 12px 48px;
+  }
   .obo-card {
-    padding: 26px 20px 22px;
+    padding: 20px 14px 18px;
+    border-radius: 16px;
+  }
+  .obo-options {
+    grid-template-columns: 1fr;
+    gap: 10px;
   }
   .obo-actions {
     flex-direction: column-reverse;
   }
   .obo-actions .clin-btn {
     width: 100%;
+  }
+  .obo-input, select {
+    font-size: 16px !important; /* Prevents iOS Safari auto-zoom */
   }
 }

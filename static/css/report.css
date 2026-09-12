@@ -166,6 +166,53 @@
 .toast.error { background: #FEE2E2; border: 1px solid #FCA5A5; color: #991B1B; }
 .toast.info { background: var(--clin-orange-tint); border: 1px solid rgba(255, 106, 0, 0.4); color: #9A3412; }
 
+@media (max-width: 640px) {
+  .report-sheet {
+    padding: 18px 14px;
+    border-radius: 12px;
+  }
+  .actions-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .actions-right {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    gap: 8px;
+  }
+  .actions-right .clin-btn {
+    width: 100%;
+    justify-content: center;
+  }
+  .letterhead {
+    flex-direction: column;
+    gap: 8px;
+    border-bottom: 2px solid var(--clin-navy);
+  }
+  .lh-title, .lh-date {
+    text-align: left;
+  }
+  .patient-bar {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px 14px;
+    padding: 10px 12px;
+  }
+  .stats-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .sign-line {
+    flex-direction: column;
+    gap: 12px;
+  }
+  .sig-space {
+    width: 100%;
+  }
+}
+
 /* ==========================================================================
    PRINT — single physical page, pure white, black typography
    ========================================================================== */

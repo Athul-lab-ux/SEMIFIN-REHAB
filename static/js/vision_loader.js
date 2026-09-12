@@ -115,19 +115,57 @@ const VisionLoader = (() => {
       if (!ok) return false;
     }
     try {
+      const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
       const deviceId = localStorage.getItem("preferred_camera_id") || undefined;
-      const constraints = {
-        audio: false,
-        video: deviceId
-          ? { deviceId: { exact: deviceId }, facingMode: "user" }
-          : { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 30, max: 30 } },
-      };
-      stream = await navigator.mediaDevices.getUserMedia(constraints);
+
+      const baseVideoConstraints = deviceId
+        ? { deviceId: { exact: deviceId } }
+        : { facingMode: "user" };
+
+      const candidateConstraints = [
+        {
+          audio: false,
+          video: {
+            ...baseVideoConstraints,
+            width: { ideal: isMobile ? 480 : 640 },
+            height: { ideal: isMobile ? 640 : 480 },
+            frameRate: { ideal: 30, max: 30 },
+          },
+        },
+        {
+          audio: false,
+          video: {
+            facingMode: "user",
+            frameRate: { ideal: 30 },
+          },
+        },
+        {
+          audio: false,
+          video: true,
+        },
+      ];
+
+      stream = null;
+      let lastErr = null;
+      for (const c of candidateConstraints) {
+        try {
+          stream = await navigator.mediaDevices.getUserMedia(c);
+          if (stream) break;
+        } catch (e) {
+          lastErr = e;
+        }
+      }
+
+      if (!stream) throw lastErr || new Error("Failed to access camera");
+
       video.srcObject = stream;
       video.setAttribute("playsinline", "true");
       video.setAttribute("webkit-playsinline", "true");
       video.setAttribute("autoplay", "true");
       video.setAttribute("muted", "true");
+      video.playsInline = true;
+      video.muted = true;
+
       await new Promise((resolve) => {
         if (video.readyState >= 2) return resolve();
         video.onloadedmetadata = () => resolve();

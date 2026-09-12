@@ -251,6 +251,11 @@ body {
 
 /* ---------- Responsive ---------- */
 @media (max-width: 600px) {
-  .auth-card-inner { padding: 22px 18px 20px; }
-  .auth-brand-center h1 { font-size: 21px; }
+  body { padding: 16px 12px; }
+  .auth-card { border-radius: 16px; }
+  .auth-card-inner { padding: 20px 16px 18px; }
+  .auth-brand-center h1 { font-size: 20px; }
+  .auth-brand-center .auth-mark { width: 42px; height: 42px; font-size: 20px; }
+  .input-wrap input { font-size: 16px !important; } /* Prevents iOS auto-zoom */
+  .security-row { gap: 6px; }
 }

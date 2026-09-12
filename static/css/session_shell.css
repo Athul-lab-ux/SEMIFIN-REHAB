@@ -742,7 +742,7 @@ html.hemi-right .hemi-cluster {
   color: #B9C7DA;
 }
 
-/* ---------- Responsive ---------- */
+/* ---------- Responsive (Laptop & Phone Compatibility) ---------- */
 @media (max-width: 860px) {
   .canvas-grid,
   .adl-grid,
@@ -761,6 +761,84 @@ html.hemi-right .hemi-cluster {
     min-height: 280px;
   }
   .ghost-canvas { width: 160px; height: 146px; }
+}
+
+@media (max-width: 640px) {
+  .cam-stage,
+  .canvas-cam-stage,
+  .adl-camera-stage,
+  .leg-camera-stage {
+    aspect-ratio: 4 / 3;
+    min-height: 300px;
+  }
+  .sess-controls {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .sess-controls .clin-btn,
+  .sess-controls .hud-btn,
+  .sess-controls .c-ctrl-btn {
+    flex: 1 1 calc(50% - 6px);
+    min-height: 48px;
+    font-size: 13.5px;
+    padding: 0 10px;
+  }
+  .sess-head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .hud-cluster {
+    top: 8px;
+    left: 8px;
+    right: 8px;
+    gap: 6px;
+  }
+  .hud-chip,
+  .canvas-hud,
+  .adl-hud,
+  .leg-hud,
+  .hud-timer {
+    padding: 5px 8px;
+    font-size: 11.5px;
+    gap: 6px;
+    border-radius: 8px;
+  }
+  .hud-chip .hud-val,
+  .canvas-hud .hud-val,
+  .adl-hud .hud-val,
+  .leg-hud .hud-val {
+    font-size: 13px;
+  }
+  .ghost-card {
+    flex-direction: column;
+    align-items: stretch;
+    text-align: center;
+  }
+  .ghost-canvas {
+    margin: 0 auto;
+    width: 140px;
+    height: 126px;
+  }
+  .ghost-steps {
+    justify-content: center;
+    margin-left: 0;
+  }
+  .arcade-game-picker {
+    padding: 10px;
+  }
+  .arcade-picker-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    width: 100%;
+  }
+  .arcade-picker-btn {
+    justify-content: center;
+    font-size: 12px;
+    padding: 8px 6px;
+  }
 }
 
 /* reuse global toast if present */

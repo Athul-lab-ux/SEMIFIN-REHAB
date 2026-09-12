@@ -22,39 +22,94 @@ class RehabCamera {
       return false;
     }
 
-    const constraints = {
-      audio: false,
-      video: {
-        facingMode: "user",
-        width: { ideal: 640 },
-        height: { ideal: 480 },
-        frameRate: { ideal: 30, max: 30 },
+    const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+    const savedDeviceId = preferredDeviceId || localStorage.getItem("preferred_camera_id") || null;
+
+    const baseVideoConstraints = savedDeviceId
+      ? { deviceId: { exact: savedDeviceId } }
+      : { facingMode: "user" };
+
+    const candidateConstraints = [
+      // 1. Preferred constraints (ideal mobile portrait or laptop landscape)
+      {
+        audio: false,
+        video: {
+          ...baseVideoConstraints,
+          width: { ideal: isMobile ? 480 : 640 },
+          height: { ideal: isMobile ? 640 : 480 },
+          frameRate: { ideal: 30, max: 30 },
+        },
       },
-    };
+      // 2. Generic user-facing camera fallback
+      {
+        audio: false,
+        video: {
+          facingMode: "user",
+          frameRate: { ideal: 30 },
+        },
+      },
+      // 3. Resilient fallback to any available video stream
+      {
+        audio: false,
+        video: true,
+      },
+    ];
+
+    let stream = null;
+    let lastErr = null;
+
+    for (const c of candidateConstraints) {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia(c);
+        if (stream) break;
+      } catch (e) {
+        lastErr = e;
+      }
+    }
+
+    if (!stream) {
+      this.handleError(lastErr || new Error("Failed to initialize video stream"));
+      return false;
+    }
+
+    this.stream = stream;
+    this.video.srcObject = this.stream;
+
+    // Mandatory attributes for iOS Safari inline playback (prevents fullscreen takeover)
+    this.video.setAttribute("playsinline", "true");
+    this.video.setAttribute("webkit-playsinline", "true");
+    this.video.setAttribute("autoplay", "true");
+    this.video.setAttribute("muted", "true");
+    this.video.playsInline = true;
+    this.video.muted = true;
 
     try {
-      this.stream = await navigator.mediaDevices.getUserMedia(constraints);
-      this.video.srcObject = this.stream;
-
-      // Mandatory attributes for iOS Safari inline playback
-      this.video.setAttribute("playsinline", "true");
-      this.video.setAttribute("webkit-playsinline", "true");
-      this.video.setAttribute("autoplay", "true");
-      this.video.setAttribute("muted", "true");
-
       await new Promise((resolve) => {
+        if (this.video.readyState >= 2) return resolve();
         this.video.onloadedmetadata = () => {
-          this.video.play();
+          this.video.play().catch(() => {});
           resolve();
         };
       });
-
-      this.startLoop();
-      return true;
-    } catch (err) {
-      this.handleError(err);
-      return false;
+      await this.video.play().catch(() => {});
+    } catch (e) {
+      // ignore play rejection
     }
+
+    this.startLoop();
+
+    // Listen for camera switch events from top bar
+    if (!this._listenerBound) {
+      this._listenerBound = true;
+      window.addEventListener("rehab-camera-change", async (e) => {
+        if (e.detail && e.detail.deviceId) {
+          this.stop();
+          await this.initialize(e.detail.deviceId);
+        }
+      });
+    }
+
+    return true;
   }
 
   startLoop() {

@@ -326,3 +326,51 @@ body {
 .aircanvas-paused-overlay h2 { font-size: 20px; color: #F8FAFC; margin: 0 0 6px; }
 .aircanvas-paused-overlay p { font-size: 13.5px; color: #94A3B8; margin: 0 0 20px; }
 .aircanvas-paused-overlay .apo-actions { display: flex; gap: 10px; justify-content: center; }
+
+@media (max-width: 640px) {
+  .canvas-container {
+    height: auto;
+    min-height: 100dvh;
+    padding: 8px;
+  }
+  .top-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    padding: 10px 12px;
+  }
+  .canvas-controls {
+    display: flex;
+    gap: 6px;
+    width: 100%;
+  }
+  .canvas-controls .c-ctrl-btn {
+    flex: 1;
+    justify-content: center;
+    min-height: 44px;
+    font-size: 13px;
+  }
+  .toolbar {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 6px 8px;
+    scrollbar-width: none;
+  }
+  .toolbar::-webkit-scrollbar {
+    display: none;
+  }
+  .template-btn {
+    flex-shrink: 0;
+    min-height: 38px;
+  }
+  .color-palette {
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 8px 10px;
+  }
+  .drawing-area {
+    min-height: 340px;
+    height: 55vh;
+  }
+}

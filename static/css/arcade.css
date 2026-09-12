@@ -304,3 +304,33 @@
   .kpi-card { flex: 1 1 40%; }
   .kpi-controls, .keys-hint { width: 100%; }
 }
+
+@media (max-width: 640px) {
+  .arcade-stage {
+    aspect-ratio: 4 / 3;
+    min-height: 290px;
+  }
+  .game-list {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+  }
+  .game-btn {
+    flex: none;
+    width: 100%;
+    padding: 8px;
+    font-size: 12px;
+  }
+  .ctl-row {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .ctl-btn {
+    flex: 1 1 calc(50% - 6px);
+    min-height: 48px;
+    font-size: 13.5px;
+    justify-content: center;
+  }
+}
