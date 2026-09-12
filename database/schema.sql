@@ -5,6 +5,7 @@
 CREATE TABLE IF NOT EXISTS patients (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     patient_id TEXT UNIQUE NOT NULL,
+    username TEXT DEFAULT '',
     email TEXT UNIQUE NOT NULL,
     password_hash TEXT NOT NULL,
     selected_condition TEXT DEFAULT 'Hemiparesis',

@@ -93,6 +93,7 @@ def ensure_schema_columns(db):
     try:
         existing = {r["name"] for r in db.execute("PRAGMA table_info(patients)").fetchall()}
         additions = {
+            "username": "TEXT DEFAULT ''",
             "onboarding_done": "INTEGER DEFAULT 0",
             "stroke_onset": "TEXT",
             "affected_side": "TEXT DEFAULT ''",
@@ -317,25 +318,39 @@ def profile():
 @app.route("/api/register", methods=["POST"])
 def api_register():
     data = request.get_json() or {}
-    email = (data.get("email") or data.get("username") or "").strip().lower()
-    name = (data.get("patient_name") or data.get("name") or "").strip()[:60]
+    raw_email = (data.get("email") or "").strip()
+    raw_user = (data.get("username") or "").strip()
+    name = (data.get("patient_name") or data.get("name") or data.get("full_name") or "").strip()[:60]
     password = data.get("password") or ""
 
-    if not email or not password:
+    if not raw_email and not raw_user:
         return jsonify({"status": "error", "message": "Email or Username and password are required"}), 400
 
+    if "@" in raw_email:
+        email = raw_email.lower()
+        username = raw_user.lower() if raw_user else email.split("@")[0]
+    elif "@" in raw_user:
+        email = raw_user.lower()
+        username = email.split("@")[0]
+    else:
+        username = (raw_user or raw_email).lower()
+        email = f"{username}@rehabopt.local"
+
     is_email = bool(re.match(r"[^@]+@[^@]+\.[^@]+", email))
-    is_username = bool(re.match(r"^[a-zA-Z0-9_\.\-]{2,50}$", email))
-    if not is_email and not is_username:
-        return jsonify({"status": "error", "message": "Please enter a valid email (e.g. user@hospital.org) or username (e.g. u1)"}), 400
+    is_username = bool(re.match(r"^[a-zA-Z0-9_\.\-]{1,50}$", username))
+    if not is_email or not is_username:
+        return jsonify({"status": "error", "message": "Please enter a valid email or username (e.g. u1, user@hospital.org)"}), 400
 
     if len(password) < 6:
         return jsonify({"status": "error", "message": "Password must be at least 6 characters"}), 400
 
     db = get_db()
 
-    # Check duplicate email
-    existing = db.execute("SELECT id FROM patients WHERE LOWER(email) = ?", (email,)).fetchone()
+    # Check duplicate email or username
+    existing = db.execute(
+        "SELECT id FROM patients WHERE LOWER(email) = ? OR (username != '' AND LOWER(username) = ?)",
+        (email, username),
+    ).fetchone()
     if existing:
         return jsonify({"status": "error", "message": "This email/username is already registered. Please sign in."}), 409
 
@@ -343,7 +358,7 @@ def api_register():
     password_hash = generate_password_hash(password, method="scrypt")
 
     if not name:
-        name = email.split("@")[0].capitalize()
+        name = username.capitalize() if username else email.split("@")[0].capitalize()
 
     dob = (data.get("patient_dob") or "").strip()[:10]
     phone = (data.get("patient_phone") or "").strip()[:20]
@@ -355,16 +370,22 @@ def api_register():
         secondary_color = ""
 
     db.execute(
-        """INSERT INTO patients (patient_id, email, password_hash, selected_condition, current_streak, last_session_date,
+        """INSERT INTO patients (patient_id, username, email, password_hash, selected_condition, current_streak, last_session_date,
            patient_name, patient_dob, patient_phone, primary_color, secondary_color, profile_photo)
-           VALUES (?, ?, ?, 'Hemiparesis', 1, NULL, ?, ?, ?, ?, ?, '')""",
-        (patient_id, email, password_hash, name, dob, phone, primary_color, secondary_color),
+           VALUES (?, ?, ?, ?, 'Hemiparesis', 1, NULL, ?, ?, ?, ?, ?, '')""",
+        (patient_id, username, email, password_hash, name, dob, phone, primary_color, secondary_color),
     )
     db.commit()
+
+    session.permanent = True
+    session["patient_id"] = patient_id
+    session["email"] = email
+    session["patient_name"] = name
 
     return jsonify({
         "status": "success",
         "patient_id": patient_id,
+        "username": username,
         "email": email,
         "patient_name": name,
         "message": f"Account permanently created! Patient ID: {patient_id}. You can sign in anytime using your Email, Username, or Patient ID.",
@@ -390,19 +411,31 @@ def api_login():
     if not user:
         user = db.execute("SELECT * FROM patients WHERE LOWER(email) = ?", (raw_ident.lower(),)).fetchone()
 
-    # 3. Match on patient_name (case-insensitive)
+    # 3. Match on username column (case-insensitive)
+    if not user:
+        user = db.execute("SELECT * FROM patients WHERE LOWER(username) = ?", (raw_ident.lower(),)).fetchone()
+
+    # 4. Match on email prefix before @ (e.g. u1 matching u1@rehabopt.local or u1@gmail.com)
+    if not user and "@" not in raw_ident:
+        user = db.execute(
+            "SELECT * FROM patients WHERE LOWER(email) LIKE ? OR LOWER(email) LIKE ?",
+            (raw_ident.lower() + "@%", raw_ident.lower()),
+        ).fetchone()
+
+    # 5. Match on patient_name (case-insensitive)
     if not user:
         user = db.execute("SELECT * FROM patients WHERE LOWER(patient_name) = ?", (raw_ident.lower(),)).fetchone()
 
-    # 4. Numeric matching (e.g. "2", "02", "SP-2" -> "SP-000000002")
+    # 6. Numeric matching (e.g. "39", "039", "SP-39" -> "SP-000000039") ONLY when purely numeric or starts with SP-
     if not user:
-        num_clean = re.sub(r"[^0-9]", "", raw_ident)
-        if num_clean and (raw_ident.isdigit() or raw_ident.upper().startswith("SP-")):
-            try:
-                formatted_id = f"SP-{int(num_clean):09d}"
-                user = db.execute("SELECT * FROM patients WHERE patient_id = ?", (formatted_id,)).fetchone()
-            except ValueError:
-                pass
+        if raw_ident.isdigit() or raw_ident.upper().startswith("SP-"):
+            num_clean = re.sub(r"[^0-9]", "", raw_ident)
+            if num_clean:
+                try:
+                    formatted_id = f"SP-{int(num_clean):09d}"
+                    user = db.execute("SELECT * FROM patients WHERE UPPER(patient_id) = ?", (formatted_id,)).fetchone()
+                except ValueError:
+                    pass
 
     if not user or not check_password_hash(user["password_hash"], password):
         return jsonify({"status": "error", "message": "Invalid credentials. Please verify your Patient ID, Email, or Password."}), 401
@@ -415,6 +448,7 @@ def api_login():
     return jsonify({
         "status": "success",
         "patient_id": user["patient_id"],
+        "username": user["username"] if "username" in user.keys() else "",
         "email": user["email"],
         "patient_name": user["patient_name"],
         "condition": user["selected_condition"],

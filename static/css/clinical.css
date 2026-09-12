@@ -436,6 +436,12 @@ button, .btn-link {
     display: flex;
     flex-shrink: 0;
   }
+  .top-clinical-bar {
+    position: relative;
+    top: auto;
+    z-index: auto;
+    margin-bottom: 14px;
+  }
   .app-main {
     padding: 14px 14px 80px;
   }

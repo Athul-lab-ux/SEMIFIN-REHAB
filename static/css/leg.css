@@ -166,7 +166,39 @@
 .done-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
 
 @media (max-width: 640px) {
-  .lg-top .lg-stage-name { flex-basis: auto; }
+  .lg-top {
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 8px 10px;
+  }
+  .lg-stage-name {
+    font-size: 14px;
+    flex: 1 1 100%;
+  }
+  .lg-spacer {
+    display: none;
+  }
+  .lg-stage {
+    aspect-ratio: 4 / 3;
+    border-radius: 12px;
+  }
+  .hud-cluster {
+    left: 8px;
+    top: 8px;
+    right: 8px;
+    gap: 6px;
+  }
+  .hud-box {
+    flex: 1 1 calc(25% - 6px);
+    min-width: 52px;
+    padding: 4px 6px;
+  }
+  .hb-lab {
+    font-size: 8px;
+  }
+  .hb-val {
+    font-size: 14px;
+  }
   .progress-stages { flex-wrap: wrap; gap: 8px; }
   .stage-arrow { transform: rotate(90deg); }
   .kg-grid { grid-template-columns: 1fr 1fr; }

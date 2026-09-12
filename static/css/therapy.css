@@ -307,11 +307,83 @@
 }
 .tgp-sub-hint { color: #64748B; font-size: 10.5px; }
 
+/* HUD cluster base */
+.hud-cluster {
+  position: absolute; top: 12px; left: 12px; z-index: 5;
+  display: flex; gap: 8px; flex-wrap: wrap;
+}
+.hud-box {
+  background: rgba(11, 18, 32, 0.84);
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: #F1F5F9;
+  border-radius: 10px;
+  padding: 6px 12px;
+  text-align: center;
+  min-width: 72px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+}
+.hb-lab {
+  display: block;
+  font-size: 9px;
+  font-weight: 800;
+  color: #93C5FD;
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+}
+.hb-val {
+  font-size: 16px;
+  font-weight: 800;
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+
 @media (max-width: 720px) {
   .ex-grid { grid-template-columns: 1fr; }
   .cfg-summary { position: static; }
-  .hud-cluster { left: 8px; top: 8px; right: 8px; }
-  .hud-box { flex: 1; min-width: 60px; }
+  .wo-top {
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 8px 10px;
+  }
+  .wo-now {
+    font-size: 14px;
+    flex: 1 1 100%;
+  }
+  .wo-spacer {
+    display: none;
+  }
+  .hud-btn {
+    height: 38px;
+    padding: 0 12px;
+    font-size: 12px;
+  }
+  .wo-stage {
+    aspect-ratio: 4 / 3;
+    border-radius: 12px;
+  }
+  .hud-cluster {
+    left: 8px;
+    top: 8px;
+    right: 8px;
+    gap: 6px;
+  }
+  .hud-box {
+    flex: 1 1 calc(25% - 6px);
+    min-width: 52px;
+    padding: 4px 6px;
+  }
+  .hb-lab {
+    font-size: 8px;
+  }
+  .hb-val {
+    font-size: 13.5px;
+  }
+  .step-box {
+    flex: 1 1 100%;
+  }
   .tgp-card { padding: 16px 18px; }
   .tgp-title { font-size: 16px; }
 }
