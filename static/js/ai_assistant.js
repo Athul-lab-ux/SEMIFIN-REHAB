@@ -1,10 +1,10 @@
 /**
- * RehabOpt AR — Gemini-Style AI Assistant Widget
+ * RehabOpt AR — Clinical AI Assistant Widget
  * Zero-leak: API key never reaches client. All calls go to /api/ai-chat.
  */
 class RehabAIAssistant {
   constructor() {
-    this.selectedModel = "gemini-3.7-flash";
+    this.selectedModel = "rehabopt-clinical-ai";
     this.attachments = [];
     this.recognition = null;
     this.isRecording = false;
@@ -387,9 +387,9 @@ class RehabAIAssistant {
     box.innerHTML = `
       <div class="ai-welcome">
         <div class="ai-welcome-icon">🤖</div>
-        <strong style="color:#ff9a3c;">RehabOpt AI</strong><br>
+        <strong style="color:#ff9a3c;">RehabOpt Clinical AI</strong><br>
         Ask about exercises, pain, recovery progress, or upload a medical file.<br>
-        <span style="color:#444;">Powered by Gemini • Zero-leak security</span>
+        <span style="color:#64748B;">Clinical Tele-Rehabilitation Engine • Zero Setup Needed</span>
       </div>
     `;
     this.chatHistory = [];
