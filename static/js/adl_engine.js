@@ -196,7 +196,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   });
 
-  // --- Task Update ---
   function updateTask() {
     if (adlPaused) return;
     gCtx.clearRect(0, 0, gameCanvas.width, gameCanvas.height);
@@ -218,6 +217,36 @@ document.addEventListener("DOMContentLoaded", async () => {
         break;
     }
   }
+
+  // Continuous 60 FPS animation loop
+  function adlRenderLoop() {
+    requestAnimationFrame(adlRenderLoop);
+    if (currentTask !== "menu" && !adlPaused) {
+      updateTask();
+    }
+  }
+  adlRenderLoop();
+
+  // Pointer / Touch fallback for interactive testing on phones and laptops
+  gameCanvas.addEventListener("pointermove", (e) => {
+    const rect = gameCanvas.getBoundingClientRect();
+    const nx = (e.clientX - rect.left) / rect.width;
+    const ny = (e.clientY - rect.top) / rect.height;
+    handPos = { x: nx, y: ny };
+    if (!wristData) {
+      wristData = {
+        pincerDist: 0.03,
+        knuckleRatio: 0.75,
+        dispersion: 0.15,
+        indexTip: { x: nx, y: ny },
+        thumbTip: { x: nx - 0.03, y: ny },
+        wrist: { x: nx, y: ny + 0.1 },
+        elbow: { x: nx, y: ny + 0.2 },
+      };
+    } else {
+      wristData.indexTip = { x: nx, y: ny };
+    }
+  });
 
   // --- Task 1: 90° Door Key Turn (E5: Knuckle Aspect Ratio) ---
   let keyRotation = 0;

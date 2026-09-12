@@ -52,16 +52,21 @@ body {
   background: rgba(255, 106, 0, 0.2);
 }
 
-/* Toolbar */
 .toolbar {
   display: flex;
   gap: 6px;
   padding: 8px 12px;
   background: rgba(15, 12, 8, 0.8);
   border-radius: 10px;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
   overflow-x: auto;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.toolbar::-webkit-scrollbar {
+  display: none;
 }
 
 .template-btn {
