@@ -32,20 +32,27 @@ except Exception:
 # ---------------------------------------------------------------------------
 # App Configuration
 # ---------------------------------------------------------------------------
-app = Flask(__name__)
-app.secret_key = os.environ.get("FLASK_SECRET_KEY", secrets.token_hex(32))
+BASE_DIR = os.path.abspath(os.path.dirname(__file__))
+app = Flask(
+    __name__,
+    template_folder=os.path.join(BASE_DIR, "templates"),
+    static_folder=os.path.join(BASE_DIR, "static"),
+    static_url_path="/static",
+)
+# Use stable secret key fallback so sessions persist across serverless instances on Vercel
+app.secret_key = os.environ.get("FLASK_SECRET_KEY", "rehabopt-ar-production-stable-secret-key-2026")
 app.config.update(
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SAMESITE="Lax",
     SESSION_COOKIE_SECURE=False,  # Set True in HTTPS production
-    PERMANENT_SESSION_LIFETIME=timedelta(hours=2),
+    PERMANENT_SESSION_LIFETIME=timedelta(hours=24),
 )
 
 # Cloud-agnostic database path (Vercel serverless requires /tmp; Render/local uses repo directory)
 if os.environ.get("VERCEL"):
     DATABASE = os.environ.get("SQLITE_PATH", "/tmp/rehabopt.db")
 else:
-    DATABASE = os.environ.get("SQLITE_PATH", os.path.join(os.path.dirname(__file__), "rehabopt.db"))
+    DATABASE = os.environ.get("SQLITE_PATH", os.path.join(BASE_DIR, "rehabopt.db"))
 
 # ---------------------------------------------------------------------------
 # Security Headers
@@ -58,26 +65,99 @@ def add_security_headers(response):
     return response
 
 # ---------------------------------------------------------------------------
+# Embedded Database Schema (guaranteed to load even in serverless Lambda bundles)
+# ---------------------------------------------------------------------------
+SCHEMA_SQL = """
+CREATE TABLE IF NOT EXISTS patients (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    patient_id TEXT UNIQUE NOT NULL,
+    username TEXT DEFAULT '',
+    email TEXT UNIQUE NOT NULL,
+    password_hash TEXT NOT NULL,
+    selected_condition TEXT DEFAULT 'Hemiparesis',
+    current_streak INTEGER DEFAULT 1,
+    last_session_date TEXT,
+    onboarding_done INTEGER DEFAULT 0,
+    stroke_onset TEXT,
+    affected_side TEXT DEFAULT '',
+    onset_ago TEXT DEFAULT '',
+    daily_struggles TEXT DEFAULT '',
+    doing_therapy TEXT DEFAULT '',
+    pain_level TEXT DEFAULT '',
+    rehab_goal TEXT DEFAULT '',
+    goal_note TEXT,
+    patient_name TEXT DEFAULT '',
+    patient_dob TEXT DEFAULT '',
+    patient_phone TEXT DEFAULT '',
+    primary_color TEXT DEFAULT '',
+    secondary_color TEXT DEFAULT '',
+    profile_photo TEXT DEFAULT '',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS telemetry_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    patient_id TEXT NOT NULL,
+    session_type TEXT NOT NULL,
+    condition TEXT NOT NULL,
+    duration_seconds INTEGER NOT NULL,
+    peak_rom REAL DEFAULT 0.0,
+    smoothness_score REAL DEFAULT 0.0,
+    cheats_blocked INTEGER DEFAULT 0,
+    score INTEGER DEFAULT 0,
+    metrics_json TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (patient_id) REFERENCES patients(patient_id)
+);
+
+CREATE TABLE IF NOT EXISTS chat_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    patient_id TEXT NOT NULL,
+    model_used TEXT DEFAULT 'gemini-3.7-flash',
+    status TEXT DEFAULT 'success',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (patient_id) REFERENCES patients(patient_id)
+);
+"""
+
+# ---------------------------------------------------------------------------
 # Database Helpers
 # ---------------------------------------------------------------------------
 def get_db():
     if "db" not in g:
-        if not os.path.exists(DATABASE):
-            try:
-                init_db()
-            except Exception as e:
-                print(f"[WARN] init_db in get_db: {e}")
+        os.makedirs(os.path.dirname(os.path.abspath(DATABASE)), exist_ok=True)
+        need_seed = not os.path.exists(DATABASE) or os.path.getsize(DATABASE) == 0
         g.db = sqlite3.connect(DATABASE)
         g.db.row_factory = sqlite3.Row
-        try:
-            g.db.execute("PRAGMA journal_mode=WAL")
-        except Exception:
-            pass
+        if os.environ.get("VERCEL"):
+            try:
+                g.db.execute("PRAGMA journal_mode=MEMORY")
+            except Exception:
+                pass
+        else:
+            try:
+                g.db.execute("PRAGMA journal_mode=WAL")
+            except Exception:
+                pass
         try:
             g.db.execute("PRAGMA foreign_keys=ON")
         except Exception:
             pass
+        # Ensure schema tables exist (idempotent, fast)
+        g.db.executescript(SCHEMA_SQL)
         ensure_schema_columns(g.db)
+        if need_seed:
+            try:
+                demo_hash = generate_password_hash("PatientDemo@123", method="scrypt")
+                g.db.execute(
+                    """INSERT OR IGNORE INTO patients
+                       (patient_id, username, email, password_hash, selected_condition, current_streak, last_session_date, onboarding_done)
+                       VALUES (?, 'demo', ?, ?, 'Hemiparesis', 5, '2026-09-03', 1)""",
+                    ("SP-000000001", "demo@gmail.com", demo_hash),
+                )
+                g.db.commit()
+            except Exception as e:
+                print(f"[WARN] demo seed: {e}")
     return g.db
 
 
@@ -122,23 +202,26 @@ def init_db():
     os.makedirs(os.path.dirname(os.path.abspath(DATABASE)), exist_ok=True)
     db = sqlite3.connect(DATABASE)
     db.row_factory = sqlite3.Row
-    try:
-        db.execute("PRAGMA journal_mode=WAL")
-    except Exception:
-        pass
-    schema_path = os.path.join(os.path.dirname(__file__), "database", "schema.sql")
-    if os.path.exists(schema_path):
-        with open(schema_path, "r", encoding="utf-8") as f:
-            db.executescript(f.read())
+    if os.environ.get("VERCEL"):
+        try:
+            db.execute("PRAGMA journal_mode=MEMORY")
+        except Exception:
+            pass
+    else:
+        try:
+            db.execute("PRAGMA journal_mode=WAL")
+        except Exception:
+            pass
+    db.executescript(SCHEMA_SQL)
     ensure_schema_columns(db)
 
     # Generate real scrypt hash for demo password
     demo_hash = generate_password_hash("PatientDemo@123", method="scrypt")
     db.execute(
-        """INSERT OR REPLACE INTO patients
-           (patient_id, email, password_hash, selected_condition, current_streak, last_session_date, onboarding_done)
-           VALUES (?, ?, ?, ?, ?, ?, 1)""",
-        ("SP-000000001", "demo@gmail.com", demo_hash, "Hemiparesis", 5, "2026-09-03"),
+        """INSERT OR IGNORE INTO patients
+           (patient_id, username, email, password_hash, selected_condition, current_streak, last_session_date, onboarding_done)
+           VALUES (?, 'demo', ?, ?, 'Hemiparesis', 5, '2026-09-03', 1)""",
+        ("SP-000000001", "demo@gmail.com", demo_hash),
     )
     db.commit()
     db.close()

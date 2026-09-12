@@ -77,7 +77,14 @@ document.addEventListener("DOMContentLoaded", () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ patient_id: ident, password: pw }),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok || !data) {
+        const msg = (data && data.message) ? data.message : `Authentication error (${res.status}). Please verify your credentials.`;
+        showToast(`❌ ${msg}`, "error");
+        return;
+      }
+
       if (data.status === "success") {
         showToast("✅ Welcome back! Loading your clinical workspace…", "success");
         localStorage.setItem("last_identifier", ident);
@@ -90,10 +97,11 @@ document.addEventListener("DOMContentLoaded", () => {
           window.location.href = data.onboarding_done ? "/dashboard" : "/onboarding";
         }, 500);
       } else {
-        showToast(`❌ ${data.message}`, "error");
+        showToast(`❌ ${data.message || "Invalid credentials"}`, "error");
       }
     } catch (err) {
-      showToast("❌ Network error. Please try again.", "error");
+      console.error("Sign-in network error:", err);
+      showToast("❌ Network error. Please check your connection and try again.", "error");
     } finally {
       btn.disabled = false;
       btn.textContent = "🔓 Sign In";
@@ -134,7 +142,14 @@ document.addEventListener("DOMContentLoaded", () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ patient_name: name, email, password: pw }),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok || !data) {
+        const msg = (data && data.message) ? data.message : `Registration error (${res.status}). Please try again.`;
+        showToast(`❌ ${msg}`, "error");
+        return;
+      }
+
       if (data.status === "success") {
         showToast(`🎉 Account Created! Your Patient ID is ${data.patient_id}`, "success");
         localStorage.setItem("last_identifier", data.patient_id);
@@ -149,10 +164,11 @@ document.addEventListener("DOMContentLoaded", () => {
           showToast(`ℹ️ You can now sign in using '${data.patient_id}' or '${email}'`, "info");
         }, 1200);
       } else {
-        showToast(`❌ ${data.message}`, "error");
+        showToast(`❌ ${data.message || "Registration failed"}`, "error");
       }
     } catch (err) {
-      showToast("❌ Network connection failed. Please try again.", "error");
+      console.error("Registration network error:", err);
+      showToast("❌ Network connection failed. Please check your connection and try again.", "error");
     } finally {
       btn.disabled = false;
       btn.textContent = "📋 Register Patient Profile";

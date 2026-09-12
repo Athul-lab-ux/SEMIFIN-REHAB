@@ -10,6 +10,9 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 
 from app import app
 
-# Vercel searches for 'app' in the entrypoint file
+# Vercel searches for 'app', 'application', or 'handler'
+application = app
+handler = app
+
 if __name__ == "__main__":
     app.run()
