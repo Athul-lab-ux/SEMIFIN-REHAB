@@ -41,7 +41,11 @@ app.config.update(
     PERMANENT_SESSION_LIFETIME=timedelta(hours=2),
 )
 
-DATABASE = os.path.join(os.path.dirname(__file__), "rehabopt.db")
+# Cloud-agnostic database path (Vercel serverless requires /tmp; Render/local uses repo directory)
+if os.environ.get("VERCEL"):
+    DATABASE = os.environ.get("SQLITE_PATH", "/tmp/rehabopt.db")
+else:
+    DATABASE = os.environ.get("SQLITE_PATH", os.path.join(os.path.dirname(__file__), "rehabopt.db"))
 
 # ---------------------------------------------------------------------------
 # Security Headers
@@ -58,10 +62,21 @@ def add_security_headers(response):
 # ---------------------------------------------------------------------------
 def get_db():
     if "db" not in g:
+        if not os.path.exists(DATABASE):
+            try:
+                init_db()
+            except Exception as e:
+                print(f"[WARN] init_db in get_db: {e}")
         g.db = sqlite3.connect(DATABASE)
         g.db.row_factory = sqlite3.Row
-        g.db.execute("PRAGMA journal_mode=WAL")
-        g.db.execute("PRAGMA foreign_keys=ON")
+        try:
+            g.db.execute("PRAGMA journal_mode=WAL")
+        except Exception:
+            pass
+        try:
+            g.db.execute("PRAGMA foreign_keys=ON")
+        except Exception:
+            pass
         ensure_schema_columns(g.db)
     return g.db
 
@@ -75,36 +90,45 @@ def close_db(exception):
 
 def ensure_schema_columns(db):
     """Add columns introduced after v1 to databases that already exist."""
-    existing = {r["name"] for r in db.execute("PRAGMA table_info(patients)").fetchall()}
-    additions = {
-        "onboarding_done": "INTEGER DEFAULT 0",
-        "stroke_onset": "TEXT",
-        "affected_side": "TEXT DEFAULT ''",
-        "onset_ago": "TEXT DEFAULT ''",
-        "daily_struggles": "TEXT DEFAULT ''",
-        "doing_therapy": "TEXT DEFAULT ''",
-        "pain_level": "TEXT DEFAULT ''",
-        "rehab_goal": "TEXT DEFAULT ''",
-        "goal_note": "TEXT",
-        "patient_name": "TEXT DEFAULT ''",
-        "patient_dob": "TEXT DEFAULT ''",
-        "patient_phone": "TEXT DEFAULT ''",
-        "primary_color": "TEXT DEFAULT ''",
-        "secondary_color": "TEXT DEFAULT ''",
-        "profile_photo": "TEXT DEFAULT ''",
-    }
-    for col, ddl in additions.items():
-        if col not in existing:
-            db.execute(f"ALTER TABLE patients ADD COLUMN {col} {ddl}")
+    try:
+        existing = {r["name"] for r in db.execute("PRAGMA table_info(patients)").fetchall()}
+        additions = {
+            "onboarding_done": "INTEGER DEFAULT 0",
+            "stroke_onset": "TEXT",
+            "affected_side": "TEXT DEFAULT ''",
+            "onset_ago": "TEXT DEFAULT ''",
+            "daily_struggles": "TEXT DEFAULT ''",
+            "doing_therapy": "TEXT DEFAULT ''",
+            "pain_level": "TEXT DEFAULT ''",
+            "rehab_goal": "TEXT DEFAULT ''",
+            "goal_note": "TEXT",
+            "patient_name": "TEXT DEFAULT ''",
+            "patient_dob": "TEXT DEFAULT ''",
+            "patient_phone": "TEXT DEFAULT ''",
+            "primary_color": "TEXT DEFAULT ''",
+            "secondary_color": "TEXT DEFAULT ''",
+            "profile_photo": "TEXT DEFAULT ''",
+        }
+        for col, ddl in additions.items():
+            if col not in existing:
+                db.execute(f"ALTER TABLE patients ADD COLUMN {col} {ddl}")
+    except Exception as e:
+        print(f"[WARN] ensure_schema_columns: {e}")
 
 
 def init_db():
     """Initialize the database and seed demo account."""
+    os.makedirs(os.path.dirname(os.path.abspath(DATABASE)), exist_ok=True)
     db = sqlite3.connect(DATABASE)
     db.row_factory = sqlite3.Row
+    try:
+        db.execute("PRAGMA journal_mode=WAL")
+    except Exception:
+        pass
     schema_path = os.path.join(os.path.dirname(__file__), "database", "schema.sql")
-    with open(schema_path, "r") as f:
-        db.executescript(f.read())
+    if os.path.exists(schema_path):
+        with open(schema_path, "r", encoding="utf-8") as f:
+            db.executescript(f.read())
     ensure_schema_columns(db)
 
     # Generate real scrypt hash for demo password
