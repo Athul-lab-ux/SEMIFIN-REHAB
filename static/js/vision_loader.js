@@ -1,38 +1,53 @@
 /**
- * RehabOpt AR — Vision Loader (dual Pose + Hand, tasks-vision 0.10.14)
- * ------------------------------------------------------------------
- * Modern MediaPipe pipeline that returns BOTH pose and hand landmarks
- * on every frame — ported from the reference repository and hardened
- * with the QA watchdog (frame stall → pipeline restart, no reload).
+ * RehabOpt AR — Vision Loader (Ultra-Resilient Dual Pose + Hand Pipeline)
+ * -----------------------------------------------------------------------
+ * Priority 1: Acquire and display the webcam stream IMMEDIATELY without
+ * waiting for neural network models to download or compile.
+ * Priority 2: Initialize MediaPipe Pose + Hands concurrently with JS/WASM
+ * fallback, feeding real-time biomechanical landmarks (13 formulas).
+ * Priority 3: Built-in optical centroid motion fallback so hands are
+ * trackable even before neural models reach steady-state.
  *
- * Landmark access patterns (matching session engines):
- *   results.pose[11|12|13|14|15|16]           → { x, y, z } (upper arm)
- *   results.pose[23|25|27]                     → { x, y, z } (LEFT hip/knee/ankle)
- *   results.pose[24|26|28]                     → { x, y, z } (RIGHT hip/knee/ankle)
- *   results.hand[0..20]                        → { x, y, z } (full hand)
- *   results.poseAll / results.handAll         → raw arrays for canvas drawing
- *   results.chain                              → single-arm tracking chain (arm + matched hand)
- *   results.legs                               → { left, right } knee chains (for leg sessions)
- *   results.legChain                           → active-side leg chain (hip→knee→ankle)
+ * Landmark access patterns:
+ *   results.pose[11|12|13|14|15|16]    → { x, y, z } (upper arm)
+ *   results.pose[23|25|27]              → { x, y, z } (LEFT hip/knee/ankle)
+ *   results.pose[24|26|28]              → { x, y, z } (RIGHT hip/knee/ankle)
+ *   results.hand[0..20]                 → { x, y, z } (21 hand landmarks)
+ *   results.poseAll / results.handAll  → raw arrays for canvas drawing
+ *   results.chain                       → single-arm tracking chain
+ *   results.legs                        → { left, right } knee chains
+ *   results.legChain                    → active-side leg chain
  */
 const VisionLoader = (() => {
-  const WASM_URL = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm";
-  const BUNDLE_URL = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.js";
-
-  let poseLandmarker = null;
-  let handLandmarker = null;
-  let isRunning = false;
-  let onResultsCallback = null;
   let videoElement = null;
+  let onResultsCallback = null;
   let stream = null;
-  let pendingDeviceId = null;
+  let isRunning = false;
   let rafId = null;
+
+  let poseModel = null;
+  let handsModel = null;
+  let isModelInitStarted = false;
+  let isModelReady = false;
+  let isProcessingPose = false;
+  let isProcessingHands = false;
+
+  let lastPoseLandmarks = null;
+  let lastHandLandmarks = null;
   let lastVideoWidth = 640;
   let lastVideoHeight = 480;
 
-  // --- Dynamic CDN script loading -------------------------------------
+  // Optical motion tracker fallback canvas
+  let optCanvas = null;
+  let optCtx = null;
+  let prevFrameData = null;
+  let optCentroid = null;
+  let lastModelDetectionTime = 0;
+
+  // --- Dynamic CDN script loading helper ---------------------------------
   function loadScript(src) {
     return new Promise((resolve, reject) => {
+      if (document.querySelector(`script[src="${src}"]`)) return resolve();
       const s = document.createElement("script");
       s.src = src;
       s.crossOrigin = "anonymous";
@@ -42,84 +57,153 @@ const VisionLoader = (() => {
     });
   }
 
-  async function ensureBundle() {
-    if (typeof window.FilesetResolver !== "undefined") return true;
-    try {
-      await loadScript(BUNDLE_URL);
-      // give the bundle a moment to expose globals
-      await new Promise((r) => setTimeout(r, 600));
-      return typeof window.FilesetResolver !== "undefined";
-    } catch (e) {
-      console.error("[VisionLoader] bundle load failed", e);
-      return false;
-    }
-  }
-
-  // --- Model initialization (GPU → CPU fallback) -----------------------
-  async function init() {
-    if (poseLandmarker && handLandmarker) return true;
-    const ready = await ensureBundle();
-    if (!ready) return false;
-
-    const base = (delegate) => ({
-      baseOptions: {
-        modelAssetPath:
-          "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task",
-        delegate,
-      },
-      runningMode: "VIDEO",
-      numPoses: 1,
-      minPoseDetectionConfidence: 0.5,
-      minPosePresenceConfidence: 0.5,
-      minTrackingConfidence: 0.5,
-    });
-    const handBase = (delegate) => ({
-      baseOptions: {
-        modelAssetPath:
-          "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
-        delegate,
-      },
-      runningMode: "VIDEO",
-      numHands: 1,
-      minHandDetectionConfidence: 0.5,
-      minHandPresenceConfidence: 0.5,
-      minTrackingConfidence: 0.5,
-    });
+  // --- Background Model Initialization (Non-blocking) -------------------
+  async function initModels() {
+    if (isModelInitStarted) return;
+    isModelInitStarted = true;
 
     try {
-      const vision = await window.FilesetResolver.forVisionTasks(WASM_URL);
-      poseLandmarker = await window.PoseLandmarker.createFromOptions(vision, base("GPU"));
-      handLandmarker = await window.HandLandmarker.createFromOptions(vision, handBase("GPU"));
-      return true;
-    } catch (e) {
-      console.warn("[VisionLoader] GPU init failed, falling back to CPU:", e.message);
-      try {
-        const vision = await window.FilesetResolver.forVisionTasks(WASM_URL);
-        poseLandmarker = await window.PoseLandmarker.createFromOptions(vision, base("CPU"));
-        handLandmarker = await window.HandLandmarker.createFromOptions(vision, handBase("CPU"));
-        return true;
-      } catch (e2) {
-        console.error("[VisionLoader] CPU fallback also failed", e2);
-        return false;
+      // 1. Check if classic MediaPipe Pose & Hands are present or load them
+      if (typeof window.Pose === "undefined") {
+        try {
+          await loadScript("https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js");
+        } catch (e) {
+          console.warn("[VisionLoader] Could not load @mediapipe/pose from CDN:", e);
+        }
       }
+      if (typeof window.Hands === "undefined") {
+        try {
+          await loadScript("https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js");
+        } catch (e) {
+          console.warn("[VisionLoader] Could not load @mediapipe/hands from CDN:", e);
+        }
+      }
+
+      // Initialize Pose if available
+      if (typeof window.Pose !== "undefined" && !poseModel) {
+        try {
+          poseModel = new window.Pose({
+            locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`,
+          });
+          poseModel.setOptions({
+            modelComplexity: 1,
+            smoothLandmarks: true,
+            enableSegmentation: false,
+            minDetectionConfidence: 0.5,
+            minTrackingConfidence: 0.5,
+          });
+          poseModel.onResults((res) => {
+            if (res.poseLandmarks && res.poseLandmarks.length > 0) {
+              lastPoseLandmarks = res.poseLandmarks;
+              lastModelDetectionTime = Date.now();
+            }
+          });
+        } catch (err) {
+          console.warn("[VisionLoader] Classic Pose init warning:", err);
+        }
+      }
+
+      // Initialize Hands if available
+      if (typeof window.Hands !== "undefined" && !handsModel) {
+        try {
+          handsModel = new window.Hands({
+            locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`,
+          });
+          handsModel.setOptions({
+            maxNumHands: 1,
+            modelComplexity: 1,
+            minDetectionConfidence: 0.5,
+            minTrackingConfidence: 0.5,
+          });
+          handsModel.onResults((res) => {
+            if (res.multiHandLandmarks && res.multiHandLandmarks.length > 0) {
+              lastHandLandmarks = res.multiHandLandmarks[0];
+              lastModelDetectionTime = Date.now();
+            }
+          });
+        } catch (err) {
+          console.warn("[VisionLoader] Classic Hands init warning:", err);
+        }
+      }
+
+      isModelReady = !!(poseModel || handsModel);
+      console.log("[VisionLoader] Neural tracking models initialized. Ready:", isModelReady);
+    } catch (e) {
+      console.error("[VisionLoader] Error initializing neural models:", e);
     }
   }
 
-  // --- Camera lifecycle -------------------------------------------------
+  // --- Fast Optical Motion Fallback -------------------------------------
+  function computeOpticalMotion(video) {
+    const vw = video.videoWidth || 640;
+    const vh = video.videoHeight || 480;
+    if (!optCanvas) {
+      optCanvas = document.createElement("canvas");
+      optCanvas.width = 160;
+      optCanvas.height = 120;
+      optCtx = optCanvas.getContext("2d", { willReadFrequently: true });
+    }
+    try {
+      optCtx.drawImage(video, 0, 0, 160, 120);
+      const current = optCtx.getImageData(0, 0, 160, 120).data;
+      if (!prevFrameData) {
+        prevFrameData = current;
+        return optCentroid;
+      }
+      let sumX = 0, sumY = 0, count = 0;
+      // Step through every 3rd pixel for speed
+      for (let y = 0; y < 120; y += 3) {
+        for (let x = 0; x < 160; x += 3) {
+          const idx = (y * 160 + x) * 4;
+          const dr = Math.abs(current[idx] - prevFrameData[idx]);
+          const dg = Math.abs(current[idx + 1] - prevFrameData[idx + 1]);
+          const db = Math.abs(current[idx + 2] - prevFrameData[idx + 2]);
+          const diff = dr + dg + db;
+          if (diff > 50) {
+            sumX += x;
+            sumY += y;
+            count++;
+          }
+        }
+      }
+      prevFrameData = current;
+      if (count > 25) {
+        const targetX = sumX / count / 160;
+        const targetY = sumY / count / 120;
+        if (!optCentroid) {
+          optCentroid = { x: targetX, y: targetY };
+        } else {
+          optCentroid.x += (targetX - optCentroid.x) * 0.35;
+          optCentroid.y += (targetY - optCentroid.y) * 0.35;
+        }
+      }
+    } catch (e) {
+      // ignore optical canvas exceptions
+    }
+    return optCentroid;
+  }
+
+  // --- Immediate Camera Acquisition -------------------------------------
   async function start(video, onResults) {
     videoElement = video;
     onResultsCallback = onResults;
-    if (isRunning) return true;
-    if (!poseLandmarker || !handLandmarker) {
-      const ok = await init();
-      if (!ok) return false;
-    }
-    try {
-      const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
-      const deviceId = localStorage.getItem("preferred_camera_id") || undefined;
 
-      const baseVideoConstraints = deviceId
-        ? { deviceId: { exact: deviceId } }
+    if (isRunning && stream) {
+      return true;
+    }
+
+    // Step 1: Immediately acquire camera permission and media stream
+    try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        alert("CRITICAL: Camera API unavailable. Ensure you are accessing via HTTPS or localhost.");
+        return false;
+      }
+
+      const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+      const savedDeviceId = localStorage.getItem("preferred_camera_id") || undefined;
+
+      const baseVideoConstraints = savedDeviceId
+        ? { deviceId: { exact: savedDeviceId } }
         : { facingMode: "user" };
 
       const candidateConstraints = [
@@ -147,6 +231,7 @@ const VisionLoader = (() => {
 
       stream = null;
       let lastErr = null;
+
       for (const c of candidateConstraints) {
         try {
           stream = await navigator.mediaDevices.getUserMedia(c);
@@ -156,8 +241,21 @@ const VisionLoader = (() => {
         }
       }
 
-      if (!stream) throw lastErr || new Error("Failed to access camera");
+      if (!stream) {
+        console.error("[VisionLoader] getUserMedia failed:", lastErr);
+        let msg = "Could not access camera. Please allow webcam permission in your browser.";
+        if (lastErr && (lastErr.name === "NotAllowedError" || lastErr.name === "PermissionDeniedError")) {
+          msg = "Camera permission denied. Please allow camera access in your browser settings.";
+        } else if (lastErr && (lastErr.name === "NotFoundError" || lastErr.name === "DevicesNotFoundError")) {
+          msg = "No webcam detected on your device.";
+        } else if (lastErr && lastErr.name === "NotReadableError") {
+          msg = "Camera is currently locked by another application (e.g., Zoom, Teams).";
+        }
+        alert(msg);
+        return false;
+      }
 
+      // Attach stream to video element immediately
       video.srcObject = stream;
       video.setAttribute("playsinline", "true");
       video.setAttribute("webkit-playsinline", "true");
@@ -169,90 +267,147 @@ const VisionLoader = (() => {
       await new Promise((resolve) => {
         if (video.readyState >= 2) return resolve();
         video.onloadedmetadata = () => resolve();
+        setTimeout(resolve, 800); // safety fallback
       });
+
       await video.play().catch(() => {});
       isRunning = true;
+
+      // Step 2: Trigger neural network loading in the background (does not block camera display)
+      initModels();
+
+      // Step 3: Start continuous frame loop
       if (window.RehabQA) window.RehabQA.tick();
       loop();
       return true;
     } catch (err) {
-      console.error("[VisionLoader] Camera failed:", err);
-      let msg = "Camera access error.";
-      if (err && (err.name === "NotAllowedError" || err.name === "PermissionDeniedError")) {
-        msg = "Camera permission denied. Allow camera access in your browser.";
-      } else if (err && (err.name === "NotFoundError" || err.name === "DevicesNotFoundError")) {
-        msg = "No webcam detected on this device.";
-      } else if (err && err.name === "NotReadableError") {
-        msg = "Camera is locked by another app (Zoom/Teams/another tab).";
-      }
-      if (typeof alert === "function") alert(msg);
+      console.error("[VisionLoader] Camera initialization error:", err);
+      alert("Camera error: " + (err.message || err));
       return false;
     }
   }
 
+  // --- Stop Camera ------------------------------------------------------
   async function stop() {
     isRunning = false;
-    if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+    if (rafId) {
+      cancelAnimationFrame(rafId);
+      rafId = null;
+    }
     if (stream) {
-      stream.getTracks().forEach((t) => t.stop());
+      try {
+        stream.getTracks().forEach((t) => t.stop());
+      } catch (e) {}
       stream = null;
     }
-    if (videoElement) { videoElement.srcObject = null; videoElement = null; }
+    if (videoElement) {
+      videoElement.srcObject = null;
+      videoElement = null;
+    }
     onResultsCallback = null;
   }
 
-  // --- Frame processing ---------------------------------------------------
+  // --- Main Frame Processing Loop ---------------------------------------
   function loop() {
     if (!isRunning) return;
     rafId = requestAnimationFrame(loop);
+
     if (!videoElement || videoElement.readyState < 2) return;
+
     try {
       if (videoElement.videoWidth) {
         lastVideoWidth = videoElement.videoWidth;
         lastVideoHeight = videoElement.videoHeight;
       }
-      const now = performance.now();
-      const results = { pose: null, poseAll: null, hand: null, handAll: null, hand_side: null, chain: null };
 
-      // ---- Pose (mirrored into selfie-view coordinates) ----------------
-      try {
-        const p = poseLandmarker.detectForVideo(videoElement, now);
-        if (p.landmarks && p.landmarks.length > 0) {
-          const src = p.landmarks[0];
-          results.poseAll = src.map((lm) => ({ x: 1 - lm.x, y: lm.y, z: lm.z || 0 }));
-          results.pose = {};
-          for (let i = 0; i < src.length; i++) {
-            results.pose[i] = { x: 1 - src[i].x, y: src[i].y, z: src[i].z || 0 };
-          }
-          // Expose lower-body landmarks if the Lite pose model provides them
-          // (MediaPipe Pose Lite outputs landmarks 0..22 including hips 23/24,
-          // knees 25/26, ankles 27/28). Downstream engines only use what they
-          // need; if a landmark is missing the chain is simply not built.
+      // Asynchronously send frames to neural models without blocking main thread
+      if (poseModel && !isProcessingPose) {
+        isProcessingPose = true;
+        poseModel.send({ image: videoElement })
+          .catch((e) => console.warn("[VisionLoader] pose frame skip:", e))
+          .finally(() => { isProcessingPose = false; });
+      }
+
+      if (handsModel && !isProcessingHands) {
+        isProcessingHands = true;
+        handsModel.send({ image: videoElement })
+          .catch((e) => console.warn("[VisionLoader] hand frame skip:", e))
+          .finally(() => { isProcessingHands = false; });
+      }
+
+      // Construct results bundle
+      const results = {
+        pose: null,
+        poseAll: null,
+        hand: null,
+        handAll: null,
+        hand_side: null,
+        chain: null,
+        legs: null,
+        legChain: null,
+      };
+
+      // 1. Mirror and map Pose Landmarks
+      if (lastPoseLandmarks && lastPoseLandmarks.length > 0) {
+        const src = lastPoseLandmarks;
+        results.poseAll = src.map((lm) => ({ x: 1 - lm.x, y: lm.y, z: lm.z || 0 }));
+        results.pose = {};
+        for (let i = 0; i < src.length; i++) {
+          results.pose[i] = { x: 1 - src[i].x, y: src[i].y, z: src[i].z || 0 };
+        }
+        // Leg joints: 23/24 hips, 25/26 knees, 27/28 ankles
+        if (results.pose[23] && results.pose[25] && results.pose[27] &&
+            results.pose[24] && results.pose[26] && results.pose[28]) {
           results.legs = {
             left: { hip: results.pose[23], knee: results.pose[25], ankle: results.pose[27] },
             right: { hip: results.pose[24], knee: results.pose[26], ankle: results.pose[28] },
           };
+          // Leg chain
+          const side = (results.hand && results.hand[0] && results.hand[0].x > 0.5) ? "right" : "left";
+          results.legChain = {
+            side,
+            hip: results.legs[side].hip,
+            knee: results.legs[side].knee,
+            ankle: results.legs[side].ankle,
+          };
         }
-      } catch (e) { /* pose frame skipped */ }
+      }
 
-      // ---- Hand (single hand only — never two simultaneously) ----------
-      try {
-        const h = handLandmarker.detectForVideo(videoElement, now);
-        if (h.landmarks && h.landmarks.length > 0) {
-          const src = h.landmarks[0]; // pipeline runs numHands = 1
-          results.handAll = src.map((lm) => ({ x: 1 - lm.x, y: lm.y, z: lm.z || 0 }));
-          results.hand = {};
-          for (let i = 0; i < src.length; i++) {
-            results.hand[i] = { x: 1 - src[i].x, y: src[i].y, z: src[i].z || 0 };
+      // 2. Mirror and map Hand Landmarks
+      if (lastHandLandmarks && lastHandLandmarks.length > 0) {
+        const src = lastHandLandmarks;
+        results.handAll = src.map((lm) => ({ x: 1 - lm.x, y: lm.y, z: lm.z || 0 }));
+        results.hand = {};
+        for (let i = 0; i < src.length; i++) {
+          results.hand[i] = { x: 1 - src[i].x, y: src[i].y, z: src[i].z || 0 };
+        }
+        if (results.hand[17] && results.hand[5]) {
+          results.hand_side = results.hand[17].x < results.hand[5].x ? "right" : "left";
+        }
+      } else {
+        // Optical fallback when hand model is not yet tracking
+        const now = Date.now();
+        if (now - lastModelDetectionTime > 1200) {
+          const centroid = computeOpticalMotion(videoElement);
+          if (centroid) {
+            // Mirror centroid for selfie view
+            const mx = 1 - centroid.x;
+            const my = centroid.y;
+            results.hand = {
+              0: { x: mx, y: my + 0.08, z: 0 },
+              4: { x: mx - 0.04, y: my, z: 0 },
+              5: { x: mx - 0.02, y: my - 0.04, z: 0 },
+              8: { x: mx, y: my - 0.08, z: 0 }, // index fingertip
+              12: { x: mx + 0.02, y: my - 0.08, z: 0 },
+              16: { x: mx + 0.04, y: my - 0.07, z: 0 },
+              17: { x: mx + 0.05, y: my - 0.03, z: 0 },
+              20: { x: mx + 0.06, y: my - 0.05, z: 0 },
+            };
           }
-          results.hand_side = (results.hand[17].x < results.hand[5].x) ? "right" : "left";
         }
-      } catch (e) { /* hand frame skipped */ }
+      }
 
-      // ---- Single tracking chain: ONE arm (shoulder→elbow→wrist) + the ----
-      // ---- ONE tracked hand matched to that wrist (no second skeleton) ----
-      // ---- Single tracking chain: ONE arm (shoulder→elbow→wrist) + the ----
-      // ---- ONE tracked hand matched to that wrist (no second skeleton) ----
+      // 3. Single Arm Tracking Chain (One clean arm + matched hand)
       if (results.pose) {
         let shIdx = 12; // right arm default
         if (results.hand && results.hand[0]) {
@@ -261,14 +416,13 @@ const VisionLoader = (() => {
           const dR = results.pose[16] ? Math.hypot(hw.x - results.pose[16].x, hw.y - results.pose[16].y) : 9;
           shIdx = dR <= dL ? 12 : 11;
         } else {
-          // No hand visible: prefer the arm nearer the screen centre for a
-          // single clean skeleton instead of drawing both arms
-          const c = 0.5;
-          const dl = results.pose[15] ? Math.abs(results.pose[15].x - c) : 9;
-          const dr = results.pose[16] ? Math.abs(results.pose[16].x - c) : 9;
+          const dl = results.pose[15] ? Math.abs(results.pose[15].x - 0.5) : 9;
+          const dr = results.pose[16] ? Math.abs(results.pose[16].x - 0.5) : 9;
           shIdx = dr <= dl ? 12 : 11;
         }
-        const sh = results.pose[shIdx], el = results.pose[shIdx + 2], wr = results.pose[shIdx + 4];
+        const sh = results.pose[shIdx];
+        const el = results.pose[shIdx + 2];
+        const wr = results.pose[shIdx + 4];
         if (sh && el && wr) {
           results.chain = {
             side: shIdx === 12 ? "right" : "left",
@@ -278,72 +432,50 @@ const VisionLoader = (() => {
         }
       }
 
-      // ---- Active-side leg chain (hip → knee → ankle) with a muted ----
-      // ---- inactive-side copy for the single-card leg routine. The ----
-      // ---- active side is picked the same way the arm chain is: by ----
-      // ---- proximity to the visible hand/centre of frame. ----
-      if (results.legs) {
-        const pickSide = () => {
-          if (results.hand && results.hand[0]) {
-            const hw = results.hand[0];
-            const dL = results.legs.left.hip ? Math.hypot(hw.x - results.legs.left.hip.x, hw.y - results.legs.left.hip.y) : 9;
-            const dR = results.legs.right.hip ? Math.hypot(hw.x - results.legs.right.hip.x, hw.y - results.legs.right.hip.y) : 9;
-            return dR <= dL ? "right" : "left";
-          }
-          // No hand: prefer the leg nearer the centre of frame
-          const c = 0.5;
-          const dl = results.legs.left.hip ? Math.abs(results.legs.left.hip.x - c) : 9;
-          const dr = results.legs.right.hip ? Math.abs(results.legs.right.hip.x - c) : 9;
-          return dr <= dl ? "right" : "left";
-        };
-        const side = pickSide();
-        const a = results.legs[side].hip, b = results.legs[side].knee, c2 = results.legs[side].ankle;
-        if (a && b && c2) {
-          results.legChain = { side, hip: a, knee: b, ankle: c2 };
-        }
+      if (onResultsCallback) {
+        onResultsCallback(results);
       }
-      if (onResultsCallback) onResultsCallback(results);
-      if (window.RehabQA) window.RehabQA.tick();
+      if (window.RehabQA) {
+        window.RehabQA.tick();
+      }
     } catch (e) {
-      console.error("[VisionLoader] frame error", e);
+      console.warn("[VisionLoader] Frame processing warning:", e);
     }
   }
 
-  // --- Watchdog: restart pipeline if the loop stalls > 2s ---------------
+  // --- Watchdog: Restart camera pipeline if stalled ----------------------
   function watch(onStall) {
     if (window.RehabQA) {
       window.RehabQA.watch(() => {
-        console.warn("[VisionLoader] Frame stall detected — restarting camera pipeline (no reload)");
+        console.warn("[VisionLoader] Frame stall detected — auto-reconnecting stream");
         const wasRunning = isRunning;
         if (wasRunning) stop();
-        // Restart from a fresh stream after models are ready
         setTimeout(() => {
           if (onStall) onStall();
           else if (wasRunning && videoElement && onResultsCallback) {
             start(videoElement, onResultsCallback);
           }
-        }, 250);
+        }, 300);
       });
     }
   }
 
-  // --- Camera device switching from the clinical top bar ------------------
+  // --- Camera device switching ------------------------------------------
   window.addEventListener("rehab-camera-change", (e) => {
-    pendingDeviceId = e.detail && e.detail.deviceId;
     if (isRunning && videoElement && onResultsCallback) {
       stop();
-      setTimeout(() => start(videoElement, onResultsCallback), 200);
+      setTimeout(() => start(videoElement, onResultsCallback), 250);
     }
   });
 
-  function getVideoSize() {
-    return { width: lastVideoWidth, height: lastVideoHeight };
-  }
-
   return {
-    init, start, stop, watch, getVideoSize,
+    start,
+    stop,
+    watch,
+    init: initModels,
+    getVideoSize: () => ({ width: lastVideoWidth, height: lastVideoHeight }),
     isRunning: () => isRunning,
   };
 })();
 
-window.VisionLoader = window.VisionLoader || VisionLoader;
+window.VisionLoader = VisionLoader;

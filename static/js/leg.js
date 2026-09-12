@@ -32,6 +32,13 @@ document.addEventListener("DOMContentLoaded", () => {
   function showScreen(name) {
     Object.values(screens).forEach((el) => el.classList.remove("active"));
     screens[name].classList.add("active");
+    if (name === "stage") {
+      setTimeout(() => {
+        sizeOverlay();
+        const v = $("video");
+        if (v && v.paused) v.play().catch(() => {});
+      }, 50);
+    }
   }
 
   const fmt = (ms) => {

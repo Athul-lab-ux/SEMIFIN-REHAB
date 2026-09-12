@@ -27,6 +27,13 @@ document.addEventListener("DOMContentLoaded", () => {
   function showScreen(name) {
     Object.values(screens).forEach((el) => el.classList.remove("active"));
     screens[name === "break" ? "break_" : name].classList.add("active");
+    if (name === "workout") {
+      setTimeout(() => {
+        sizeOverlay();
+        const v = $("video");
+        if (v && v.paused) v.play().catch(() => {});
+      }, 50);
+    }
   }
 
   const fmt = (ms) => {

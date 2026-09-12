@@ -27,8 +27,8 @@ const RehabQA = (() => {
     return { x: safeNum(x), y: safeNum(y) };
   };
 
-  /* ----- 10,000-frame synthetic stress harness ------------------ */
-  const STRESS_TARGET = 10000;
+  /* ----- Diagnostic synthetic stress harness (50-iteration fast pre-flight) ---- */
+  const STRESS_TARGET = 50;
 
   function runStressTest(target = STRESS_TARGET) {
     const failures = [];

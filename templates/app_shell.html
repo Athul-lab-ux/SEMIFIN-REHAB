@@ -24,6 +24,12 @@
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
   {% include '_ai_widget.html' %}
+
+  <!-- Core MediaPipe Vision Libraries (Pre-cached for instant camera access) -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+
   {% block scripts %}{% endblock %}
 </body>
 </html>
