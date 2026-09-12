@@ -188,7 +188,72 @@ document.addEventListener("DOMContentLoaded", () => {
     results: [], // per finished exercise
     videoOn: false, lastTip: null, lastT: 0, speed: 0, metrics: null,
     hintOn: false, secTick: 0,
+    lastActionTime: Date.now(), guidanceShowing: false,
   };
+
+  // ---------- 4s Guidance Popup System (Initial + 10s Inactivity) --------
+  let guidanceTimer = null;
+  let guidanceInterval = null;
+
+  function showGuidancePopup(durationSec = 4) {
+    const popup = $("therapy-guidance-popup");
+    if (!popup || !S.ex) return;
+    if (S.paused || S.phase !== "workout") return;
+
+    S.guidanceShowing = true;
+    $("tgp-title").textContent = `${S.ex.emoji} ${S.ex.name}`;
+    $("tgp-what").textContent = S.ex.hint || `Follow each numbered step in sequence to complete each rep.`;
+
+    const stepsEl = $("tgp-steps");
+    stepsEl.innerHTML = S.ex.steps.map((st, i) => `
+      <div style="display:flex; align-items:center; gap:8px; margin:4px 0; font-size:12.5px; color:#E2E8F0;">
+        <span style="display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:50%; background:var(--clin-orange); color:#fff; font-size:11.5px; font-weight:800; flex-shrink:0;">${i+1}</span>
+        <span><b>${st.label}</b> ${st.hold ? `<em style="color:#FDBA74; font-style:normal; font-weight:700;">(hold ${st.hold}s)</em>` : ""}</span>
+      </div>
+    `).join("");
+
+    popup.classList.add("show");
+
+    if (window.RehabBio) {
+      window.RehabBio.speak(`${S.ex.name}. Step 1: ${S.ex.steps[0].label}`);
+    }
+
+    if (guidanceTimer) clearTimeout(guidanceTimer);
+    if (guidanceInterval) clearInterval(guidanceInterval);
+
+    const startTime = Date.now();
+    const totalMs = durationSec * 1000;
+    const timerFill = $("tgp-timer-fill");
+    const timerText = $("tgp-timer-text");
+
+    guidanceInterval = setInterval(() => {
+      const elapsed = Date.now() - startTime;
+      const remaining = Math.max(0, (totalMs - elapsed) / 1000);
+      const pct = Math.max(0, Math.min(100, ((totalMs - elapsed) / totalMs) * 100));
+      if (timerFill) timerFill.style.width = `${pct}%`;
+      if (timerText) timerText.textContent = `Closing in ${Math.ceil(remaining)}s...`;
+
+      if (elapsed >= totalMs) {
+        hideGuidancePopup();
+      }
+    }, 50);
+  }
+
+  function hideGuidancePopup() {
+    const popup = $("therapy-guidance-popup");
+    if (popup) popup.classList.remove("show");
+    if (guidanceTimer) clearTimeout(guidanceTimer);
+    if (guidanceInterval) clearInterval(guidanceInterval);
+    guidanceTimer = null;
+    guidanceInterval = null;
+    S.guidanceShowing = false;
+    S.lastActionTime = Date.now(); // reset clock after dismissal
+  }
+
+  const dismissBtn = $("tgp-dismiss");
+  if (dismissBtn) {
+    dismissBtn.addEventListener("click", hideGuidancePopup);
+  }
 
   // ---------- Metrics per frame ------------------------------------------
   function computeMetrics(res) {
@@ -334,6 +399,7 @@ document.addEventListener("DOMContentLoaded", () => {
       S.holdStart = 0;
       S.step++;
       S.hintOn = false;
+      S.lastActionTime = now;
       const line = $("feedback-line");
       if (window.RehabBio) window.RehabBio.playBeep(880, 0.06, 0.3);
       if (S.step >= S.ex.steps.length) completeRep();
@@ -359,6 +425,7 @@ document.addEventListener("DOMContentLoaded", () => {
     S.rep++;
     S.step = 0;
     S.stuckAt = 0;
+    S.lastActionTime = Date.now();
     renderSteps(S.ex, 0);
     $("rep-display").textContent = `${S.rep} / ${S.repsTarget}`;
     $("hint-line").textContent = "";
@@ -386,6 +453,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // ---------- Set / exercise / program flow --------------------------------
   function finishExercise() {
+    hideGuidancePopup();
     S.results.push({
       key: S.ex.key, name: S.ex.name, emoji: S.ex.emoji,
       reps: S.repsTarget * S.setsTarget, sets: S.setsTarget,
@@ -409,6 +477,7 @@ document.addEventListener("DOMContentLoaded", () => {
     S.ex = S.queue[S.qi];
     S.set = 1; S.rep = 0; S.step = 0; S.holdStart = 0; S.stuckAt = 0;
     S.exStart = Date.now();
+    S.lastActionTime = Date.now();
     $("wo-now").textContent = `${S.ex.emoji} ${S.ex.name}`;
     $("wo-set").textContent = `Set 1/${S.setsTarget}`;
     $("rep-display").textContent = `0 / ${S.repsTarget}`;
@@ -418,6 +487,7 @@ document.addEventListener("DOMContentLoaded", () => {
     S.phase = "workout";
     showScreen("workout");
     speakStep(S.ex, 0);
+    showGuidancePopup(4);
   }
 
   // ---------- Countdowns (warm-up / rest / break) -------------------------
@@ -446,12 +516,24 @@ document.addEventListener("DOMContentLoaded", () => {
       updateCountdownUI();
       if (S.countdown <= 0) {
         if (S.phase === "warmup") startNextExercise();
-        else if (S.phase === "rest") { S.phase = "workout"; showScreen("workout"); S.setStart = Date.now(); }
+        else if (S.phase === "rest") {
+          S.phase = "workout";
+          showScreen("workout");
+          S.setStart = Date.now();
+          S.lastActionTime = Date.now();
+          showGuidancePopup(4);
+        }
         else if (S.phase === "break") startNextExercise();
       }
     } else if (S.phase === "workout" && !S.paused) {
       if (!S.timerStart) S.timerStart = Date.now();
       $("timer-display").textContent = fmt(Date.now() - S.timerStart);
+
+      // Re-trigger 4s guidance popup if patient is inactive for 10s
+      if (!S.guidanceShowing && (Date.now() - S.lastActionTime >= 10000)) {
+        showGuidancePopup(4);
+        S.lastActionTime = Date.now();
+      }
     }
   }, 250);
 
@@ -515,6 +597,7 @@ document.addEventListener("DOMContentLoaded", () => {
   function pauseWorkout() {
     if (S.phase !== "workout" || S.paused) return;
     S.paused = true;
+    hideGuidancePopup();
     $("pause-btn").style.display = "none";
     $("resume-btn").style.display = "inline-flex";
     $("therapy-paused-overlay").classList.add("show");
@@ -528,12 +611,14 @@ document.addEventListener("DOMContentLoaded", () => {
     $("therapy-paused-overlay").classList.remove("show");
     runStageCountdown("RESUMING IN", 4, () => {
       S.paused = false;
+      S.lastActionTime = Date.now();
       $("resume-btn").style.display = "none";
       $("pause-btn").style.display = "inline-flex";
     });
   }
 
   function stopWorkout() {
+    hideGuidancePopup();
     stopVision();
     if (window.RehabBio) window.RehabBio.stopRomTone();
     $("therapy-paused-overlay").classList.remove("show");

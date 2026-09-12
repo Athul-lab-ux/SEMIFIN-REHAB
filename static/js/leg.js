@@ -159,6 +159,59 @@ document.addEventListener("DOMContentLoaded", () => {
     $("metric-label").textContent = "KNEE °";
   }
 
+  // ---------- Guidance Popup System (4s Initial + 10s Inactivity) --------
+  let legGuidanceTimer = null;
+  let legGuidanceInterval = null;
+  let legGuidanceShowing = false;
+  let lastLegActionTime = Date.now();
+
+  function showLegGuidancePopup(durationSec = 4) {
+    const popup = $("leg-guidance-popup");
+    if (!popup || S.phase !== "stage" || S.paused) return;
+
+    legGuidanceShowing = true;
+    popup.classList.add("show");
+    if (window.RehabBio) {
+      window.RehabBio.speak(`Leg recovery routine. Step 1: Bend knee to 105 degrees. Step 2: Extend leg forward to 135 degrees and hold.`);
+    }
+
+    if (legGuidanceTimer) clearTimeout(legGuidanceTimer);
+    if (legGuidanceInterval) clearInterval(legGuidanceInterval);
+
+    const startTime = Date.now();
+    const totalMs = durationSec * 1000;
+    const timerFill = $("lgp-timer-fill");
+    const timerText = $("lgp-timer-text");
+
+    legGuidanceInterval = setInterval(() => {
+      const elapsed = Date.now() - startTime;
+      const remaining = Math.max(0, (totalMs - elapsed) / 1000);
+      const pct = Math.max(0, Math.min(100, ((totalMs - elapsed) / totalMs) * 100));
+      if (timerFill) timerFill.style.width = `${pct}%`;
+      if (timerText) timerText.textContent = `Closing in ${Math.ceil(remaining)}s...`;
+
+      if (elapsed >= totalMs) {
+        hideLegGuidancePopup();
+      }
+    }, 50);
+  }
+
+  function hideLegGuidancePopup() {
+    const popup = $("leg-guidance-popup");
+    if (popup) popup.classList.remove("show");
+    if (legGuidanceTimer) clearTimeout(legGuidanceTimer);
+    if (legGuidanceInterval) clearInterval(legGuidanceInterval);
+    legGuidanceTimer = null;
+    legGuidanceInterval = null;
+    legGuidanceShowing = false;
+    lastLegActionTime = Date.now();
+  }
+
+  const lgpDismiss = $("lgp-dismiss");
+  if (lgpDismiss) {
+    lgpDismiss.addEventListener("click", hideLegGuidancePopup);
+  }
+
   // ---------- Stage flow ------------------------------------------------
   function startStage(side) {
     S.side = side;
@@ -169,6 +222,7 @@ document.addEventListener("DOMContentLoaded", () => {
     S.lastKnee = null;
     S.stuckAt = 0;
     S.hintOn = false;
+    lastLegActionTime = Date.now();
     renderStepBoxes(0);
     renderRepDisplay(side);
     $("metric-value").textContent = "—";
@@ -177,15 +231,25 @@ document.addEventListener("DOMContentLoaded", () => {
     showStepHint(side);
     if (S.phase === "stage") showStages(true);
     renderStages(side);
+    showLegGuidancePopup(4);
     if (window.RehabBio) window.RehabBio.speak(`${side === "left" ? "Left leg" : "Right leg"}: bend your knee to start.`);
   }
 
   function finishRep(side) {
     const which = side === "left" ? (S.leftCount += 1) : (S.rightCount += 1);
+    lastLegActionTime = Date.now();
     renderRepDisplay(side);
     $("feedback-line").textContent = `${emojiFor(side)} Rep ${which}/${S.repsTarget} ✅`;
     $("hold-display").textContent = "0.0s";
     if (window.RehabBio) window.RehabBio.playBeep(880, 0.06, 0.3);
+
+    // CRITICAL: Progress to transition or finish session when target reached!
+    if (which >= S.repsTarget) {
+      if (window.RehabBio) window.RehabBio.speak(`${side === "left" ? "Left" : "Right"} leg set complete!`);
+      finishSide(side);
+      return;
+    }
+
     if (which % 5 === 0 && window.RehabBio) {
       window.RehabBio.speak(`Rep ${which} complete. ${S.repsTarget - which} remaining.`);
     }
@@ -304,9 +368,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Step 0: idle/bend → set up
     if (step === 0) {
-      if (M.activeKnee != null && M.activeKnee <= 100) {
+      if (M.activeKnee != null && M.activeKnee <= 105) {
         S.step = 1;
         S.holdStart = 0;
+        lastLegActionTime = Date.now();
         renderStepBoxes(1);
         showStepHint(side);
         if (window.RehabBio) window.RehabBio.speak("Ready to extend.");
@@ -318,12 +383,18 @@ document.addEventListener("DOMContentLoaded", () => {
       } else if (M.activeKnee == null) {
         S.hintOn = false;
       }
+      // Re-trigger 4s guidance popup if patient is inactive for 10s
+      if (!legGuidanceShowing && (Date.now() - lastLegActionTime >= 10000)) {
+        showLegGuidancePopup(4);
+        lastLegActionTime = Date.now();
+      }
       return;
     }
 
-    // Step 1: extend hold
+    // Step 1: extend hold (calibrated to >= 135° for stroke recovery)
     if (step === 1) {
-      if (M.activeKnee != null && M.activeKnee >= 160) {
+      if (M.activeKnee != null && M.activeKnee >= 135) {
+        lastLegActionTime = Date.now();
         S.holdStart = S.holdStart || Date.now();
         const held = (Date.now() - S.holdStart) / 1000;
         $("hold-display").textContent = `${Math.max(0, 1 - held).toFixed(1)}s`;
@@ -341,20 +412,30 @@ document.addEventListener("DOMContentLoaded", () => {
       if (M.activeKnee == null) { S.hintOn = false; return; }
       if (!S.hintOn) {
         S.hintOn = true;
-        $("hint-line").textContent = "💡 Extend your leg out fully.";
+        $("hint-line").textContent = "💡 Extend your leg out forward.";
+      }
+      // Re-trigger 4s guidance popup if patient is inactive for 10s
+      if (!legGuidanceShowing && (Date.now() - lastLegActionTime >= 10000)) {
+        showLegGuidancePopup(4);
+        lastLegActionTime = Date.now();
       }
       return;
     }
 
     // Step 2: return
     if (step === 2) {
-      if (M.activeKnee != null && M.activeKnee <= 100) {
+      if (M.activeKnee != null && M.activeKnee <= 105) {
         finishRep(side);
       } else {
         if (M.activeKnee == null) { S.hintOn = false; return; }
         if (!S.hintOn) {
           S.hintOn = true;
           $("hint-line").textContent = "💡 Bring your leg back to the start.";
+        }
+        // Re-trigger 4s guidance popup if patient is inactive for 10s
+        if (!legGuidanceShowing && (Date.now() - lastLegActionTime >= 10000)) {
+          showLegGuidancePopup(4);
+          lastLegActionTime = Date.now();
         }
       }
     }
@@ -498,6 +579,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (S.phase !== "stage" || S.paused) return;
     S.paused = true;
     S.pauseStart = Date.now();
+    hideLegGuidancePopup();
     $("lg-pause").style.display = "none";
     $("lg-resume").style.display = "inline-flex";
     $("leg-paused-overlay").classList.add("show");
@@ -512,17 +594,19 @@ document.addEventListener("DOMContentLoaded", () => {
     runLegCountdown("RESUMING IN", 4, () => {
       S.paused = false;
       S.pauseStart = 0;
+      lastLegActionTime = Date.now();
       $("lg-resume").style.display = "none";
       $("lg-pause").style.display = "inline-flex";
     });
   }
 
   function stopLeg() {
+    hideLegGuidancePopup();
     stopVision();
     if (window.RehabBio) window.RehabBio.stopRomTone();
     $("leg-paused-overlay").classList.remove("show");
     $("leg-countdown-overlay").classList.remove("show");
-    finishProgram();
+    finishSession();
   }
 
   $("btn-start").addEventListener("click", async () => {

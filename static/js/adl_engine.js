@@ -136,9 +136,98 @@ document.addEventListener("DOMContentLoaded", async () => {
     }, 1000);
   }
 
+  // --- 4s Guidance Popup System (Initial + 10s Inactivity) ---
+  const ADL_GUIDES = {
+    key: {
+      title: "🔑 90° Door Key Turn",
+      what: "Rotate the deadbolt key 90° clockwise to unlock the door.",
+      how: "Turn your wrist and forearm outward like turning a key in a lock. On touch/mouse: drag across the key horizontally.",
+      tip: "Retrains active forearm pronation & supination (E5 knuckle aspect ratio).",
+    },
+    light: {
+      title: "💡 Rocker Light Switch",
+      what: "Flip the wall light switch ON and OFF.",
+      how: "Perform a rapid upward or downward hand thrust, or tap directly on the rocker switch.",
+      tip: "Retrains ballistic wrist/finger extension against gravity.",
+    },
+    thermostat: {
+      title: "🎛️ Rotary Thermostat",
+      what: "Adjust the dial temperature from 18°C up to 24°C.",
+      how: "Trace a smooth circular motion around the dial with your index finger, or drag around the dial arc.",
+      tip: "Retrains circular planar coordination and fine velocity control.",
+    },
+    pin: {
+      title: "🔢 Touchless PIN Pad",
+      what: "Enter the security code: 1 → 2 → 3 → 4.",
+      how: "Hover your index fingertip over digit 1 for 1.2s until confirmed, then 2, 3, and 4. Or tap each digit directly.",
+      tip: "Retrains tremor dampening and steady isometric dwell target control.",
+    },
+  };
+
+  let adlGuidanceTimer = null;
+  let adlGuidanceInterval = null;
+  let adlGuidanceShowing = false;
+  let lastAdlActionTime = Date.now();
+
+  function showAdlGuidancePopup(taskKey, durationSec = 4) {
+    const popup = document.getElementById("adl-guidance-popup");
+    const guide = ADL_GUIDES[taskKey];
+    if (!popup || !guide) return;
+    if (adlPaused || currentTask === "menu") return;
+
+    adlGuidanceShowing = true;
+    document.getElementById("agp-title").textContent = guide.title;
+    document.getElementById("agp-what").textContent = guide.what;
+    document.getElementById("agp-how").textContent = guide.how;
+    document.getElementById("agp-tip").textContent = guide.tip;
+
+    popup.classList.add("show");
+
+    if (window.RehabBio) {
+      window.RehabBio.speak(`${guide.title}. ${guide.how}`);
+    }
+
+    if (adlGuidanceTimer) clearTimeout(adlGuidanceTimer);
+    if (adlGuidanceInterval) clearInterval(adlGuidanceInterval);
+
+    const startTime = Date.now();
+    const totalMs = durationSec * 1000;
+    const timerFill = document.getElementById("agp-timer-fill");
+    const timerText = document.getElementById("agp-timer-text");
+
+    adlGuidanceInterval = setInterval(() => {
+      const elapsed = Date.now() - startTime;
+      const remaining = Math.max(0, (totalMs - elapsed) / 1000);
+      const pct = Math.max(0, Math.min(100, ((totalMs - elapsed) / totalMs) * 100));
+      if (timerFill) timerFill.style.width = `${pct}%`;
+      if (timerText) timerText.textContent = `Closing in ${Math.ceil(remaining)}s...`;
+
+      if (elapsed >= totalMs) {
+        hideAdlGuidancePopup();
+      }
+    }, 50);
+  }
+
+  function hideAdlGuidancePopup() {
+    const popup = document.getElementById("adl-guidance-popup");
+    if (popup) popup.classList.remove("show");
+    if (adlGuidanceTimer) clearTimeout(adlGuidanceTimer);
+    if (adlGuidanceInterval) clearInterval(adlGuidanceInterval);
+    adlGuidanceTimer = null;
+    adlGuidanceInterval = null;
+    adlGuidanceShowing = false;
+    lastAdlActionTime = Date.now();
+  }
+
+  const agpDismiss = document.getElementById("agp-dismiss");
+  if (agpDismiss) {
+    agpDismiss.addEventListener("click", hideAdlGuidancePopup);
+  }
+
   function pauseAdl() {
     if (currentTask === "menu" || adlPaused) return;
     adlPaused = true;
+    hideAdlGuidancePopup();
     document.getElementById("adl-pause").style.display = "none";
     document.getElementById("adl-resume").style.display = "inline-flex";
     document.getElementById("adl-paused-overlay").classList.add("show");
@@ -149,12 +238,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     document.getElementById("adl-paused-overlay").classList.remove("show");
     runAdlCountdown("RESUMING IN", 4, () => {
       adlPaused = false;
+      lastAdlActionTime = Date.now();
       document.getElementById("adl-resume").style.display = "none";
       document.getElementById("adl-pause").style.display = "inline-flex";
     });
   }
 
   function stopAdl() {
+    hideAdlGuidancePopup();
     if (currentTask !== "menu") {
       logSession();
     }
@@ -188,10 +279,12 @@ document.addEventListener("DOMContentLoaded", async () => {
         currentTask = selectedTask;
         tasksCompleted = 0;
         startTime = Date.now();
+        lastAdlActionTime = Date.now();
         document.getElementById("adl-pause").style.display = "inline-flex";
         document.getElementById("adl-resume").style.display = "none";
         document.getElementById("adl-stop").style.display = "inline-flex";
         showToast(`🔑 Task Started: ${taskEl.textContent}`, "info");
+        showAdlGuidancePopup(selectedTask, 4);
       });
     });
   });
@@ -218,11 +311,16 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
-  // Continuous 60 FPS animation loop
+  // Continuous 60 FPS animation loop with 10s idle guidance re-trigger
   function adlRenderLoop() {
     requestAnimationFrame(adlRenderLoop);
     if (currentTask !== "menu" && !adlPaused) {
       updateTask();
+
+      if (!adlGuidanceShowing && (Date.now() - lastAdlActionTime >= 10000)) {
+        showAdlGuidancePopup(currentTask, 4);
+        lastAdlActionTime = Date.now();
+      }
     }
   }
   adlRenderLoop();
@@ -233,6 +331,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const nx = (e.clientX - rect.left) / rect.width;
     const ny = (e.clientY - rect.top) / rect.height;
     handPos = { x: nx, y: ny };
+    lastAdlActionTime = Date.now();
     if (!wristData) {
       wristData = {
         pincerDist: 0.03,
@@ -485,21 +584,23 @@ document.addEventListener("DOMContentLoaded", async () => {
     gCtx.fillText(`PIN: ${"●".repeat(pinProgress)}${"○".repeat(PIN.length - pinProgress)}`, 20, 30);
 
     // Check dwell
-    if (wristData.indexTip) {
-      const idx = PIN[pinProgress];
-      const target = padPositions[idx];
+    if (wristData.indexTip && pinProgress < PIN.length) {
+      const targetDigit = String(PIN[pinProgress]);
+      const targetIdx = padLabels.indexOf(targetDigit);
+      const target = padPositions[targetIdx];
       const dx = handPos.x - target.x;
       const dy = handPos.y - target.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
 
-      if (dist < 0.06) {
-        if (dwellTarget !== idx) {
-          dwellTarget = idx;
+      if (dist < 0.08) {
+        lastAdlActionTime = Date.now();
+        if (dwellTarget !== targetIdx) {
+          dwellTarget = targetIdx;
           dwellStart = Date.now();
         } else if (Date.now() - dwellStart > DWELL) {
           pinProgress++;
           dwellTarget = -1;
-          showToast(`🔢 Digit ${idx} entered`, "info");
+          showToast(`🔢 Digit ${targetDigit} entered`, "info");
 
           if (pinProgress >= PIN.length) {
             tasksCompleted++;
@@ -512,12 +613,59 @@ document.addEventListener("DOMContentLoaded", async () => {
           }
         }
       } else {
-        dwellTarget = -1;
+        if (dwellTarget === targetIdx) dwellTarget = -1;
       }
     }
 
     statusEl.textContent = `🔢 Enter PIN: ${pinProgress}/${PIN.length}`;
   }
+
+  // Pointer click/tap interaction for phones, touchscreens, and laptop fallback
+  gameCanvas.addEventListener("pointerdown", (e) => {
+    if (adlPaused || currentTask === "menu") return;
+    lastAdlActionTime = Date.now();
+    const rect = gameCanvas.getBoundingClientRect();
+    const nx = (e.clientX - rect.left) / rect.width;
+    const ny = (e.clientY - rect.top) / rect.height;
+
+    if (currentTask === "pin" && pinProgress < PIN.length) {
+      const targetDigit = String(PIN[pinProgress]);
+      const targetIdx = padLabels.indexOf(targetDigit);
+      const target = padPositions[targetIdx];
+      if (target && Math.hypot(nx - target.x, ny - target.y) < 0.09) {
+        pinProgress++;
+        dwellTarget = -1;
+        showToast(`🔢 Digit ${targetDigit} entered`, "info");
+        if (pinProgress >= PIN.length) {
+          tasksCompleted++;
+          showToast("🔢 PIN entered! Task complete!", "success");
+          setTimeout(() => {
+            currentTask = "menu";
+            document.getElementById("task-menu").classList.remove("hidden");
+            pinProgress = 0;
+          }, 2000);
+        }
+      }
+    } else if (currentTask === "light") {
+      switchOn = !switchOn;
+      tasksCompleted++;
+      showToast(switchOn ? "💡 Light ON" : "💡 Light OFF", "success");
+      setTimeout(() => {
+        currentTask = "menu";
+        document.getElementById("task-menu").classList.remove("hidden");
+      }, 2000);
+    } else if (currentTask === "key") {
+      keyRotation = Math.min(keyTarget, keyRotation + 18);
+      if (keyRotation >= keyTarget && tasksCompleted === 0) {
+        tasksCompleted++;
+        showToast("🔓 Key turned! Deadbolt unlocked!", "success");
+        setTimeout(() => {
+          currentTask = "menu";
+          document.getElementById("task-menu").classList.remove("hidden");
+        }, 2000);
+      }
+    }
+  });
 
   // --- Log Session ---
   async function logSession() {

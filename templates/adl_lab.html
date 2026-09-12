@@ -59,6 +59,33 @@
         </div>
       </div>
 
+      <!-- 4s ADL Guidance Popup Overlay (How to do & What to do) -->
+      <div id="adl-guidance-popup" class="adl-guidance-popup" role="dialog" aria-modal="true">
+        <div class="agp-card">
+          <div class="agp-header-row">
+            <span class="agp-badge">💡 HOW TO DO &amp; WHAT TO DO</span>
+            <button id="agp-dismiss" class="agp-dismiss-btn" title="Dismiss guidance">Got it! ✕</button>
+          </div>
+          <h3 id="agp-title" class="agp-title">🔑 90° Door Key Turn</h3>
+          <div class="agp-section">
+            <div class="agp-label">🎯 WHAT TO DO</div>
+            <p id="agp-what" class="agp-text">Turn the deadbolt key 90° clockwise to unlock the door.</p>
+          </div>
+          <div class="agp-section">
+            <div class="agp-label">📋 HOW TO DO</div>
+            <p id="agp-how" class="agp-text">Rotate your forearm like turning a key in a lock. You can also drag or touch the key on screen.</p>
+          </div>
+          <div class="agp-tip" id="agp-tip">Tip: Sit comfortably facing the camera with your hand clearly visible.</div>
+          <div class="agp-footer">
+            <div class="agp-timer-bar"><div id="agp-timer-fill" class="agp-timer-fill"></div></div>
+            <div class="agp-timer-sub">
+              <span id="agp-timer-text">Closing in 4s...</span>
+              <span class="agp-sub-hint">Reappears after 10s idle</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Task Menu -->
       <div id="task-menu">
         <button class="task-btn" data-task="key">
