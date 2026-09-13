@@ -10,12 +10,17 @@ A production-grade, clinical-grade web platform for post-stroke motor recovery t
 - **Built-in Clinical AI Tele-Rehab Engine**: Standalone zero-key intelligence for real-time clinical advisory and SOAP note synthesis (with zero-leak proxy architecture)
 
 ### 4 Core Practice Sessions
-| Session | Name | Purpose |
-|---------|------|---------|
-| 🦾 Session 1 | **Exercise Drills** | Elbow goniometry, rep latching, anti-cheat trunk monitoring, Action Observation ghost guide |
-| 🎮 Session 2 | **Games** | Flappy Kinetic + Fruit Ballistic gamified motor training with combo multipliers |
-| 🎨 Session 3 | **Neon Air-Canvas** | Fingertip drawing with 10 parametric templates, ataxia corridor scoring, gesture control |
-| 🔑 Session 4 | **ADL Functional Lab** | Key turn, light switch, thermostat dial, touchless PIN pad simulation |
+| Session | Name | Purpose & Key Features |
+|---------|------|------------------------|
+| 🦾 Session 1 | **Exercise Drills** | Elbow goniometry, rep latching, anti-cheat trunk monitoring, 4s action guide popup, Camera & Mirror toggles |
+| 🎮 Session 2 | **Arcade Arena** | 9 clinical games including Flappy Reach, Ballistic Reach, Target Tracking with dual Camera & Mirror controls |
+| 🎨 Session 3 | **Neon Air-Canvas** | Dynamic mirror view, vertical left-side brush slider, full-hand draw (>=4 fingers), 2-finger pointer (dwell click) |
+| 🔑 Session 4 | **ADL Functional Lab** | 6 Mandated Tasks (Key, Light, Thermostat, PIN, Faucet, Pill) with 6 visual posture cards & 10s idle popup |
+
+### 🪞 Dynamic Mirror Mode & Hardware Controls
+- **Synchronized Natural Mirroring (P7)**: Physical Left = Screen Left across all 4 camera modules. Video stream (`transform: scaleX(-1)`) and MediaPipe landmark vectors ($x = 1 - raw.x$) are 100% matched.
+- **Toggle Modes**: `🪞 Mirror: Natural` / `🪞 Mirror: Inverted` persistent in `localStorage`.
+- **Dedicated Camera Power (`📷 Camera: ON / OFF`)**: Present in every session to conserve CPU/battery when needed.
 
 ### Clinical Platform
 - **6 Stroke Deficit Profiles**: Hemiparesis, Flexor Spasticity, Motor Ataxia, Intention Tremor, Motor Apraxia, Wrist Drop
@@ -28,7 +33,7 @@ A production-grade, clinical-grade web platform for post-stroke motor recovery t
 
 ### 1. Clone & Setup
 ```bash
-git clone https://github.com/your-username/rehabopt-ar.git
+git clone https://github.com/Athul-lab-ux/SEMIFIN-REHAB.git
 cd rehabopt-ar
 python -m venv venv
 source venv/bin/activate  # Windows: venv\Scripts\activate
@@ -49,8 +54,10 @@ python app.py
 # Opens at http://localhost:5000
 ```
 
-### 4. Demo Account
-- **Patient ID**: `SP-000000001`
+### 4. Test & Demo Credentials
+- **Test Patient ID**: `SP-TEST-001` (or username `testpatient`)
+- **Password**: `TestPass@123`
+- **Demo Patient ID**: `SP-000000001`
 - **Password**: `PatientDemo@123`
 
 ## 🏗️ Architecture
