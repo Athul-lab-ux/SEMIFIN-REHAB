@@ -182,9 +182,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const S = {
     phase: "config", queue: [], qi: 0, ex: null,
     set: 1, rep: 0, step: 0, holdStart: 0,
-    repsTarget: 10, setsTarget: 3, restSec: 30, breakSec: 60,
+    repsTarget: 10, setsTarget: 3, restSec: 35, breakSec: 60,
     paused: false, cheat: false, stuckAt: 0, stepEnteredAt: 0,
-    timerStart: 0, setStart: 0, exStart: 0,
+    timerStart: 0, setStart: 0, exStart: 0, activeTimeMs: 0,
     results: [], // per finished exercise
     videoOn: false, lastTip: null, lastT: 0, speed: 0, metrics: null,
     hintOn: false, secTick: 0,
@@ -336,11 +336,22 @@ document.addEventListener("DOMContentLoaded", () => {
   const stepBoxes = $("step-boxes");
 
   function renderSteps(ex, activeIdx) {
+    if (!stepBoxes || !ex || !ex.steps) return;
     stepBoxes.innerHTML = "";
     ex.steps.forEach((st, i) => {
+      const isDone = i < activeIdx;
+      const isActive = i === activeIdx;
       const d = document.createElement("div");
-      d.className = "step-box" + (i < activeIdx ? " done" : i === activeIdx ? " active" : "");
-      d.innerHTML = `<span class="sb-num">${i + 1}</span><span class="sb-txt">${st.label}</span>${st.hold ? `<span class="sb-hold">⏱ ${st.hold}s</span>` : ""}`;
+      d.className = "step-box" + (isDone ? " done" : isActive ? " active" : "");
+      
+      const svg = window.getExerciseStepSvg ? window.getExerciseStepSvg(ex.key, i, isActive, isDone) : "";
+      d.innerHTML = `
+        ${svg}
+        <div class="sb-meta">
+          <span class="sb-num-badge">${isDone ? "✓ DONE" : isActive ? "STEP " + (i + 1) : (i + 1)}</span>
+          ${st.hold ? `<span class="sb-hold">⏱ ${st.hold}s</span>` : ""}
+        </div>
+        <span class="sb-txt">${st.label}</span>`;
       stepBoxes.appendChild(d);
     });
   }
@@ -377,6 +388,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!step) return;
     const ok = step.test(M);
     const now = Date.now();
+    if (M.speed > 0.04 || ok) S.lastActionTime = now;
 
     if (ok) {
       // Pitch-tone sonification for elbow ROM drills
@@ -526,8 +538,15 @@ document.addEventListener("DOMContentLoaded", () => {
         else if (S.phase === "break") startNextExercise();
       }
     } else if (S.phase === "workout" && !S.paused) {
-      if (!S.timerStart) S.timerStart = Date.now();
-      $("timer-display").textContent = fmt(Date.now() - S.timerStart);
+      // Smart active movement timer: only increments when patient is actively moving
+      const isMoving = (Date.now() - S.lastActionTime) < 2000;
+      if (isMoving) {
+        S.activeTimeMs += 250;
+        $("timer-display").textContent = fmt(S.activeTimeMs);
+        $("timer-display").style.opacity = "1";
+      } else {
+        $("timer-display").style.opacity = "0.6";
+      }
 
       // Re-trigger 4s guidance popup if patient is inactive for 10s
       if (!S.guidanceShowing && (Date.now() - S.lastActionTime >= 10000)) {
@@ -643,15 +662,39 @@ document.addEventListener("DOMContentLoaded", () => {
     S.qi = 0;
     S.repsTarget = Math.max(1, parseInt($("cfg-reps").value) || 10);
     S.setsTarget = Math.max(1, parseInt($("cfg-sets").value) || 3);
-    S.restSec = Math.max(0, parseInt($("cfg-rest").value) || 30);
+    S.restSec = Math.max(0, parseInt($("cfg-rest").value) || 35);
     S.breakSec = Math.max(0, parseInt($("cfg-break").value) || 60);
-    S.results = []; S.timerStart = 0;
-    $("warmup-hint").textContent = `Get ready — first exercise: ${queue[0].emoji} ${queue[0].name}`;
-    S.phase = "warmup";
-    S.totalCount = 4; S.countdown = 4; S.lastCountdown = Date.now();
-    updateCountdownUI();
-    showScreen("warmup");
-    if (!await startVision()) { S.phase = "config"; showScreen("config"); return; }
+    S.results = []; S.timerStart = 0; S.activeTimeMs = 0;
+
+    // Load first exercise into state and HUD
+    S.ex = S.queue[S.qi];
+    S.set = 1; S.rep = 0; S.step = 0; S.holdStart = 0; S.stuckAt = 0;
+    S.exStart = Date.now();
+    S.lastActionTime = Date.now();
+    $("wo-now").textContent = `${S.ex.emoji} ${S.ex.name}`;
+    $("wo-set").textContent = `Set 1/${S.setsTarget}`;
+    $("rep-display").textContent = `0 / ${S.repsTarget}`;
+    $("metric-label").textContent = S.ex.metric;
+    $("hint-line").textContent = ""; $("feedback-line").textContent = "";
+    renderSteps(S.ex, 0);
+
+    // Show workout stage IMMEDIATELY so video element is unhidden in the active DOM tree!
+    S.phase = "workout";
+    showScreen("workout");
+
+    // Acquire webcam stream
+    if (!await startVision()) {
+      S.phase = "config";
+      showScreen("config");
+      return;
+    }
+
+    // Run 4s countdown overlay directly over the live camera feed
+    runStageCountdown("GET READY", 4, () => {
+      S.lastActionTime = Date.now();
+      speakStep(S.ex, 0);
+      showGuidancePopup(4);
+    });
   });
 
   $("pause-btn").addEventListener("click", pauseWorkout);
@@ -659,6 +702,41 @@ document.addEventListener("DOMContentLoaded", () => {
   $("modal-resume-btn").addEventListener("click", resumeWorkout);
   $("stop-btn").addEventListener("click", stopWorkout);
   $("modal-stop-btn").addEventListener("click", stopWorkout);
+
+  // Dedicated Camera ON / OFF Toggle Button
+  const camToggleBtn = $("cam-toggle-btn");
+  if (camToggleBtn) {
+    camToggleBtn.addEventListener("click", async () => {
+      if (S.videoOn) {
+        stopVision();
+        camToggleBtn.textContent = "📷 Camera: OFF";
+        camToggleBtn.classList.add("danger");
+        showToast("📷 Camera paused to save CPU/battery", "info");
+      } else {
+        const ok = await startVision();
+        if (ok) {
+          camToggleBtn.textContent = "📷 Camera: ON";
+          camToggleBtn.classList.remove("danger");
+          showToast("📷 Camera resumed", "success");
+        }
+      }
+    });
+  }
+
+  // Age Presets click binding
+  document.querySelectorAll(".age-preset-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".age-preset-btn").forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+      const reps = btn.dataset.reps;
+      const sets = btn.dataset.sets;
+      const rest = btn.dataset.rest;
+      if (reps) $("cfg-reps").value = reps;
+      if (sets) $("cfg-sets").value = sets;
+      if (rest) $("cfg-rest").value = rest;
+      updateSummary();
+    });
+  });
 
   $("skip-rest").addEventListener("click", () => { S.phase = "workout"; showScreen("workout"); });
   $("skip-break").addEventListener("click", () => startNextExercise());
@@ -687,12 +765,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function renderDone() {
     const totalReps = S.results.reduce((a, r) => a + r.reps, 0);
-    const totalSec = S.results.reduce((a, r) => a + r.elapsed, 0);
+    const totalSec = Math.round(S.activeTimeMs / 1000);
     const list = S.results.map((r) => `<div class="done-row"><span>${r.emoji} ${r.name}</span><span>${r.reps} reps · ${r.sets} sets</span></div>`).join("");
     $("done-summary").innerHTML = `
       <div class="done-totals"><div><b>${S.results.length}</b><span>Exercises</span></div>
       <div><b>${totalReps}</b><span>Total reps</span></div>
-      <div><b>${Math.round(totalSec / 60)}m</b><span>Active time</span></div></div>
+      <div><b>${Math.max(1, Math.round(totalSec / 60))}m</b><span>Active Movement</span></div></div>
       ${list}`;
   }
 

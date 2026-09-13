@@ -123,35 +123,135 @@
 .cheat-banner.show { display: flex; animation: flashBanner 0.8s infinite alternate; }
 @keyframes flashBanner { from { opacity: 0.75; } to { opacity: 1; } }
 
+/* ---------------- Age Preset Buttons ---------------- */
+.age-preset-btn {
+  padding: 6px 12px;
+  font-size: 11.5px;
+  font-weight: 700;
+  border-radius: 8px;
+  border: 1px solid var(--clin-border);
+  background: var(--clin-surface);
+  color: var(--clin-slate);
+  cursor: pointer;
+  transition: all 0.18s ease;
+  font-family: inherit;
+}
+.age-preset-btn:hover {
+  background: var(--clin-orange-tint);
+  border-color: rgba(255, 106, 0, 0.4);
+  color: var(--clin-orange);
+}
+.age-preset-btn.active {
+  background: #EFF6FF;
+  border-color: #2563EB;
+  color: #1D4ED8;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.18);
+}
+
 .steps-rail {
   margin-top: 12px; background: var(--clin-surface);
   border: 1px solid var(--clin-border); border-radius: 14px;
-  box-shadow: var(--shadow-card); padding: 12px 14px;
+  box-shadow: var(--shadow-card); padding: 14px;
 }
-.sr-head { font-size: 12px; font-weight: 800; color: var(--clin-slate); text-transform: uppercase; letter-spacing: 0.7px; margin-bottom: 10px; }
+.sr-head { font-size: 12px; font-weight: 800; color: var(--clin-slate); text-transform: uppercase; letter-spacing: 0.7px; margin-bottom: 12px; }
 .sr-head span { color: var(--clin-navy); }
-.sr-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.sr-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
 .step-box {
-  display: flex; align-items: center; gap: 8px;
-  border: 1.5px solid var(--clin-border); border-radius: 10px;
-  background: var(--clin-canvas); padding: 8px 12px;
-  color: var(--clin-slate); font-size: 12px; font-weight: 600;
-  opacity: 0.65; transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  border: 1.5px solid #1E293B;
+  border-radius: 12px;
+  background: #0B1220;
+  padding: 10px;
+  color: #94A3B8;
+  font-size: 12px;
+  font-weight: 600;
+  opacity: 0.75;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+  position: relative;
+  overflow: hidden;
 }
-.sb-num {
-  width: 22px; height: 22px; border-radius: 50%; background: var(--clin-border);
-  color: var(--clin-navy); font-size: 11.5px; font-weight: 800;
-  display: inline-flex; align-items: center; justify-content: center;
+.step-box .step-skeletal-svg {
+  width: 100%;
+  aspect-ratio: 120 / 90;
+  border-radius: 8px;
+  background: #070D18;
+  display: block;
 }
-.sb-hold { font-size: 10px; font-weight: 800; color: var(--clin-orange); }
+.step-box .sb-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  margin-top: 6px;
+  font-size: 11px;
+}
+.step-box .sb-num-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: #1E293B;
+  color: #94A3B8;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+.step-box .sb-hold {
+  font-size: 10.5px;
+  font-weight: 800;
+  color: #FBBF24;
+}
+.step-box .sb-txt {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #E2E8F0;
+  line-height: 1.3;
+  margin-top: 4px;
+  text-align: center;
+  width: 100%;
+}
 .step-box.active {
-  border-color: var(--clin-orange); background: var(--clin-orange-tint);
-  color: var(--clin-navy); opacity: 1;
-  box-shadow: 0 4px 12px rgba(255, 106, 0, 0.2);
+  border-color: #38BDF8;
+  background: #0D1C33;
+  opacity: 1;
+  box-shadow: 0 0 20px rgba(56, 189, 248, 0.4), inset 0 0 12px rgba(56, 189, 248, 0.15);
+  transform: translateY(-2px);
 }
-.step-box.active .sb-num { background: var(--clin-orange); color: #fff; }
-.step-box.done { opacity: 1; border-color: rgba(16, 185, 129, 0.6); background: var(--clin-emerald-tint); color: #047857; }
-.step-box.done .sb-num { background: var(--clin-emerald); color: #fff; }
+.step-box.active .sb-num-badge {
+  background: #0284C7;
+  color: #fff;
+}
+.step-box.active .sb-txt {
+  color: #38BDF8;
+  font-weight: 800;
+}
+.step-box.done {
+  border-color: #10B981;
+  background: #09231B;
+  opacity: 1;
+  box-shadow: 0 0 16px rgba(16, 185, 129, 0.3);
+}
+.step-box.done .sb-num-badge {
+  background: #059669;
+  color: #fff;
+}
+.step-box.done .sb-txt {
+  color: #34D399;
+}
+
+@media (max-width: 768px) {
+  .sr-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
 
 .feedback-line { margin-top: 8px; font-size: 14px; font-weight: 800; color: var(--clin-emerald); min-height: 20px; text-align: center; }
 .hint-line { font-size: 13px; font-weight: 700; color: var(--clin-cobalt); text-align: center; min-height: 20px; }

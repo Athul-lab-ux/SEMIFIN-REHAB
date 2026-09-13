@@ -40,19 +40,53 @@ document.addEventListener("DOMContentLoaded", async () => {
   let panLastPoint = null;
   let currentTemplate = "freeform";
   let currentColor = "#00ff88";
+  let brushSize = 6; // Default 6px (range 2px - 24px)
   let templatePoints = [];
   let accuracy = 100;
   let totalError = 0;
   let errorCount = 0;
   let sessionStartTime = 0;
 
+  // Extra 30% Engineering: 3-Frame Hysteresis Debounce & EMA Landmark Smoothing
+  let gestureHistory = [];
+  let activeGesture = "IDLE";
+  let smoothedPoint = null;
+
+  // Brush Slider Elements
+  const bsrTrack = document.getElementById("bsr-track");
+  const bsrFill = document.getElementById("bsr-fill");
+  const bsrThumb = document.getElementById("bsr-thumb");
+  const bsrVal = document.getElementById("bsr-val");
+  const btnCam = document.getElementById("canvas-cam-btn");
+  let cameraActive = true;
+
+  function setBrushSize(size) {
+    brushSize = Math.max(2, Math.min(24, Math.round(size)));
+    const pct = ((brushSize - 2) / (24 - 2)) * 100;
+    if (bsrFill) bsrFill.style.height = `${pct}%`;
+    if (bsrThumb) bsrThumb.style.top = `${pct}%`;
+    if (bsrVal) bsrVal.textContent = `${brushSize}px`;
+  }
+  setBrushSize(6);
+
+  // Mouse / Touch click on brush slider
+  if (bsrTrack) {
+    const handleSliderTrack = (e) => {
+      const rect = bsrTrack.getBoundingClientRect();
+      const ratio = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
+      setBrushSize(2 + ratio * (24 - 2));
+    };
+    bsrTrack.addEventListener("pointerdown", handleSliderTrack);
+    bsrTrack.addEventListener("pointermove", (e) => { if (e.buttons === 1) handleSliderTrack(e); });
+  }
+
   // Dwell-click hover state
   let hoverBtn = null;
   let hoverStart = 0;
-  const DWELL_CLICK_TIME = 700; // ms
+  const DWELL_CLICK_TIME = 500; // 0.5s dwell ring fill
 
   const TEMPLATES = {
-    freeform: { name: "✏️ Freeform", points: [] },
+    freeform: { name: "✨ Custom", points: [] },
     line: { name: "📏 Line", points: generateLine() },
     circle: { name: "⭕ Circle", points: generateCircle(0.38) },
     square: { name: "⬜ Square", points: generateSquare(0.32) },
@@ -209,7 +243,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // --- Session Controls ---
   function startDrawingSession() {
-    runCanvasCountdown("STARTING IN", 4, () => {
+    runCanvasCountdown("STARTING IN", 5, () => {
       sessionActive = true;
       sessionPaused = false;
       sessionStartTime = Date.now();
@@ -217,7 +251,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       btnPause.style.display = "inline-flex";
       btnResume.style.display = "none";
       btnStop.style.display = "inline-flex";
-      showToast("🎨 Session Active — Draw with Index or Full Hand!", "success");
+      showToast("🎨 Session Active — Draw with Open Hand!", "success");
     });
   }
 
@@ -234,7 +268,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   function resumeDrawingSession() {
     document.getElementById("aircanvas-paused-overlay").classList.remove("show");
-    runCanvasCountdown("RESUMING IN", 4, () => {
+    runCanvasCountdown("RESUMING IN", 5, () => {
       sessionPaused = false;
       btnResume.style.display = "none";
       btnPause.style.display = "inline-flex";
@@ -284,6 +318,29 @@ document.addEventListener("DOMContentLoaded", async () => {
   modalResume.addEventListener("click", resumeDrawingSession);
   modalStop.addEventListener("click", stopDrawingSession);
 
+  // Dedicated Camera ON / OFF Toggle Button
+  if (btnCam) {
+    btnCam.addEventListener("click", async () => {
+      if (cameraActive) {
+        const v = document.getElementById("video");
+        if (v && v.srcObject) {
+          v.srcObject.getTracks().forEach((t) => t.stop());
+          v.srcObject = null;
+        }
+        cameraActive = false;
+        btnCam.textContent = "📷 Camera: OFF";
+        btnCam.classList.add("danger");
+        showToast("📷 Camera paused to save CPU/battery", "info");
+      } else {
+        await initCamera();
+        cameraActive = true;
+        btnCam.textContent = "📷 Camera: ON";
+        btnCam.classList.remove("danger");
+        showToast("📷 Camera resumed", "success");
+      }
+    });
+  }
+
   // --- Dwell Pointer Hover / Click Mode ---
   function checkHoverInteract(tip) {
     const rect = drawCanvas.getBoundingClientRect();
@@ -299,7 +356,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     const el = document.elementFromPoint(screenX, screenY);
     if (!el) { hoverBtn = null; return; }
-    const target = el.closest(".c-ctrl-btn, .color-btn, .palette-tool, .template-btn");
+    const target = el.closest(".c-ctrl-btn, .color-btn, .palette-tool, .template-btn, .btn-cam-toggle");
 
     if (target && target !== hoverBtn) {
       hoverBtn = target;
@@ -375,33 +432,68 @@ document.addEventListener("DOMContentLoaded", async () => {
       isDrawing = false;
       lastPoint = null;
       panLastPoint = null;
+      smoothedPoint = null;
+      gestureHistory = [];
       handCtx.clearRect(0, 0, handCanvas.width, handCanvas.height);
       return;
     }
 
     // Mirror landmarks so left/right matches mirror-selfie view
     const lm = results.multiHandLandmarks[0].map((p) => ({ x: 1 - p.x, y: p.y, z: p.z || 0 }));
-    const indexTip = lm[8];
-    const px = indexTip.x * drawCanvas.width;
-    const py = indexTip.y * drawCanvas.height;
-    const currentPoint = { x: px, y: py, nx: indexTip.x, ny: indexTip.y };
+    const rawTip = lm[8];
+
+    // EMA Landmark Smoothing: alpha = 0.35
+    if (!smoothedPoint) {
+      smoothedPoint = { x: rawTip.x, y: rawTip.y };
+    } else {
+      smoothedPoint.x = smoothedPoint.x * 0.65 + rawTip.x * 0.35;
+      smoothedPoint.y = smoothedPoint.y * 0.65 + rawTip.y * 0.35;
+    }
+
+    const px = smoothedPoint.x * drawCanvas.width;
+    const py = smoothedPoint.y * drawCanvas.height;
+    const currentPoint = { x: px, y: py, nx: smoothedPoint.x, ny: smoothedPoint.y };
 
     const f = getFingerStatus(lm);
 
+    // Raw gesture classification
+    let rawGesture = "IDLE";
+    if (f.indexOpen && f.middleOpen && f.ringOpen && !f.pinkyOpen) {
+      rawGesture = "MOVE";
+    } else if (f.indexOpen && f.middleOpen && !f.ringOpen && !f.pinkyOpen) {
+      rawGesture = "POINTER";
+    } else if (f.openCount >= 4) {
+      rawGesture = "DRAW";
+    } else {
+      rawGesture = "IDLE";
+    }
+
+    // 3-Frame Hysteresis Debounce (Prevents mode flickering/clashes)
+    gestureHistory.push(rawGesture);
+    if (gestureHistory.length > 3) gestureHistory.shift();
+
+    const counts = {};
+    for (const g of gestureHistory) counts[g] = (counts[g] || 0) + 1;
+    for (const g of ["MOVE", "POINTER", "DRAW", "IDLE"]) {
+      if ((counts[g] || 0) >= 2) {
+        activeGesture = g;
+        break;
+      }
+    }
+
     // =========================================================================
-    // 1. Gesture Mode Evaluation (User Specific Rules)
+    // 1. Gesture Mode Evaluation (User Mandated Rules)
     // =========================================================================
 
     // RULE 1: 3 Fingers Open -> Move / Pan Drawing
-    // "if we want to move our drqing then just open three finger"
-    if (f.indexOpen && f.middleOpen && f.ringOpen && !f.pinkyOpen) {
+    if (activeGesture === "MOVE") {
       if (modeEl) modeEl.textContent = "🤟 Mode: MOVE DRAWING";
       lastPoint = null;
+      isDrawing = false;
       if (panLastPoint) {
         const dx = px - panLastPoint.x;
         const dy = py - panLastPoint.y;
         if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) {
-          // Translate drawn canvas content
           const tmp = document.createElement("canvas");
           tmp.width = drawCanvas.width;
           tmp.height = drawCanvas.height;
@@ -417,39 +509,44 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
     panLastPoint = null;
 
-    // RULE 2: 2 Fingers Open -> Stop Drawing (Pen lift) & Pointer Click Mode
-    // "if we want to stop drqing in open 2 fingers and click start stop resume pasue"
-    if (f.indexOpen && f.middleOpen && !f.ringOpen && !f.pinkyOpen) {
-      if (modeEl) modeEl.textContent = "✌️ Mode: STOPPED / CLICK";
+    // RULE 2: 2 Fingers Open (Index + Middle) -> Stop Drawing & Pointer Click / Resize Mode
+    if (activeGesture === "POINTER") {
+      if (modeEl) modeEl.textContent = "✌️ Mode: POINTER / CONTROLS";
       lastPoint = null;
       isDrawing = false;
+
+      // Check if hovering over left brush slider rail
+      if (smoothedPoint.x < 0.16) {
+        // Map y from 0.15 (top) to 0.85 (bottom)
+        const ratio = Math.max(0, Math.min(1, (smoothedPoint.y - 0.15) / 0.70));
+        const newSize = Math.round(2 + ratio * (24 - 2));
+        setBrushSize(newSize);
+
+        // Visual feedback on handCanvas
+        handCtx.beginPath();
+        handCtx.arc(px, py, newSize, 0, Math.PI * 2);
+        handCtx.strokeStyle = "#38BDF8";
+        handCtx.lineWidth = 3;
+        handCtx.stroke();
+
+        handCtx.fillStyle = "#FFFFFF";
+        handCtx.font = "bold 13px Inter, sans-serif";
+        handCtx.fillText(`Size: ${newSize}px`, px + 16, py + 5);
+      } else {
+        // Normal top bar / buttons dwell pointer
+        checkHoverInteract(smoothedPoint);
+      }
+
       drawHandSkeleton(lm, "#00CCFF");
-      checkHoverInteract(indexTip);
       return;
     }
 
-    // RULE 3: Full Hand Open (4 or 5 Fingers) -> Continue Drawing
-    // "if agen continue open full finger"
-    const isFullHand = f.openCount >= 4;
-    // RULE 4: 1 Finger Open (Index only) -> Draw / Erase / Pick UI with index finger
-    // "choosing colour and clear or rub option by our index finger"
-    const isIndexOnly = f.indexOpen && !f.middleOpen && !f.ringOpen && !f.pinkyOpen;
-
-    // Check if index tip is hovering over top toolbar/color options
-    if (isIndexOnly && indexTip.y < 0.14) {
-      checkHoverInteract(indexTip);
-      lastPoint = null;
-      drawHandSkeleton(lm, currentColor);
-      return;
-    }
-
-    // Active Drawing Action (Full hand or Index finger)
-    if (isFullHand || isIndexOnly) {
-      const modeLabel = isEraser ? "🧽 Mode: RUB / ERASER" : (isFullHand ? "🖐️ Mode: FULL HAND DRAW" : "☝️ Mode: INDEX DRAW");
+    // RULE 3: Full Hand Open (4 or 5 Fingers) -> Continuous Drawing
+    if (activeGesture === "DRAW") {
+      const modeLabel = isEraser ? "🧽 Mode: RUB / ERASER" : `🖐️ Mode: FULL HAND DRAW (${brushSize}px)`;
       if (modeEl) modeEl.textContent = modeLabel;
 
       if (!sessionActive || sessionPaused) {
-        // Prompt user to start session if not started
         lastPoint = null;
         drawHandSkeleton(lm, "#94A3B8");
         return;
@@ -457,38 +554,38 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       if (lastPoint) {
         if (isEraser) {
-          // Rub / Erase stroke
           drawCtx.save();
           drawCtx.globalCompositeOperation = "destination-out";
           drawCtx.beginPath();
-          drawCtx.arc(px, py, 26, 0, Math.PI * 2);
+          drawCtx.arc(px, py, brushSize * 2.5 + 8, 0, Math.PI * 2);
           drawCtx.fill();
           drawCtx.restore();
-          // Redraw template guide lines if active
           if (templatePoints.length > 0) drawTemplate();
         } else {
-          // Draw neon stroke
           drawCtx.beginPath();
           drawCtx.moveTo(lastPoint.x, lastPoint.y);
           drawCtx.lineTo(px, py);
           drawCtx.strokeStyle = currentColor;
-          drawCtx.lineWidth = 4;
+          drawCtx.lineWidth = brushSize;
           drawCtx.shadowColor = currentColor;
-          drawCtx.shadowBlur = 8;
+          drawCtx.shadowBlur = Math.min(8, brushSize + 2);
           drawCtx.lineCap = "round";
+          drawCtx.lineJoin = "round";
           drawCtx.stroke();
           drawCtx.shadowBlur = 0;
 
-          // Ataxia corridor scoring
           if (templatePoints.length > 0) updateAccuracy(currentPoint);
         }
       }
       lastPoint = currentPoint;
       drawHandSkeleton(lm, isEraser ? "#FF4444" : currentColor);
-    } else {
-      lastPoint = null;
-      drawHandSkeleton(lm, "#64748B");
+      return;
     }
+
+    // RULE 4: IDLE / Lifted
+    if (modeEl) modeEl.textContent = "⏸️ Mode: IDLE / LIFTED";
+    lastPoint = null;
+    drawHandSkeleton(lm, "#64748B");
   }
 
   // --- Hand Skeleton Visualizer ---

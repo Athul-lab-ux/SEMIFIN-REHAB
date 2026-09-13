@@ -26,9 +26,16 @@
       <p class="cfg-note">Tip: 2–3 exercises keep a session around 10–15 minutes.</p>
     </div>
 
-    <!-- 3. Session settings -->
+    <!-- 3. Session settings & Clinical Age Presets -->
     <div class="cfg-block">
-      <h2 class="cfg-title"><span class="cfg-num">3</span> Session Settings</h2>
+      <h2 class="cfg-title"><span class="cfg-num">3</span> Session Settings &amp; Clinical Age Dosing Presets</h2>
+      <div class="age-presets-bar" style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:14px; background:var(--clin-canvas); padding:10px 14px; border-radius:10px; border:1px solid var(--clin-border);">
+        <span style="font-size:12px; font-weight:800; color:var(--clin-navy); text-transform:uppercase;">Age Preset:</span>
+        <button type="button" class="age-preset-btn" data-reps="15" data-sets="4" data-rest="20">18–25 yrs (15r · 4s · 20s rest)</button>
+        <button type="button" class="age-preset-btn" data-reps="12" data-sets="3" data-rest="30">26–35 yrs (12r · 3s · 30s rest)</button>
+        <button type="button" class="age-preset-btn active" data-reps="10" data-sets="3" data-rest="35">36–50 yrs (10r · 3s · 35s rest)</button>
+        <button type="button" class="age-preset-btn" data-reps="8" data-sets="2" data-rest="45">51+ yrs (8r · 2s · 45s rest)</button>
+      </div>
       <div class="settings-row">
         <label class="set-field">
           <span>Reps / Set</span>
@@ -41,7 +48,7 @@
         <label class="set-field">
           <span>Rest between sets</span>
           <div class="set-inline">
-            <input type="number" id="cfg-rest" value="30" min="0" max="180" />
+            <input type="number" id="cfg-rest" value="35" min="0" max="180" />
             <em>sec</em>
           </div>
         </label>
@@ -66,7 +73,7 @@
     <div class="warmup-box">
       <div class="warmup-icon">🧘</div>
       <div class="warmup-title">Warm-Up</div>
-      <div class="warmup-counter" id="warmup-counter">5</div>
+      <div class="warmup-counter" id="warmup-counter">4</div>
       <p id="warmup-hint">Get ready — the first exercise starts in a moment.</p>
       <div class="progress-track"><div class="progress-fill" id="warmup-fill"></div></div>
     </div>
@@ -78,6 +85,7 @@
       <div class="wo-now" id="wo-now">—</div>
       <div class="wo-set" id="wo-set">Set 1/3</div>
       <div class="wo-spacer"></div>
+      <button id="cam-toggle-btn" class="hud-btn" title="Toggle camera on/off">📷 Camera: ON</button>
       <button id="pause-btn" class="hud-btn" title="Pause session">⏸ Pause</button>
       <button id="resume-btn" class="hud-btn clin-btn-primary" style="display:none;" title="Resume session">▶ Resume (4s)</button>
       <button id="stop-btn" class="hud-btn danger" title="Stop and finish session">⏹ Stop</button>

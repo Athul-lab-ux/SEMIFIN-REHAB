@@ -125,7 +125,7 @@ const RehabQA = (() => {
   let lastTick = 0;
   let handler = null;
   let watchdogTimer = null;
-  const STALL_MS = 2000;
+  const STALL_MS = 6000;
 
   /** Session engines call this once per onResults frame. */
   function tick() {

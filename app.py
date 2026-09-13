@@ -155,6 +155,13 @@ def get_db():
                        VALUES (?, 'demo', ?, ?, 'Hemiparesis', 5, '2026-09-03', 1)""",
                     ("SP-000000001", "demo@gmail.com", demo_hash),
                 )
+                test_hash = generate_password_hash("TestPass@123", method="scrypt")
+                g.db.execute(
+                    """INSERT OR IGNORE INTO patients
+                       (patient_id, username, email, password_hash, patient_name, selected_condition, current_streak, last_session_date, onboarding_done)
+                       VALUES (?, 'testpatient', ?, ?, 'Clinical Test Patient', 'Hemiparesis', 7, '2026-09-14', 1)""",
+                    ("SP-TEST-001", "testpatient@rehabopt.local", test_hash),
+                )
                 g.db.commit()
             except Exception as e:
                 print(f"[WARN] demo seed: {e}")
@@ -222,6 +229,13 @@ def init_db():
            (patient_id, username, email, password_hash, selected_condition, current_streak, last_session_date, onboarding_done)
            VALUES (?, 'demo', ?, ?, 'Hemiparesis', 5, '2026-09-03', 1)""",
         ("SP-000000001", "demo@gmail.com", demo_hash),
+    )
+    test_hash = generate_password_hash("TestPass@123", method="scrypt")
+    db.execute(
+        """INSERT OR IGNORE INTO patients
+           (patient_id, username, email, password_hash, patient_name, selected_condition, current_streak, last_session_date, onboarding_done)
+           VALUES (?, 'testpatient', ?, ?, 'Clinical Test Patient', 'Hemiparesis', 7, '2026-09-14', 1)""",
+        ("SP-TEST-001", "testpatient@rehabopt.local", test_hash),
     )
     db.commit()
     db.close()
@@ -314,6 +328,7 @@ def index():
 
 
 @app.route("/auth")
+@app.route("/login")
 def auth_portal():
     if "patient_id" in session:
         return redirect(url_for("dashboard"))
@@ -369,6 +384,7 @@ def air_canvas():
 
 
 @app.route("/adl-lab")
+@app.route("/adl")
 @login_required
 @onboarding_required
 def adl_lab():
@@ -379,7 +395,7 @@ def adl_lab():
 @login_required
 @onboarding_required
 def leg():
-    return render_template("leg.html")
+    return redirect(url_for("therapy"))
 
 
 @app.route("/report")
@@ -478,7 +494,7 @@ def api_register():
 @app.route("/api/login", methods=["POST"])
 def api_login():
     data = request.get_json() or {}
-    raw_ident = (data.get("patient_id") or data.get("email") or data.get("identifier") or data.get("username") or "").strip()
+    raw_ident = (data.get("patient_id") or data.get("email") or data.get("identifier") or data.get("username") or data.get("login") or "").strip()
     password = data.get("password") or ""
 
     if not raw_ident or not password:

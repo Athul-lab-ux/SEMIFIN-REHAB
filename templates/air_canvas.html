@@ -11,17 +11,18 @@
       <a href="/dashboard" class="back-btn">← Back</a>
       <h2>🎨 Neon Air-Canvas</h2>
       <div class="canvas-controls">
-        <button id="canvas-start-btn" class="c-ctrl-btn primary" title="Start drawing (4s countdown)">▶ Start (4s)</button>
+        <button id="canvas-cam-btn" class="c-ctrl-btn" title="Toggle camera on/off">📷 Camera: ON</button>
+        <button id="canvas-start-btn" class="c-ctrl-btn primary" title="Start drawing (5s countdown)">▶ Start (5s)</button>
         <button id="canvas-pause-btn" class="c-ctrl-btn" title="Pause session" style="display:none;">⏸ Pause</button>
-        <button id="canvas-resume-btn" class="c-ctrl-btn primary" title="Resume drawing (4s countdown)" style="display:none;">▶ Resume (4s)</button>
+        <button id="canvas-resume-btn" class="c-ctrl-btn primary" title="Resume drawing (5s countdown)" style="display:none;">▶ Resume (5s)</button>
         <button id="canvas-stop-btn" class="c-ctrl-btn danger" title="Finish and log drawing session" style="display:none;">⏹ Stop</button>
       </div>
-      <span style="font-size:12px; color:var(--clin-slate);">Session 3 · Ataxia &amp; Tremor Tracking</span>
+      <span style="font-size:12px; color:var(--clin-slate);">Session 3 · Dynamic Mirror Air-Canvas</span>
     </div>
 
     <!-- Template Toolbar -->
     <div class="toolbar" id="toolbar">
-      <button class="template-btn active" data-template="freeform">✏️ Freeform</button>
+      <button class="template-btn active" data-template="freeform">✨ Custom</button>
       <button class="template-btn" data-template="line">📏 Line</button>
       <button class="template-btn" data-template="circle">⭕ Circle</button>
       <button class="template-btn" data-template="square">⬜ Square</button>
@@ -47,18 +48,30 @@
       <button id="clear-btn" class="palette-tool clear" title="Clear canvas">🧹 Clear</button>
     </div>
 
-    <!-- Drawing Area -->
+    <!-- Drawing Area (Dynamic Mirror Viewport) -->
     <div class="drawing-area" id="drawing-stage">
       <video id="video" autoplay playsinline muted></video>
       <canvas id="draw-canvas"></canvas>
       <canvas id="hand-canvas"></canvas>
 
-      <!-- 4s Countdown Overlay -->
+      <!-- Left Side Vertical Brush Size Slider (Up to down increases thickness) -->
+      <div id="brush-slider-rail" class="brush-slider-rail" title="Brush Size (2-finger pointer adjusts)">
+        <div class="bsr-title">SIZE</div>
+        <div class="bsr-track" id="bsr-track">
+          <div class="bsr-dot-top" title="Thin (2px)"></div>
+          <div class="bsr-fill" id="bsr-fill"></div>
+          <div class="bsr-thumb" id="bsr-thumb"></div>
+          <div class="bsr-dot-bot" title="Thick (24px)"></div>
+        </div>
+        <div class="bsr-val" id="bsr-val">6px</div>
+      </div>
+
+      <!-- 5s Countdown Overlay -->
       <div id="aircanvas-countdown-overlay" class="aircanvas-countdown-overlay">
         <div class="aco-box">
           <div class="aco-label" id="canvas-aco-label">GET READY TO DRAW</div>
-          <div class="aco-num" id="canvas-aco-num">4</div>
-          <div class="aco-hint" id="canvas-aco-hint">Raise your hand in front of the camera</div>
+          <div class="aco-num" id="canvas-aco-num">5</div>
+          <div class="aco-hint" id="canvas-aco-hint">Raise your hand in front of the mirror</div>
         </div>
       </div>
 
@@ -69,7 +82,7 @@
           <h2>Drawing Paused</h2>
           <p>Hand tracking paused. Click Resume when ready to draw.</p>
           <div class="apo-actions">
-            <button id="modal-canvas-resume" class="clin-btn clin-btn-primary">▶ Resume (4s)</button>
+            <button id="modal-canvas-resume" class="clin-btn clin-btn-primary">▶ Resume (5s)</button>
             <button id="modal-canvas-stop" class="clin-btn clin-btn-ghost">⏹ Stop</button>
           </div>
         </div>
@@ -84,7 +97,7 @@
 
       <!-- Gesture Hint Bar -->
       <div class="gesture-hint" id="gesture-hint">
-        ☝️ 1 Finger: Draw/Pick · ✌️ 2: Stop/Click · 🤟 3: Move · 🖐️ Full: Continue
+        🖐️ Open Palm: Draw with Index Tip · ✌️ 2 Fingers: Pointer / Click Options &amp; Brush Size · 🤟 3 Fingers: Move Drawing
       </div>
     </div>
   </div>

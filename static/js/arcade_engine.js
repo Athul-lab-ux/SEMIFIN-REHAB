@@ -94,87 +94,88 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
-  // ---------------- 11 Game Definitions --------------------------------
+  // ---------------- 9 Game Definitions (7 Core + 2 Bubble) ----------------
   const GAMES = {
-    // 1. Flappy Kinetic (E3 · C5)
+    // 1. Flappy Reach
     flappy: {
-      name: "Flappy Kinetic", emoji: "🐦", trains: "Wrist extension / dorsiflexion", formula: "E3 · C5",
-      guide: "Raise your wrist upward (dorsiflex) or tap to make the bird flap. Fly through the pipe gaps!",
+      name: "Flappy Reach", emoji: "🐦", trains: "Upper-limb reach & elevation", formula: "Active Reach",
+      guide: "Show your index fingertip to fly the bird continuously! Glide past pillars to score +2 pts. 3 lives.",
       lives: true,
       init() {
-        this.bird = { x: 120, y: 250, vy: 0, r: 18, frame: 0 };
-        this.pipes = [];
-        this.pipeTimer = 0;
-        this.wasFlapped = false;
+        this.bird = { x: 130, y: 250, r: 18, frame: 0, hit: 0 };
+        this.pillars = [];
+        this.pillarTimer = 0;
       },
       update(res, W, H) {
         const b = this.bird;
         b.frame++;
-        const flapGesture = this.$dev > 12 || (engine.tip && engine.tip.y < 0.38) || (this.$vy < -1.2);
-        if (flapGesture && !this.wasFlapped) {
-          b.vy = -6.2;
-          spawnParticles(b.x - 10, b.y + 10, "#F59E0B", 4);
-          if (window.RehabBio) window.RehabBio.playBeep(520, 0.04, 0.15);
+        if (b.hit > 0) b.hit--;
+
+        // Continuous flight directly tracking index fingertip position
+        const targetY = engine.tip ? clamp(engine.tip.y * H, 30, H - 30) : H / 2;
+        const targetX = engine.tip ? clamp(engine.tip.x * W, 80, W * 0.45) : 130;
+        b.y += (targetY - b.y) * 0.16;
+        b.x += (targetX - b.x) * 0.16;
+
+        // Pillar obstacles moving right to left at medium speed
+        if (++this.pillarTimer > Math.max(75, 115 / this.$speed)) {
+          this.pillarTimer = 0;
+          this.pillars.push({
+            x: W + 20,
+            gapY: rand(80, H - 240),
+            gapH: 165,
+            scored: false,
+          });
         }
-        this.wasFlapped = flapGesture;
 
-        b.vy += 0.32;
-        b.y += b.vy;
-
-        if (++this.pipeTimer > Math.max(70, 110 / this.$speed)) {
-          this.pipeTimer = 0;
-          this.pipes.push({ x: W + 20, gapY: rand(80, H - 240), gapH: 155, scored: false });
-        }
-
-        for (const p of this.pipes) {
-          p.x -= 2.8 * this.$speed;
+        for (const p of this.pillars) {
+          p.x -= 2.6 * this.$speed;
+          // Passing obstacle gives +2 points
           if (!p.scored && p.x + 55 < b.x) {
             p.scored = true;
-            this.$engine.addScore(10);
-            addScorePopup(b.x + 20, b.y - 20, "+10", "#10B981");
+            this.$engine.addScore(2);
+            addScorePopup(b.x + 20, b.y - 20, "+2", "#10B981");
           }
-          if (Math.abs(b.x - (p.x + 27)) < 18 + 27 && (b.y < p.gapY || b.y > p.gapY + p.gapH)) {
-            p.scored = true;
+          // Collision with pillars (1 life lost per crash)
+          if (!p.scored && b.hit === 0 && Math.abs(b.x - (p.x + 27)) < 18 + 27 && (b.y < p.gapY || b.y > p.gapY + p.gapH)) {
+            b.hit = 45;
             this.$engine.loseLife();
             spawnParticles(b.x, b.y, "#EF4444", 16);
-            b.y = H / 2; b.vy = 0;
           }
         }
-        this.pipes = this.pipes.filter((p) => p.x > -90);
-        if (b.y > H || b.y < 0) {
+        this.pillars = this.pillars.filter((p) => p.x > -90);
+
+        // Boundary crash
+        if (b.hit === 0 && (b.y > H - 15 || b.y < 15)) {
+          b.hit = 45;
           this.$engine.loseLife();
           spawnParticles(b.x, b.y, "#EF4444", 14);
-          b.y = H / 2; b.vy = 0;
         }
       },
       draw(ctx, W, H) {
-        // Pipes with 3D gradient finish
-        for (const p of this.pipes) {
+        // Render pillars
+        for (const p of this.pillars) {
           const grad = ctx.createLinearGradient(p.x, 0, p.x + 55, 0);
-          grad.addColorStop(0, "#22C55E");
-          grad.addColorStop(0.5, "#4ADE80");
-          grad.addColorStop(1, "#16A34A");
+          grad.addColorStop(0, "#15803D");
+          grad.addColorStop(0.5, "#22C55E");
+          grad.addColorStop(1, "#166534");
           ctx.fillStyle = grad;
           ctx.fillRect(p.x, 0, 55, p.gapY);
           ctx.fillRect(p.x, p.gapY + p.gapH, 55, H - (p.gapY + p.gapH));
-
-          // Pipe collars
-          ctx.fillStyle = "#15803D";
-          ctx.fillRect(p.x - 4, p.gapY - 20, 63, 20);
-          ctx.fillRect(p.x - 4, p.gapY + p.gapH, 63, 20);
+          ctx.fillStyle = "#14532D";
+          ctx.fillRect(p.x - 4, p.gapY - 18, 63, 18);
+          ctx.fillRect(p.x - 4, p.gapY + p.gapH, 63, 18);
         }
         // Animated Bird
         const b = this.bird;
         ctx.save();
         ctx.translate(b.x, b.y);
-        ctx.rotate(clamp(b.vy * 0.06, -0.6, 0.7));
+        if (b.hit > 0 && Math.floor(b.hit / 4) % 2 === 0) ctx.globalAlpha = 0.4;
         ctx.fillStyle = "#F59E0B";
         ctx.beginPath(); ctx.arc(0, 0, 18, 0, Math.PI * 2); ctx.fill();
-        // Wing
         ctx.fillStyle = "#FBBF24";
         const wingY = Math.sin(b.frame * 0.3) * 5;
         ctx.beginPath(); ctx.ellipse(-6, wingY, 9, 6, 0.2, 0, Math.PI * 2); ctx.fill();
-        // Eye & Beak
         ctx.fillStyle = "#FFF"; ctx.beginPath(); ctx.arc(7, -4, 5, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = "#111"; ctx.beginPath(); ctx.arc(8, -4, 2.5, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = "#DC2626"; ctx.beginPath(); ctx.moveTo(14, -2); ctx.lineTo(24, 2); ctx.lineTo(14, 6); ctx.closePath(); ctx.fill();
@@ -182,27 +183,41 @@ document.addEventListener("DOMContentLoaded", async () => {
       },
     },
 
-    // 2. Fruit Ballistic (C3 · S2)
+    // 2. Fruit Ballistic
     fruit: {
-      name: "Fruit Ballistic", emoji: "🍉", trains: "Open-palm reach (flexor spasticity)", formula: "C3 · S2",
-      guide: "Slice fruit by swiping fast with an OPEN palm (fingers spread). Avoid the 💣!",
+      name: "Fruit Ballistic", emoji: "🍉", trains: "Ballistic reach & open-palm speed", formula: "Blade Velocity",
+      guide: "Slice rising fruits with your fingertip blade! 1-min timer. Avoid bombs 💣!",
       lives: true,
       init() {
         this.fruits = [];
         this.timer = 0;
         this.trail = [];
+        this.timeLeft = 60;
+        this.lastSecond = Date.now();
       },
       update(res, W, H) {
+        // 1-min timer decrement
+        const now = Date.now();
+        if (now - this.lastSecond >= 1000) {
+          this.lastSecond = now;
+          this.timeLeft = Math.max(0, this.timeLeft - 1);
+          if (this.timeLeft <= 0) {
+            showToast("⏱️ 1-Minute Session Complete!", "success");
+            setTimeout(() => stopGame("Time's Up!"), 1200);
+            return;
+          }
+        }
+
         const F = [
           { emoji: "🍉", color: "#EF4444" },
           { emoji: "🍊", color: "#F97316" },
           { emoji: "🍓", color: "#F43F5E" },
-          { emoji: "🍑", color: "#FB923C" },
+          { emoji: "🍍", color: "#FBBF24" },
           { emoji: "🍎", color: "#DC2626" },
         ];
         if (++this.timer > Math.max(16, 42 - 8 * this.$speed)) {
           this.timer = 0;
-          const isBomb = Math.random() < 0.15;
+          const isBomb = Math.random() < 0.16;
           const sel = isBomb ? { emoji: "💣", color: "#475569" } : F[(Math.random() * F.length) | 0];
           this.fruits.push({
             x: rand(60, W - 60), y: H + 30,
@@ -215,7 +230,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         const tip = engine.tip ? { x: engine.tip.x * W, y: engine.tip.y * H } : null;
         if (tip) {
           this.trail.unshift({ ...tip, life: 1.0 });
-          if (this.trail.length > 12) this.trail.pop();
+          if (this.trail.length > 14) this.trail.pop();
         }
         this.trail.forEach((t) => { t.life -= 0.08; });
         this.trail = this.trail.filter((t) => t.life > 0);
@@ -226,12 +241,12 @@ document.addEventListener("DOMContentLoaded", async () => {
           f.vy -= 0.16; // gravity arc
           f.rot += f.vrot;
 
-          if (tip && distN(tip, f) < 68 && (this.$vel > 0.45 || !engine.tipFromCamera) && (this.$open || !engine.tipFromCamera)) {
+          if (tip && distN(tip, f) < 64 && (engine.vel > 0.4 || !engine.tipFromCamera)) {
             f.gone = true;
             if (f.bomb) {
               this.$engine.loseLife();
-              spawnParticles(f.x, f.y, "#EF4444", 20);
-              showToast("💣 Hazard! −1 ❤️", "error");
+              spawnParticles(f.x, f.y, "#EF4444", 24);
+              showToast("💣 Bomb Detonated! −1 ❤️", "error");
             } else {
               this.$engine.addScore(10);
               spawnParticles(f.x, f.y, f.color, 14);
@@ -249,7 +264,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           for (let i = 1; i < this.trail.length; i++) {
             ctx.lineTo(this.trail[i].x, this.trail[i].y);
           }
-          ctx.strokeStyle = "rgba(56, 189, 248, 0.85)";
+          ctx.strokeStyle = "rgba(56, 189, 248, 0.9)";
           ctx.lineWidth = 6;
           ctx.lineCap = "round";
           ctx.stroke();
@@ -266,372 +281,364 @@ document.addEventListener("DOMContentLoaded", async () => {
           ctx.fillText(f.emoji, 0, 0);
           ctx.restore();
         }
+
+        // 1-min timer HUD badge
+        ctx.fillStyle = "rgba(11, 18, 32, 0.75)";
+        ctx.fillRect(W - 130, 16, 114, 34);
+        ctx.strokeStyle = "#38BDF8";
+        ctx.strokeRect(W - 130, 16, 114, 34);
+        ctx.fillStyle = "#fff";
+        ctx.font = "bold 14px Segoe UI, sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText(`⏱️ ${this.timeLeft}s left`, W - 73, 38);
       },
     },
 
-    // 3. Star Catch (C2)
+    // 3. Star Catch
     starcatch: {
-      name: "Star Catch", emoji: "⭐", trains: "Horizontal reach / shoulder sweep", formula: "C2",
-      guide: "Slide your hand left-right along the bottom to catch falling stars.",
-      lives: false,
-      init() {
-        this.stars = [];
-        this.timer = 0;
-        this.handX = 0.5;
-      },
-      update(res, W, H) {
-        if (engine.tip) this.handX = engine.tip.x;
-        if (++this.timer > Math.max(12, 36 / this.$speed)) {
-          this.timer = 0;
-          this.stars.push({
-            x: rand(0.08, 0.92), y: -0.05,
-            s: rand(0.005, 0.010) * this.$speed,
-            r: rand(16, 24),
-            rot: 0,
-          });
-        }
-        this.stars = this.stars.filter((s) => {
-          s.y += s.s;
-          s.rot += 0.04;
-          if (s.y > 1.05) return false;
-          if (Math.abs(s.x - this.handX) < 0.08 && s.y > 0.78 && s.y < 0.92) {
-            this.$engine.addScore(10);
-            spawnParticles(s.x * W, s.y * H, "#FACC15", 14);
-            addScorePopup(s.x * W, s.y * H - 15, "+10", "#FACC15");
-            return false;
-          }
-          return true;
-        });
-      },
-      draw(ctx, W, H) {
-        // Stars
-        for (const s of this.stars) {
-          ctx.save();
-          ctx.translate(s.x * W, s.y * H);
-          ctx.rotate(s.rot);
-          ctx.font = "30px Segoe UI Emoji, sans-serif";
-          ctx.textAlign = "center";
-          ctx.textBaseline = "middle";
-          ctx.fillText("⭐", 0, 0);
-          ctx.restore();
-        }
-
-        // Catcher paddle
-        const bx = this.handX * W;
-        const by = H * 0.85;
-        const grad = ctx.createLinearGradient(bx - 45, by, bx + 45, by);
-        grad.addColorStop(0, "#38BDF8");
-        grad.addColorStop(0.5, "#818CF8");
-        grad.addColorStop(1, "#38BDF8");
-        ctx.fillStyle = grad;
-        ctx.beginPath();
-        ctx.roundRect(bx - 45, by - 12, 90, 24, 12);
-        ctx.fill();
-        ctx.strokeStyle = "rgba(255,255,255,0.9)";
-        ctx.lineWidth = 2.5;
-        ctx.stroke();
-      },
-    },
-
-    // 4. Bubble Pop (C2)
-    bubblepop: {
-      name: "Bubble Pop", emoji: "🫧", trains: "Precise index-finger pointing", formula: "C2",
-      guide: "Touch the rising bubbles with your index fingertip to pop them.",
-      lives: false,
-      init() {
-        this.bubbles = [];
-        this.timer = 0;
-      },
-      update(res, W, H) {
-        const tip = engine.tip;
-        if (++this.timer > Math.max(12, 32 / this.$speed)) {
-          this.timer = 0;
-          this.bubbles.push({
-            x: rand(0.1, 0.9), y: 1.08,
-            v: rand(0.0035, 0.0075) * this.$speed,
-            r: rand(18, 30),
-            hue: rand(180, 240),
-          });
-        }
-        this.bubbles = this.bubbles.filter((b) => {
-          b.y -= b.v;
-          if (b.y < -0.1) return false;
-          if (tip && Math.hypot(b.x - tip.x, (b.y * H - tip.y * H) / H) < (b.r + 14) / W) {
-            this.$engine.addScore(5);
-            spawnParticles(b.x * W, b.y * H, `hsl(${b.hue}, 90%, 65%)`, 10);
-            addScorePopup(b.x * W, b.y * H, "+5", "#38BDF8");
-            return false;
-          }
-          return true;
-        });
-      },
-      draw(ctx, W, H) {
-        for (const b of this.bubbles) {
-          const bx = b.x * W, by = b.y * H;
-          ctx.save();
-          ctx.beginPath();
-          ctx.arc(bx, by, b.r, 0, Math.PI * 2);
-          ctx.fillStyle = `hsla(${b.hue}, 80%, 65%, 0.35)`;
-          ctx.fill();
-          ctx.strokeStyle = `hsla(${b.hue}, 95%, 75%, 0.85)`;
-          ctx.lineWidth = 2.5;
-          ctx.stroke();
-          // Bubble sheen
-          ctx.beginPath();
-          ctx.arc(bx - b.r * 0.35, by - b.r * 0.35, b.r * 0.25, 0, Math.PI * 2);
-          ctx.fillStyle = "rgba(255,255,255,0.7)";
-          ctx.fill();
-          ctx.restore();
-        }
-      },
-    },
-
-    // 5. Balance Beam (S1 · E6)
-    balance: {
-      name: "Balance Beam", emoji: "⚖️", trains: "Steady isometric hold / tremor control", formula: "S1 · E6",
-      guide: "Keep your hand hovering steadily over the green target as it slides along the beam.",
-      lives: false,
-      init() {
-        this.t = 0;
-        this.held = 0;
-        this.tx = 0.5;
-      },
-      update(res, W, H) {
-        this.t += 0.012 * this.$speed;
-        this.tx = 0.5 + 0.34 * Math.sin(this.t);
-        const tipX = engine.tip ? engine.tip.x : -1;
-        if (Math.abs(tipX - this.tx) < 0.055) {
-          this.held++;
-          if (this.held % 15 === 0) {
-            this.$engine.addScore(2);
-            spawnParticles(this.tx * W, H * 0.72, "#10B981", 4);
-          }
-        } else {
-          this.held = Math.max(0, this.held - 2);
-        }
-      },
-      draw(ctx, W, H) {
-        // Balance beam
-        ctx.strokeStyle = "#475569";
-        ctx.lineWidth = 8;
-        ctx.lineCap = "round";
-        ctx.beginPath(); ctx.moveTo(W * 0.1, H * 0.72); ctx.lineTo(W * 0.9, H * 0.72); ctx.stroke();
-
-        // Target slider
-        const tx = this.tx * W, ty = H * 0.72;
-        const isAligned = this.held > 5;
-        ctx.fillStyle = isAligned ? "#10B981" : "#F59E0B";
-        ctx.beginPath(); ctx.arc(tx, ty, 20, 0, Math.PI * 2); ctx.fill();
-        ctx.strokeStyle = "#FFF"; ctx.lineWidth = 3; ctx.stroke();
-
-        // Target alignment aura
-        if (isAligned) {
-          ctx.beginPath();
-          ctx.arc(tx, ty, 30 + Math.sin(Date.now() * 0.01) * 6, 0, Math.PI * 2);
-          ctx.strokeStyle = "rgba(16, 185, 129, 0.6)";
-          ctx.lineWidth = 2;
-          ctx.stroke();
-        }
-      },
-    },
-
-    // 6. Track the Dot (C2 · E4)
-    trackdot: {
-      name: "Track the Dot", emoji: "🎯", trains: "Smooth pursuit tracking (ataxia)", formula: "C2 · E4",
-      guide: "Follow the moving orange target closely with your index finger and stay on it.",
-      lives: false,
-      init() {
-        this.t = 0;
-        this.dx = 0.5;
-        this.dy = 0.5;
-      },
-      update(res, W, H) {
-        this.t += 0.018 * this.$speed;
-        this.dx = 0.5 + 0.32 * Math.cos(this.t);
-        this.dy = 0.5 + 0.24 * Math.sin(this.t * 0.75);
-        if (engine.tip) {
-          const d = Math.hypot(engine.tip.x - this.dx, engine.tip.y - this.dy);
-          if (d < 0.075) {
-            this.$engine.addScore(1);
-            if (Math.random() < 0.3) spawnParticles(this.dx * W, this.dy * H, "#F97316", 2);
-          }
-        }
-      },
-      draw(ctx, W, H) {
-        const x = this.dx * W, y = this.dy * H;
-        // Tracking beam to finger
-        if (engine.tip) {
-          const fx = engine.tip.x * W, fy = engine.tip.y * H;
-          ctx.beginPath();
-          ctx.moveTo(fx, fy);
-          ctx.lineTo(x, y);
-          ctx.strokeStyle = "rgba(249, 115, 22, 0.4)";
-          ctx.lineWidth = 2;
-          ctx.setLineDash([4, 4]);
-          ctx.stroke();
-          ctx.setLineDash([]);
-        }
-        // Concentric target rings
-        ctx.fillStyle = "#F97316";
-        ctx.beginPath(); ctx.arc(x, y, 16, 0, Math.PI * 2); ctx.fill();
-        ctx.strokeStyle = "rgba(249, 115, 22, 0.45)";
-        ctx.lineWidth = 3;
-        ctx.beginPath(); ctx.arc(x, y, 32, 0, Math.PI * 2); ctx.stroke();
-      },
-    },
-
-    // 7. Fist Pop (C3)
-    fistpop: {
-      name: "Fist Pop", emoji: "✊", trains: "Fist → open palm (spasticity release)", formula: "C3",
-      guide: "CLOSE a fist to pop a red target orb, then OPEN your hand again — repeat.",
-      lives: false,
-      init() {
-        this.balls = [];
-        this.timer = 0;
-        this.wasFist = false;
-      },
-      update(res, W, H) {
-        const v = handVariance(res.hand);
-        const isFist = v < 0.055 || !this.$open;
-        if (isFist && !this.wasFist && this.balls.length) {
-          const popped = this.balls.pop();
-          this.$engine.addScore(10);
-          spawnParticles(popped.x * W, popped.y * H, "#EF4444", 16);
-          addScorePopup(popped.x * W, popped.y * H, "+10 ✊", "#EF4444");
-        }
-        this.wasFist = isFist;
-        if (++this.timer > Math.max(18, 50 / this.$speed) && this.balls.length < 5) {
-          this.balls.push({ x: rand(0.2, 0.8), y: 1.08, v: rand(0.0035, 0.0065) * this.$speed });
-        }
-        this.balls = this.balls.filter((b) => (b.y -= b.v) > -0.1);
-      },
-      draw(ctx, W, H) {
-        for (const b of this.balls) {
-          ctx.fillStyle = "#EF4444";
-          ctx.beginPath(); ctx.arc(b.x * W, b.y * H, 20, 0, Math.PI * 2); ctx.fill();
-          ctx.strokeStyle = "#FCA5A5"; ctx.lineWidth = 2.5; ctx.stroke();
-        }
-      },
-    },
-
-    // 8. Wrist Hammer (S2 · S3)
-    hammer: {
-      name: "Wrist Hammer", emoji: "🔨", trains: "Fast wrist snap / reaction speed", formula: "S2 · S3",
-      guide: "When the target glows, snap your wrist DOWN quickly onto it. Hit it!",
-      lives: false,
-      init() {
-        this.target = { x: rand(0.25, 0.75), y: rand(0.3, 0.65) };
-        this.wasDown = false;
-        this.swing = 0;
-      },
-      update(res, W, H) {
-        const snapDown = this.$vy > 1.0 || this.$dy > 0.03;
-        if (engine.tip) {
-          const d = Math.hypot(engine.tip.x - this.target.x, engine.tip.y - this.target.y);
-          if (snapDown && !this.wasDown && d < 0.18) {
-            this.$engine.addScore(15);
-            spawnParticles(this.target.x * W, this.target.y * H, "#F59E0B", 18);
-            addScorePopup(this.target.x * W, this.target.y * H, "+15 🔨", "#F59E0B");
-            this.target = { x: rand(0.2, 0.8), y: rand(0.25, 0.65) };
-          }
-        }
-        this.wasDown = snapDown;
-      },
-      draw(ctx, W, H) {
-        const tx = this.target.x * W, ty = this.target.y * H;
-        // Target anvil
-        ctx.fillStyle = "#F59E0B";
-        ctx.beginPath(); ctx.arc(tx, ty, 26, 0, Math.PI * 2); ctx.fill();
-        ctx.strokeStyle = "#FFF"; ctx.lineWidth = 3; ctx.stroke();
-        ctx.fillStyle = "#FFF"; ctx.font = "bold 14px Segoe UI, sans-serif"; ctx.textAlign = "center";
-        ctx.fillText("HIT!", tx, ty + 5);
-      },
-    },
-
-    // 9. Elbow Crusher (C1)
-    elbowcrush: {
-      name: "Elbow Crusher", emoji: "💪", trains: "Elbow flexion ROM (C1)", formula: "C1",
-      guide: "Bend your elbow below 100° to crush each falling block. Straighten to reset.",
-      lives: false,
-      init() {
-        this.blocks = [];
-        this.timer = 0;
-        this.wasBent = false;
-      },
-      update(res, W, H) {
-        const bent = this.$elbow < 105 && this.$elbow > 10;
-        if (bent && !this.wasBent && this.blocks.length) {
-          const crushed = this.blocks.pop();
-          this.$engine.addScore(10);
-          spawnParticles(crushed.x * W, crushed.y * H, "#E5484D", 18);
-          addScorePopup(crushed.x * W, crushed.y * H, "+10 💥", "#E5484D");
-        }
-        this.wasBent = bent;
-        if (++this.timer > Math.max(16, 44 / this.$speed) && this.blocks.length < 4) {
-          this.blocks.push({ x: rand(0.2, 0.8), y: -0.06, v: rand(0.004, 0.007) * this.$speed });
-        }
-        this.blocks = this.blocks.filter((b) => (b.y += b.v) < 1.15);
-      },
-      draw(ctx, W, H) {
-        for (const b of this.blocks) {
-          ctx.fillStyle = "#E5484D";
-          ctx.fillRect(b.x * W - 22, b.y * H - 16, 44, 32);
-          ctx.strokeStyle = "#FFF"; ctx.lineWidth = 2; ctx.strokeRect(b.x * W - 22, b.y * H - 16, 44, 32);
-        }
-      },
-    },
-
-    // 10. Flappy Reach (C4)
-    flappyreach: {
-      name: "Flappy Reach", emoji: "🐤", trains: "Full arm vertical reach (C4)", formula: "C4",
-      guide: "Move your whole hand UP and DOWN to steer the chick through the pillar gates.",
+      name: "Star Catch", emoji: "⭐", trains: "Lateral planar sweep & reach", formula: "Lateral Range",
+      guide: "Slide collector basket with your fingertip to catch falling stars ⭐ and avoid bombs 💣!",
       lives: true,
       init() {
-        this.pillars = [];
+        this.items = [];
         this.timer = 0;
-        this.birdY = 0.5;
+        this.basketX = 0.5;
       },
       update(res, W, H) {
-        if (engine.tip) this.birdY = engine.tip.y;
-        if (++this.timer > Math.max(40, 80 / this.$speed)) {
+        const targetX = engine.tip ? engine.tip.x : 0.5;
+        this.basketX += (targetX - this.basketX) * 0.22;
+
+        if (++this.timer > Math.max(18, 44 / this.$speed)) {
           this.timer = 0;
-          this.pillars.push({ x: 1.15, gapY: rand(0.22, 0.78), gap: 0.22, done: false });
+          const isBomb = Math.random() < 0.2;
+          this.items.push({
+            x: rand(0.1, 0.9), y: -0.05,
+            v: rand(0.005, 0.008) * this.$speed,
+            isBomb,
+          });
         }
-        for (const p of this.pillars) {
-          p.x -= 0.008 * this.$speed;
-          if (Math.abs(p.x - 0.16) < 0.05 && !p.done) {
-            p.done = true;
-            if (this.birdY < p.gapY - p.gap / 2 || this.birdY > p.gapY + p.gap / 2) {
+
+        const bW = 0.18;
+        const bL = this.basketX - bW / 2;
+        const bR = this.basketX + bW / 2;
+
+        for (const it of this.items) {
+          it.y += it.v;
+          if (it.y >= 0.88 && it.y <= 0.94 && it.x >= bL && it.x <= bR) {
+            it.caught = true;
+            if (it.isBomb) {
               this.$engine.loseLife();
+              spawnParticles(it.x * W, it.y * H, "#EF4444", 20);
+              showToast("💣 Caught a bomb! −1 ❤️", "error");
             } else {
-              this.$engine.addScore(10);
-              addScorePopup(0.16 * W, this.birdY * H - 20, "+10", "#22C55E");
+              this.$engine.addScore(5);
+              spawnParticles(it.x * W, it.y * H, "#FBBF24", 14);
+              addScorePopup(it.x * W, it.y * H - 15, "+5 ⭐", "#FBBF24");
             }
           }
         }
-        this.pillars = this.pillars.filter((p) => p.x > -0.1);
+        this.items = this.items.filter((it) => !it.caught && it.y < 1.05);
       },
       draw(ctx, W, H) {
-        for (const p of this.pillars) {
-          ctx.fillStyle = "#22C55E";
-          ctx.fillRect(p.x * W - 18, 0, 36, (p.gapY - p.gap / 2) * H);
-          ctx.fillRect(p.x * W - 18, (p.gapY + p.gap / 2) * H, 36, H - (p.gapY + p.gap / 2) * H);
+        // Collector Basket
+        const bx = this.basketX * W;
+        const by = 0.91 * H;
+        const bw = W * 0.18;
+        ctx.save();
+        ctx.fillStyle = "#38BDF8";
+        ctx.fillRect(bx - bw / 2, by, bw, 22);
+        ctx.fillStyle = "#0284C7";
+        ctx.fillRect(bx - bw / 2, by + 18, bw, 6);
+        ctx.strokeStyle = "#BAE6FD";
+        ctx.lineWidth = 2.5;
+        ctx.strokeRect(bx - bw / 2, by, bw, 22);
+        ctx.restore();
+
+        // Falling items
+        for (const it of this.items) {
+          ctx.font = "32px Segoe UI Emoji, sans-serif";
+          ctx.textAlign = "center";
+          ctx.fillText(it.isBomb ? "💣" : "⭐", it.x * W, it.y * H);
         }
-        // Flying Chick
-        ctx.fillStyle = "#FACC15";
-        ctx.beginPath(); ctx.arc(0.16 * W, this.birdY * H, 16, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = "#111"; ctx.beginPath(); ctx.arc(0.16 * W + 6, this.birdY * H - 4, 3, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = "#EA580C"; ctx.beginPath(); ctx.moveTo(0.16 * W + 12, this.birdY * H - 2); ctx.lineTo(0.16 * W + 22, this.birdY * H + 2); ctx.lineTo(0.16 * W + 12, this.birdY * H + 6); ctx.fill();
       },
     },
 
-    // 11. Pinch Pop (E2)
-    pinchpop: {
-      name: "Pinch Pop", emoji: "🤏", trains: "Thumb–index pinch precision (E2)", formula: "E2",
-      guide: "Pinch your thumb and index finger together to pop the purple gem. Release and repeat.",
-      lives: false,
+    // 4. Fist Pop
+    fistpop: {
+      name: "Fist Pop", emoji: "✊", trains: "Spasticity release (fist to open palm)", formula: "Spasticity Release",
+      guide: "Clench a tight fist to charge energy, then spread your palm wide to burst all descending bubbles!",
+      lives: true,
       init() {
-        this.balls = [];
+        this.bubbles = [];
+        this.timer = 0;
+        this.charge = 0;
+        this.shockwave = null;
+      },
+      update(res, W, H) {
+        const isFist = (engine.disp < 0.12) || (!engine.open && engine.tipFromCamera);
+        const isOpen = (engine.disp > 0.20) || (engine.open);
+
+        if (isFist) {
+          this.charge = Math.min(1.0, this.charge + 0.05);
+        } else if (isOpen && this.charge >= 0.7) {
+          // Detonate shockwave!
+          const cx = engine.tip ? engine.tip.x * W : W / 2;
+          const cy = engine.tip ? engine.tip.y * H : H / 2;
+          this.shockwave = { x: cx, y: cy, r: 20, maxR: W * 0.75, alpha: 1.0 };
+          this.charge = 0;
+
+          let poppedCount = 0;
+          for (const b of this.bubbles) {
+            b.popped = true;
+            poppedCount++;
+            this.$engine.addScore(10);
+            spawnParticles(b.x * W, b.y * H, "#38BDF8", 12);
+          }
+          if (poppedCount > 0) {
+            addScorePopup(cx, cy - 25, `+${poppedCount * 10} 💥`, "#38BDF8");
+          }
+        }
+
+        if (this.shockwave) {
+          this.shockwave.r += 24;
+          this.shockwave.alpha -= 0.04;
+          if (this.shockwave.alpha <= 0) this.shockwave = null;
+        }
+
+        // Descending bubbles
+        if (++this.timer > Math.max(25, 55 / this.$speed) && this.bubbles.length < 8) {
+          this.timer = 0;
+          this.bubbles.push({
+            x: rand(0.15, 0.85),
+            y: -0.05,
+            v: rand(0.002, 0.004) * this.$speed,
+            r: rand(22, 34),
+            popped: false,
+          });
+        }
+        for (const b of this.bubbles) {
+          b.y += b.v;
+          if (b.y > 1.05) {
+            b.popped = true;
+            this.$engine.loseLife();
+            showToast("Bubble reached the bottom! −1 ❤️", "error");
+          }
+        }
+        this.bubbles = this.bubbles.filter((b) => !b.popped);
+      },
+      draw(ctx, W, H) {
+        // Shockwave ring
+        if (this.shockwave) {
+          ctx.save();
+          ctx.strokeStyle = `rgba(56, 189, 248, ${Math.max(0, this.shockwave.alpha)})`;
+          ctx.lineWidth = 8;
+          ctx.beginPath();
+          ctx.arc(this.shockwave.x, this.shockwave.y, this.shockwave.r, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        // Hand charge indicator
+        if (engine.tip) {
+          const cx = engine.tip.x * W, cy = engine.tip.y * H;
+          ctx.save();
+          ctx.fillStyle = `rgba(245, 158, 11, ${0.2 + this.charge * 0.6})`;
+          ctx.beginPath();
+          ctx.arc(cx, cy, 25 + this.charge * 25, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = "#F59E0B";
+          ctx.lineWidth = 2;
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        // Descending bubbles
+        for (const b of this.bubbles) {
+          ctx.save();
+          ctx.fillStyle = "rgba(56, 189, 248, 0.35)";
+          ctx.beginPath();
+          ctx.arc(b.x * W, b.y * H, b.r, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = "#BAE6FD";
+          ctx.lineWidth = 2.5;
+          ctx.stroke();
+          ctx.restore();
+        }
+      },
+    },
+
+    // 5. Wrist Hammer
+    hammer: {
+      name: "Wrist Hammer", emoji: "🔨", trains: "Fast downward wrist snap & acceleration", formula: "Wrist Acceleration",
+      guide: "Bubbles rise from below! Snap your wrist downward quickly to smash bubbles at the strike line.",
+      lives: true,
+      init() {
+        this.bubbles = [];
+        this.timer = 0;
+        this.wasDown = false;
+        this.strikeY = 0.45;
+      },
+      update(res, W, H) {
+        const snapDown = this.$vy > 1.1 || engine.dy > 0.04;
+        const lineY = this.strikeY * H;
+
+        // Rising bubbles from bottom
+        if (++this.timer > Math.max(22, 50 / this.$speed) && this.bubbles.length < 7) {
+          this.timer = 0;
+          this.bubbles.push({
+            x: rand(0.18, 0.82),
+            y: 1.05,
+            v: rand(0.003, 0.006) * this.$speed,
+            r: 24,
+            hit: false,
+          });
+        }
+
+        for (const b of this.bubbles) {
+          b.y -= b.v;
+          const by = b.y * H;
+          const bx = b.x * W;
+          // When bubble reaches strike line
+          if (Math.abs(by - lineY) < 32 && snapDown && !this.wasDown) {
+            b.hit = true;
+            this.$engine.addScore(10);
+            spawnParticles(bx, by, "#F59E0B", 18);
+            addScorePopup(bx, by - 15, "+10 🔨", "#F59E0B");
+          }
+          if (b.y < -0.05) {
+            b.hit = true;
+            this.$engine.loseLife();
+            showToast("Missed bubble! −1 ❤️", "error");
+          }
+        }
+        this.bubbles = this.bubbles.filter((b) => !b.hit);
+        this.wasDown = snapDown;
+      },
+      draw(ctx, W, H) {
+        // Strike line
+        const lineY = this.strikeY * H;
+        ctx.save();
+        ctx.strokeStyle = "rgba(245, 158, 11, 0.7)";
+        ctx.lineWidth = 3;
+        ctx.setLineDash([8, 8]);
+        ctx.beginPath();
+        ctx.moveTo(0, lineY);
+        ctx.lineTo(W, lineY);
+        ctx.stroke();
+        ctx.fillStyle = "#F59E0B";
+        ctx.font = "bold 12px Segoe UI, sans-serif";
+        ctx.fillText("⚡ HAMMER STRIKE LINE", 16, lineY - 8);
+        ctx.restore();
+
+        // Rising bubbles
+        for (const b of this.bubbles) {
+          ctx.save();
+          ctx.fillStyle = "rgba(245, 158, 11, 0.4)";
+          ctx.beginPath();
+          ctx.arc(b.x * W, b.y * H, b.r, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = "#FDE68A";
+          ctx.lineWidth = 2.5;
+          ctx.stroke();
+          ctx.restore();
+        }
+      },
+    },
+
+    // 6. Elbow Crusher
+    crusher: {
+      name: "Elbow Crusher", emoji: "💪", trains: "Elbow flexion past 95° active ROM", formula: "Elbow ROM",
+      guide: "Flex elbow past 95° to smash hydraulic crusher plates on crystals! Extend past 120° to reload.",
+      lives: true,
+      init() {
+        this.targets = [];
+        this.timer = 0;
+        this.platePos = 0; // 0 = open, 1 = crushed
+        this.wasFlexed = false;
+      },
+      update(res, W, H) {
+        const isFlexed = engine.elbow <= 95 && engine.elbow > 15;
+        const isExtended = engine.elbow >= 120;
+
+        if (isFlexed && !this.wasFlexed) {
+          this.platePos = 1;
+          // Crush target in the bay
+          const inBay = this.targets.find((t) => Math.abs(t.x - 0.5) < 0.16);
+          if (inBay) {
+            inBay.crushed = true;
+            this.$engine.addScore(15);
+            spawnParticles(0.5 * W, inBay.y * H, "#E5484D", 22);
+            addScorePopup(0.5 * W, inBay.y * H - 20, "+15 💥 CRUSHED", "#E5484D");
+          }
+        }
+        if (isExtended) {
+          this.platePos = 0;
+        }
+        this.wasFlexed = isFlexed;
+
+        // Targets sliding horizontally into the crusher bay
+        if (++this.timer > Math.max(30, 65 / this.$speed) && this.targets.length < 4) {
+          this.timer = 0;
+          this.targets.push({
+            x: -0.05,
+            y: 0.5,
+            vx: 0.005 * this.$speed,
+            crushed: false,
+          });
+        }
+
+        for (const t of this.targets) {
+          t.x += t.vx;
+          if (t.x > 1.05) {
+            t.crushed = true;
+            this.$engine.loseLife();
+            showToast("Crystal slipped through! −1 ❤️", "error");
+          }
+        }
+        this.targets = this.targets.filter((t) => !t.crushed);
+      },
+      draw(ctx, W, H) {
+        // Hydraulic Plates
+        const gap = this.platePos === 1 ? 25 : W * 0.22;
+        ctx.save();
+        // Left plate
+        ctx.fillStyle = "#334155";
+        ctx.fillRect(0, 0.35 * H, 0.5 * W - gap, 0.3 * H);
+        ctx.fillStyle = "#E5484D";
+        ctx.fillRect(0.5 * W - gap - 12, 0.35 * H, 12, 0.3 * H);
+
+        // Right plate
+        ctx.fillStyle = "#334155";
+        ctx.fillRect(0.5 * W + gap, 0.35 * H, W - (0.5 * W + gap), 0.3 * H);
+        ctx.fillStyle = "#E5484D";
+        ctx.fillRect(0.5 * W + gap, 0.35 * H, 12, 0.3 * H);
+        ctx.restore();
+
+        // Target crystals
+        for (const t of this.targets) {
+          ctx.save();
+          ctx.fillStyle = "#F59E0B";
+          ctx.beginPath();
+          ctx.arc(t.x * W, t.y * H, 22, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = "#FFF";
+          ctx.lineWidth = 3;
+          ctx.stroke();
+          ctx.font = "24px Segoe UI Emoji, sans-serif";
+          ctx.textAlign = "center";
+          ctx.fillText("💎", t.x * W, t.y * H + 8);
+          ctx.restore();
+        }
+      },
+    },
+
+    // 7. Pinch Pop
+    pinch: {
+      name: "Pinch Pop", emoji: "🤏", trains: "Thumb–index pincer precision", formula: "Pincer Precision",
+      guide: "Hover over floating bubbles and pinch your thumb and index finger together to pop them!",
+      lives: true,
+      init() {
+        this.bubbles = [];
         this.timer = 0;
         this.wasPinch = false;
       },
@@ -640,23 +647,251 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (res.hand && res.hand[4] && res.hand[8]) {
           pinch = distN(res.hand[4], res.hand[8]) < 0.052;
         }
-        if (pinch && !this.wasPinch && this.balls.length) {
-          const popped = this.balls.pop();
-          this.$engine.addScore(10);
-          spawnParticles(popped.x * W, popped.y * H, "#8B5CF6", 16);
-          addScorePopup(popped.x * W, popped.y * H, "+10 🤏", "#8B5CF6");
+
+        const tip = engine.tip ? { x: engine.tip.x * W, y: engine.tip.y * H } : null;
+
+        if (pinch && !this.wasPinch && tip) {
+          for (const b of this.bubbles) {
+            const bx = b.x * W, by = b.y * H;
+            if (Math.hypot(tip.x - bx, tip.y - by) < b.r + 20) {
+              b.popped = true;
+              this.$engine.addScore(10);
+              spawnParticles(bx, by, "#8B5CF6", 18);
+              addScorePopup(bx, by - 15, "+10 🤏", "#8B5CF6");
+            }
+          }
         }
         this.wasPinch = pinch;
-        if (++this.timer > Math.max(16, 44 / this.$speed) && this.balls.length < 5) {
-          this.balls.push({ x: rand(0.15, 0.85), y: 1.08, v: rand(0.0035, 0.006) * this.$speed });
+
+        // Spawn floating bubbles
+        if (++this.timer > Math.max(20, 48 / this.$speed) && this.bubbles.length < 6) {
+          this.timer = 0;
+          this.bubbles.push({
+            x: rand(0.15, 0.85),
+            y: 1.05,
+            v: rand(0.003, 0.005) * this.$speed,
+            r: 26,
+            popped: false,
+          });
         }
-        this.balls = this.balls.filter((b) => (b.y -= b.v) > -0.1);
+        for (const b of this.bubbles) {
+          b.y -= b.v;
+          if (b.y < -0.05) {
+            b.popped = true;
+            this.$engine.loseLife();
+            showToast("Bubble escaped! −1 ❤️", "error");
+          }
+        }
+        this.bubbles = this.bubbles.filter((b) => !b.popped);
       },
       draw(ctx, W, H) {
-        for (const b of this.balls) {
-          ctx.fillStyle = "#8B5CF6";
-          ctx.beginPath(); ctx.arc(b.x * W, b.y * H, 18, 0, Math.PI * 2); ctx.fill();
-          ctx.strokeStyle = "#DDD6FE"; ctx.lineWidth = 2.5; ctx.stroke();
+        for (const b of this.bubbles) {
+          ctx.save();
+          ctx.fillStyle = "rgba(139, 92, 246, 0.4)";
+          ctx.beginPath();
+          ctx.arc(b.x * W, b.y * H, b.r, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = "#C4B5FD";
+          ctx.lineWidth = 3;
+          ctx.stroke();
+          ctx.restore();
+        }
+      },
+    },
+
+    // 8. Bubble Deflector
+    deflector: {
+      name: "Bubble Deflector", emoji: "🛡️", trains: "Hand tilt & deflector stability", formula: "Shield Angle",
+      guide: "Tilt your hand to angle the energy shield. Deflect falling bubbles into left/right goal buckets!",
+      lives: true,
+      init() {
+        this.bubbles = [];
+        this.timer = 0;
+      },
+      update(res, W, H) {
+        const cx = engine.tip ? engine.tip.x * W : W / 2;
+        const cy = engine.tip ? engine.tip.y * H : H * 0.65;
+        const angle = (engine.dev || 0) * (Math.PI / 180);
+
+        // Falling bubbles
+        if (++this.timer > Math.max(22, 50 / this.$speed) && this.bubbles.length < 6) {
+          this.timer = 0;
+          this.bubbles.push({
+            x: rand(0.3, 0.7) * W,
+            y: -20,
+            vx: 0,
+            vy: rand(2.0, 3.5) * this.$speed,
+            r: 18,
+            scored: false,
+          });
+        }
+
+        const shieldLen = 140;
+        const sx1 = cx - Math.cos(angle) * (shieldLen / 2);
+        const sy1 = cy - Math.sin(angle) * (shieldLen / 2);
+        const sx2 = cx + Math.cos(angle) * (shieldLen / 2);
+        const sy2 = cy + Math.sin(angle) * (shieldLen / 2);
+
+        for (const b of this.bubbles) {
+          b.x += b.vx;
+          b.y += b.vy;
+
+          // Check deflection off shield
+          if (Math.hypot(b.x - cx, b.y - cy) < shieldLen / 2 && Math.abs(b.y - cy) < 26) {
+            b.vy = -Math.abs(b.vy) * 0.8;
+            b.vx = Math.sin(angle) * 4.5;
+            spawnParticles(b.x, b.y, "#38BDF8", 8);
+          }
+
+          // Left goal bucket (0 .. 120, H-80 .. H)
+          if (!b.scored && b.x < 130 && b.y > H - 90) {
+            b.scored = true;
+            this.$engine.addScore(15);
+            spawnParticles(b.x, b.y, "#10B981", 16);
+            addScorePopup(80, H - 110, "+15 GOAL! 🎯", "#10B981");
+          }
+          // Right goal bucket (W-130 .. W, H-80 .. H)
+          if (!b.scored && b.x > W - 130 && b.y > H - 90) {
+            b.scored = true;
+            this.$engine.addScore(15);
+            spawnParticles(b.x, b.y, "#10B981", 16);
+            addScorePopup(W - 80, H - 110, "+15 GOAL! 🎯", "#10B981");
+          }
+          if (b.y > H + 20 && !b.scored) {
+            b.scored = true;
+            this.$engine.loseLife();
+            showToast("Missed goal bucket! −1 ❤️", "error");
+          }
+        }
+        this.bubbles = this.bubbles.filter((b) => !b.scored);
+      },
+      draw(ctx, W, H) {
+        // Goal buckets
+        ctx.fillStyle = "rgba(16, 185, 129, 0.25)";
+        ctx.fillRect(10, H - 80, 110, 70);
+        ctx.strokeStyle = "#10B981";
+        ctx.lineWidth = 3;
+        ctx.strokeRect(10, H - 80, 110, 70);
+        ctx.fillStyle = "#10B981";
+        ctx.font = "bold 13px Segoe UI, sans-serif";
+        ctx.fillText("GOAL LEFT 🎯", 20, H - 40);
+
+        ctx.fillStyle = "rgba(16, 185, 129, 0.25)";
+        ctx.fillRect(W - 120, H - 80, 110, 70);
+        ctx.strokeRect(W - 120, H - 80, 110, 70);
+        ctx.fillText("GOAL RIGHT 🎯", W - 110, H - 40);
+
+        // Hand deflector shield
+        const cx = engine.tip ? engine.tip.x * W : W / 2;
+        const cy = engine.tip ? engine.tip.y * H : H * 0.65;
+        const angle = (engine.dev || 0) * (Math.PI / 180);
+        const shieldLen = 140;
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(angle);
+        ctx.fillStyle = "rgba(56, 189, 248, 0.45)";
+        ctx.fillRect(-shieldLen / 2, -7, shieldLen, 14);
+        ctx.strokeStyle = "#38BDF8";
+        ctx.lineWidth = 3;
+        ctx.strokeRect(-shieldLen / 2, -7, shieldLen, 14);
+        ctx.restore();
+
+        // Falling bubbles
+        for (const b of this.bubbles) {
+          ctx.save();
+          ctx.fillStyle = "rgba(56, 189, 248, 0.4)";
+          ctx.beginPath();
+          ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = "#FFF";
+          ctx.lineWidth = 2;
+          ctx.stroke();
+          ctx.restore();
+        }
+      },
+    },
+
+    // 9. Color Bubble Match
+    colormatch: {
+      name: "Color Bubble Match", emoji: "🔵", trains: "Cognitive-motor sequence targeting", formula: "Color Sequence",
+      guide: "Pop the announced target color bubble in sequence! Popping the wrong color drops a life.",
+      lives: true,
+      init() {
+        this.colors = [
+          { name: "BLUE", code: "#38BDF8", emoji: "🔵" },
+          { name: "RED", code: "#EF4444", emoji: "🔴" },
+          { name: "GREEN", code: "#10B981", emoji: "🟢" },
+          { name: "YELLOW", code: "#FBBF24", emoji: "🟡" },
+        ];
+        this.colorIdx = 0;
+        this.bubbles = [];
+        this.timer = 0;
+      },
+      update(res, W, H) {
+        const targetColor = this.colors[this.colorIdx];
+        const tip = engine.tip ? { x: engine.tip.x * W, y: engine.tip.y * H } : null;
+
+        // Spawn bubbles of 4 colors
+        if (++this.timer > Math.max(18, 45 / this.$speed) && this.bubbles.length < 8) {
+          this.timer = 0;
+          const col = this.colors[(Math.random() * this.colors.length) | 0];
+          this.bubbles.push({
+            x: rand(0.12, 0.88) * W,
+            y: H + 25,
+            vy: rand(2.0, 3.8) * this.$speed,
+            r: 26,
+            color: col,
+            popped: false,
+          });
+        }
+
+        for (const b of this.bubbles) {
+          b.y -= b.vy;
+          if (tip && Math.hypot(tip.x - b.x, tip.y - b.y) < b.r + 20) {
+            b.popped = true;
+            if (b.color.name === targetColor.name) {
+              this.$engine.addScore(15);
+              spawnParticles(b.x, b.y, b.color.code, 18);
+              addScorePopup(b.x, b.y - 15, `+15 ${b.color.emoji}`, b.color.code);
+              // Advance to next target color
+              this.colorIdx = (this.colorIdx + 1) % this.colors.length;
+            } else {
+              this.$engine.loseLife();
+              spawnParticles(b.x, b.y, "#EF4444", 14);
+              showToast(`Wrong color! Wanted ${targetColor.name} −1 ❤️`, "error");
+            }
+          }
+        }
+        this.bubbles = this.bubbles.filter((b) => !b.popped && b.y > -40);
+      },
+      draw(ctx, W, H) {
+        const targetColor = this.colors[this.colorIdx];
+        // Target banner at top
+        ctx.save();
+        ctx.fillStyle = "rgba(11, 18, 32, 0.85)";
+        ctx.fillRect(W / 2 - 140, 16, 280, 42);
+        ctx.strokeStyle = targetColor.code;
+        ctx.lineWidth = 2.5;
+        ctx.strokeRect(W / 2 - 140, 16, 280, 42);
+        ctx.fillStyle = targetColor.code;
+        ctx.font = "bold 16px Segoe UI, sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText(`TARGET: POP ${targetColor.name} ${targetColor.emoji}`, W / 2, 43);
+        ctx.restore();
+
+        // Bubbles
+        for (const b of this.bubbles) {
+          ctx.save();
+          ctx.fillStyle = b.color.code;
+          ctx.globalAlpha = 0.55;
+          ctx.beginPath();
+          ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.globalAlpha = 1.0;
+          ctx.strokeStyle = "#FFF";
+          ctx.lineWidth = 2.5;
+          ctx.stroke();
+          ctx.restore();
         }
       },
     },
@@ -1153,6 +1388,29 @@ document.addEventListener("DOMContentLoaded", async () => {
     } catch (err) {
       console.error("Telemetry error:", err);
     }
+  }
+
+  // Dedicated Camera ON / OFF Toggle Button
+  const btnCamToggle = document.getElementById("btn-cam-toggle");
+  if (btnCamToggle) {
+    btnCamToggle.addEventListener("click", async () => {
+      if (engine.visionStarted) {
+        VisionLoader.stop();
+        engine.visionStarted = false;
+        btnCamToggle.textContent = "📷 Camera: OFF";
+        btnCamToggle.classList.add("danger");
+        showToast("📷 Camera paused to save CPU/battery", "info");
+      } else {
+        const ok = await VisionLoader.start(video, onFrame);
+        if (ok) {
+          engine.visionStarted = true;
+          VisionLoader.watch();
+          btnCamToggle.textContent = "📷 Camera: ON";
+          btnCamToggle.classList.remove("danger");
+          showToast("📷 Camera resumed", "success");
+        }
+      }
+    });
   }
 
   updateHUD();

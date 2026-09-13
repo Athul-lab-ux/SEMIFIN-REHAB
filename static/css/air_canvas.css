@@ -143,8 +143,9 @@ body {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  opacity: 0.15;
+  opacity: 0.85;
   transform: scaleX(-1);
+  filter: brightness(0.88) contrast(1.05);
 }
 
 #draw-canvas {
@@ -330,7 +331,93 @@ body {
 .aircanvas-paused-overlay .apo-icon { font-size: 44px; margin-bottom: 8px; }
 .aircanvas-paused-overlay h2 { font-size: 20px; color: #F8FAFC; margin: 0 0 6px; }
 .aircanvas-paused-overlay p { font-size: 13.5px; color: #94A3B8; margin: 0 0 20px; }
-.aircanvas-paused-overlay .apo-actions { display: flex; gap: 10px; justify-content: center; }
+/* Left Side Vertical Brush Size Slider */
+.brush-slider-rail {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 6;
+  width: 46px;
+  background: rgba(11, 18, 32, 0.88);
+  border: 1.5px solid rgba(56, 189, 248, 0.45);
+  border-radius: 24px;
+  padding: 14px 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+}
+.bsr-title {
+  font-size: 9px;
+  font-weight: 800;
+  color: #38BDF8;
+  letter-spacing: 1.5px;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+.bsr-track {
+  position: relative;
+  width: 14px;
+  height: 180px;
+  background: rgba(30, 41, 59, 0.85);
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+}
+.bsr-dot-top {
+  position: absolute;
+  top: 4px;
+  width: 4px;
+  height: 4px;
+  background: #94A3B8;
+  border-radius: 50%;
+  pointer-events: none;
+}
+.bsr-dot-bot {
+  position: absolute;
+  bottom: 4px;
+  width: 12px;
+  height: 12px;
+  background: #38BDF8;
+  border-radius: 50%;
+  pointer-events: none;
+}
+.bsr-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 30%;
+  background: linear-gradient(180deg, #38BDF8, #0284C7);
+  border-radius: 8px;
+  transition: height 0.05s ease;
+  pointer-events: none;
+}
+.bsr-thumb {
+  position: absolute;
+  top: 30%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #FFF;
+  box-shadow: 0 0 12px #38BDF8;
+  border: 2.5px solid #0284C7;
+  pointer-events: none;
+  transition: top 0.05s ease;
+}
+.bsr-val {
+  font-size: 11px;
+  font-weight: 800;
+  color: #FFF;
+  margin-top: 8px;
+  font-variant-numeric: tabular-nums;
+}
 
 @media (max-width: 640px) {
   .canvas-container {

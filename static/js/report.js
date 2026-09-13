@@ -46,6 +46,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       const res = await fetch("/api/report/stats");
       const data = await res.json();
       if (data.status !== "success") return;
+      const s = data.stats || {};
       const pid = s.patient_id || localStorage.getItem("patientId") || "SP-000000001";
       if (els.patientId) {
         els.patientId.textContent = s.patient_name ? `${pid} · ${s.patient_name}` : pid;

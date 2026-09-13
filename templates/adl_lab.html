@@ -12,11 +12,12 @@
       <a href="/dashboard" class="back-btn">← Back</a>
       <h2>🔑 ADL Functional Lab</h2>
       <div class="hud-controls" style="display:flex; gap:8px;">
+        <button id="adl-cam-btn" class="c-ctrl-btn" title="Toggle camera on/off">📷 Camera: ON</button>
         <button id="adl-pause" class="c-ctrl-btn" style="display:none;" title="Pause task">⏸ Pause</button>
         <button id="adl-resume" class="c-ctrl-btn primary" style="display:none;" title="Resume task (4s)">▶ Resume (4s)</button>
         <button id="adl-stop" class="c-ctrl-btn danger" style="display:none;" title="Stop task">⏹ Stop</button>
       </div>
-      <span style="font-size:12px; color:var(--clin-slate);">Session 4 · Daily Task Simulation</span>
+      <span style="font-size:12px; color:var(--clin-slate);">Session 4 · 6 Clinical Daily Tasks</span>
     </div>
 
     <!-- HUD Bar -->
@@ -26,8 +27,12 @@
         <div class="value" id="task-display">Choose a task</div>
       </div>
       <div class="hud-item">
-        <div class="label">📊 Status</div>
-        <div class="value" id="status-display">Ready</div>
+        <div class="label">📊 Current Step</div>
+        <div class="value" id="step-display">Ready</div>
+      </div>
+      <div class="hud-item">
+        <div class="label">🎯 Repetitions</div>
+        <div class="value" id="reps-display">0 / 3</div>
       </div>
     </div>
 
@@ -64,7 +69,7 @@
         <div class="agp-card">
           <div class="agp-header-row">
             <span class="agp-badge">💡 HOW TO DO &amp; WHAT TO DO</span>
-            <button id="agp-dismiss" class="agp-dismiss-btn" title="Dismiss guidance">Got it! ✕</button>
+            <button id="agp-dismiss" class="agp-dismiss-btn" title="Dismiss guidance" aria-label="Close">✕</button>
           </div>
           <h3 id="agp-title" class="agp-title">🔑 90° Door Key Turn</h3>
           <div class="agp-section">
@@ -73,36 +78,48 @@
           </div>
           <div class="agp-section">
             <div class="agp-label">📋 HOW TO DO</div>
-            <p id="agp-how" class="agp-text">Rotate your forearm like turning a key in a lock. You can also drag or touch the key on screen.</p>
+            <p id="agp-how" class="agp-text">Rotate your forearm like turning a key in a lock. Follow the 6 visual steps at the bottom.</p>
           </div>
           <div class="agp-tip" id="agp-tip">Tip: Sit comfortably facing the camera with your hand clearly visible.</div>
+          <button id="agp-got-it" class="agp-action-btn">Understood, Continue →</button>
           <div class="agp-footer">
             <div class="agp-timer-bar"><div id="agp-timer-fill" class="agp-timer-fill"></div></div>
             <div class="agp-timer-sub">
               <span id="agp-timer-text">Closing in 4s...</span>
-              <span class="agp-sub-hint">Reappears after 10s idle</span>
+              <span class="agp-sub-hint">Reappears if stuck for 10s</span>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Task Menu -->
+      <!-- 6 Visual Skeletal Posture Step Cards Rail (P4 Clinical Protocol) -->
+      <div id="adl-steps-bar" class="adl-steps-bar" style="display:none;"></div>
+
+      <!-- Task Menu (6 Mandated Clinical Tasks) -->
       <div id="task-menu">
         <button class="task-btn" data-task="key">
           🔑 90° Door Key Turn
-          <span class="desc">Rotate forearm to turn the key</span>
+          <span class="desc">Forearm supination to turn deadbolt key</span>
         </button>
         <button class="task-btn" data-task="light">
           💡 Rocker Light Switch
-          <span class="desc">Thrust hand up/down to flip switch</span>
+          <span class="desc">Rapid hand thrust to flip wall switch</span>
         </button>
         <button class="task-btn" data-task="thermostat">
           🎛️ Rotary Thermostat
-          <span class="desc">Circular motion to adjust 18–24°C</span>
+          <span class="desc">Circular planar motion to reach 24°C</span>
         </button>
         <button class="task-btn" data-task="pin">
           🔢 Touchless PIN Pad
-          <span class="desc">Hover over digits 1-2-3-4 steadily</span>
+          <span class="desc">Dwell hover over digits 1-2-3-4</span>
+        </button>
+        <button class="task-btn" data-task="faucet">
+          🚰 Water Faucet Twist
+          <span class="desc">Cylindrical grasp &amp; rotary torque</span>
+        </button>
+        <button class="task-btn" data-task="pill">
+          💊 Pill Bottle Cap Twist
+          <span class="desc">Downward press &amp; counter-clockwise twist</span>
         </button>
       </div>
     </div>
