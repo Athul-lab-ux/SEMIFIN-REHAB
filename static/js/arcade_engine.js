@@ -1413,5 +1413,19 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
+  // Dynamic Mirror Mode Toggle (P7: Natural Left = Left)
+  const btnMirrorToggle = document.getElementById("btn-mirror-toggle");
+  if (btnMirrorToggle) {
+    const isM = VisionLoader.isMirrored();
+    btnMirrorToggle.textContent = isM ? "🪞 Mirror: Natural" : "🪞 Mirror: Inverted";
+    btnMirrorToggle.addEventListener("click", () => {
+      const next = !VisionLoader.isMirrored();
+      VisionLoader.setMirrored(next);
+      if (video) video.style.transform = next ? "scaleX(-1)" : "scaleX(1)";
+      btnMirrorToggle.textContent = next ? "🪞 Mirror: Natural" : "🪞 Mirror: Inverted";
+      showToast(next ? "🪞 Mirror: Natural (Left = Left)" : "🪞 Mirror: Inverted", "info");
+    });
+  }
+
   updateHUD();
 });

@@ -44,6 +44,12 @@ const VisionLoader = (() => {
   let optCentroid = null;
   let lastModelDetectionTime = 0;
 
+  // Mirror Mode (Default: Natural Left=Left)
+  let isMirrored = localStorage.getItem("rehab_mirror_mode") !== "inverted";
+  function mapX(val) {
+    return isMirrored ? (1 - val) : val;
+  }
+
   // --- Dynamic CDN script loading helper ---------------------------------
   function loadScript(src) {
     return new Promise((resolve, reject) => {
@@ -263,6 +269,7 @@ const VisionLoader = (() => {
       video.setAttribute("muted", "true");
       video.playsInline = true;
       video.muted = true;
+      video.style.transform = isMirrored ? "scaleX(-1)" : "scaleX(1)";
 
       await new Promise((resolve) => {
         if (video.readyState >= 2) return resolve();
@@ -350,10 +357,10 @@ const VisionLoader = (() => {
       // 1. Mirror and map Pose Landmarks
       if (lastPoseLandmarks && lastPoseLandmarks.length > 0) {
         const src = lastPoseLandmarks;
-        results.poseAll = src.map((lm) => ({ x: 1 - lm.x, y: lm.y, z: lm.z || 0 }));
+        results.poseAll = src.map((lm) => ({ x: mapX(lm.x), y: lm.y, z: lm.z || 0 }));
         results.pose = {};
         for (let i = 0; i < src.length; i++) {
-          results.pose[i] = { x: 1 - src[i].x, y: src[i].y, z: src[i].z || 0 };
+          results.pose[i] = { x: mapX(src[i].x), y: src[i].y, z: src[i].z || 0 };
         }
         // Leg joints: 23/24 hips, 25/26 knees, 27/28 ankles
         if (results.pose[23] && results.pose[25] && results.pose[27] &&
@@ -376,10 +383,10 @@ const VisionLoader = (() => {
       // 2. Mirror and map Hand Landmarks
       if (lastHandLandmarks && lastHandLandmarks.length > 0) {
         const src = lastHandLandmarks;
-        results.handAll = src.map((lm) => ({ x: 1 - lm.x, y: lm.y, z: lm.z || 0 }));
+        results.handAll = src.map((lm) => ({ x: mapX(lm.x), y: lm.y, z: lm.z || 0 }));
         results.hand = {};
         for (let i = 0; i < src.length; i++) {
-          results.hand[i] = { x: 1 - src[i].x, y: src[i].y, z: src[i].z || 0 };
+          results.hand[i] = { x: mapX(src[i].x), y: src[i].y, z: src[i].z || 0 };
         }
         if (results.hand[17] && results.hand[5]) {
           results.hand_side = results.hand[17].x < results.hand[5].x ? "right" : "left";
@@ -391,7 +398,7 @@ const VisionLoader = (() => {
           const centroid = computeOpticalMotion(videoElement);
           if (centroid) {
             // Mirror centroid for selfie view
-            const mx = 1 - centroid.x;
+            const mx = mapX(centroid.x);
             const my = centroid.y;
             results.hand = {
               0: { x: mx, y: my + 0.08, z: 0 },
@@ -475,6 +482,16 @@ const VisionLoader = (() => {
     init: initModels,
     getVideoSize: () => ({ width: lastVideoWidth, height: lastVideoHeight }),
     isRunning: () => isRunning,
+    isMirrored: () => isMirrored,
+    setMirrored: (val) => {
+      isMirrored = !!val;
+      try {
+        localStorage.setItem("rehab_mirror_mode", isMirrored ? "natural" : "inverted");
+      } catch (e) {}
+      if (videoElement) {
+        videoElement.style.transform = isMirrored ? "scaleX(-1)" : "scaleX(1)";
+      }
+    },
   };
 })();
 

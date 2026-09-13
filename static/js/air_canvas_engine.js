@@ -58,7 +58,29 @@ document.addEventListener("DOMContentLoaded", async () => {
   const bsrThumb = document.getElementById("bsr-thumb");
   const bsrVal = document.getElementById("bsr-val");
   const btnCam = document.getElementById("canvas-cam-btn");
+  const btnMirror = document.getElementById("canvas-mirror-btn");
   let cameraActive = true;
+  let isMirrored = localStorage.getItem("rehab_mirror_mode") !== "inverted"; // default natural (left = left)
+
+  function updateMirrorUI() {
+    const v = document.getElementById("video");
+    if (v) v.style.transform = isMirrored ? "scaleX(-1)" : "scaleX(1)";
+    if (btnMirror) {
+      btnMirror.textContent = isMirrored ? "🪞 Mirror: Natural" : "🪞 Mirror: Inverted";
+    }
+  }
+  updateMirrorUI();
+
+  if (btnMirror) {
+    btnMirror.addEventListener("click", () => {
+      isMirrored = !isMirrored;
+      try {
+        localStorage.setItem("rehab_mirror_mode", isMirrored ? "natural" : "inverted");
+      } catch (e) {}
+      updateMirrorUI();
+      showToast(isMirrored ? "🪞 Mirror: Natural (Left = Left)" : "🪞 Mirror: Inverted", "info");
+    });
+  }
 
   function setBrushSize(size) {
     brushSize = Math.max(2, Math.min(24, Math.round(size)));
@@ -438,8 +460,12 @@ document.addEventListener("DOMContentLoaded", async () => {
       return;
     }
 
-    // Mirror landmarks so left/right matches mirror-selfie view
-    const lm = results.multiHandLandmarks[0].map((p) => ({ x: 1 - p.x, y: p.y, z: p.z || 0 }));
+    // Map landmarks based on mirror mode (P7: Natural Left = Left)
+    const lm = results.multiHandLandmarks[0].map((p) => ({
+      x: isMirrored ? (1 - p.x) : p.x,
+      y: p.y,
+      z: p.z || 0,
+    }));
     const rawTip = lm[8];
 
     // EMA Landmark Smoothing: alpha = 0.35

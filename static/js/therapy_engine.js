@@ -723,6 +723,21 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  // Dynamic Mirror Mode Toggle (P7: Natural Left = Left)
+  const mirrorToggleBtn = $("mirror-toggle-btn");
+  if (mirrorToggleBtn) {
+    const isM = VisionLoader.isMirrored();
+    mirrorToggleBtn.textContent = isM ? "🪞 Mirror: Natural" : "🪞 Mirror: Inverted";
+    mirrorToggleBtn.addEventListener("click", () => {
+      const next = !VisionLoader.isMirrored();
+      VisionLoader.setMirrored(next);
+      const v = $("video");
+      if (v) v.style.transform = next ? "scaleX(-1)" : "scaleX(1)";
+      mirrorToggleBtn.textContent = next ? "🪞 Mirror: Natural" : "🪞 Mirror: Inverted";
+      showToast(next ? "🪞 Mirror: Natural (Left = Left)" : "🪞 Mirror: Inverted", "info");
+    });
+  }
+
   // Age Presets click binding
   document.querySelectorAll(".age-preset-btn").forEach((btn) => {
     btn.addEventListener("click", () => {

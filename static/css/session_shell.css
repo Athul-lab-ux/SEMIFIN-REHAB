@@ -113,12 +113,6 @@
   transform: scaleX(-1);
   border-radius: 0;
 }
-.canvas-cam-stage video,
-.arcade-cam-stage video,
-.adl-camera-stage video,
-.leg-camera-stage video {
-  transform: none;
-}
 .overlay-canvas {
   position: absolute;
   inset: 0;

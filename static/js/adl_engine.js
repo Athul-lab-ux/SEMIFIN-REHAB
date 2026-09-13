@@ -23,6 +23,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const toast = document.getElementById("toast");
   const stepsBar = document.getElementById("adl-steps-bar");
   const btnCam = document.getElementById("adl-cam-btn");
+  const btnMirror = document.getElementById("adl-mirror-btn");
 
   // State
   let currentTask = "menu";
@@ -38,6 +39,27 @@ document.addEventListener("DOMContentLoaded", async () => {
   let lastAdlActionTime = Date.now();
   let cameraActive = true;
   let adlCamera = null;
+  let isMirrored = localStorage.getItem("rehab_mirror_mode") !== "inverted"; // default natural (left = left)
+
+  function updateMirrorUI() {
+    const v = document.getElementById("video");
+    if (v) v.style.transform = isMirrored ? "scaleX(-1)" : "scaleX(1)";
+    if (btnMirror) {
+      btnMirror.textContent = isMirrored ? "🪞 Mirror: Natural" : "🪞 Mirror: Inverted";
+    }
+  }
+  updateMirrorUI();
+
+  if (btnMirror) {
+    btnMirror.addEventListener("click", () => {
+      isMirrored = !isMirrored;
+      try {
+        localStorage.setItem("rehab_mirror_mode", isMirrored ? "natural" : "inverted");
+      } catch (e) {}
+      updateMirrorUI();
+      showToast(`🪞 Mirror Mode: ${isMirrored ? "Natural (Left = Left)" : "Inverted"}`, "info");
+    });
+  }
 
   // Task Specific Motor States
   let keyRotation = 0;
@@ -449,6 +471,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const ok = await adlCamera.initialize();
     if (ok) {
       cameraActive = true;
+      updateMirrorUI();
       if (btnCam) {
         btnCam.textContent = "📷 Camera: ON";
         btnCam.classList.remove("danger");
@@ -482,8 +505,12 @@ document.addEventListener("DOMContentLoaded", async () => {
       handCtx.clearRect(0, 0, handCanvas.width, handCanvas.height);
       return;
     }
-    // Mirrored selfie view (video has transform: scaleX(-1))
-    const lm = results.multiHandLandmarks[0].map((p) => ({ x: 1 - p.x, y: p.y, z: p.z || 0 }));
+    // Map landmarks based on mirror mode (P7: Natural Left = Left)
+    const lm = results.multiHandLandmarks[0].map((p) => ({
+      x: isMirrored ? (1 - p.x) : p.x,
+      y: p.y,
+      z: p.z || 0,
+    }));
 
     const indexTip = lm[8];
     const thumbTip = lm[4];
