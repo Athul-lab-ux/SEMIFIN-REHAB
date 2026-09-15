@@ -206,7 +206,10 @@ const VisionLoader = (() => {
       }
 
       const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
-      const savedDeviceId = localStorage.getItem("preferred_camera_id") || undefined;
+      let savedDeviceId = localStorage.getItem("preferred_camera_id");
+      if (savedDeviceId === "null" || savedDeviceId === "undefined") {
+        savedDeviceId = null;
+      }
 
       const baseVideoConstraints = savedDeviceId
         ? { deviceId: { exact: savedDeviceId } }
@@ -226,6 +229,14 @@ const VisionLoader = (() => {
           audio: false,
           video: {
             facingMode: "user",
+            frameRate: { ideal: 30 },
+          },
+        },
+        {
+          audio: false,
+          video: {
+            width: { ideal: 640 },
+            height: { ideal: 480 },
             frameRate: { ideal: 30 },
           },
         },
@@ -271,13 +282,11 @@ const VisionLoader = (() => {
       video.muted = true;
       video.style.transform = isMirrored ? "scaleX(-1)" : "scaleX(1)";
 
-      await new Promise((resolve) => {
-        if (video.readyState >= 2) return resolve();
-        video.onloadedmetadata = () => resolve();
-        setTimeout(resolve, 800); // safety fallback
-      });
-
-      await video.play().catch(() => {});
+      try {
+        await video.play();
+      } catch (e) {
+        console.warn("[VisionLoader] video play error:", e);
+      }
       isRunning = true;
 
       // Step 2: Trigger neural network loading in the background (does not block camera display)

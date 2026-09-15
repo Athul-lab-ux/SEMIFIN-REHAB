@@ -11,7 +11,7 @@ class RehabCamera {
     this.animationId = null;
   }
 
-  async initialize() {
+  async initialize(preferredDeviceId) {
     if (
       !navigator.mediaDevices ||
       !navigator.mediaDevices.getUserMedia
@@ -23,14 +23,20 @@ class RehabCamera {
     }
 
     const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
-    const savedDeviceId = preferredDeviceId || localStorage.getItem("preferred_camera_id") || null;
+    let savedDeviceId = (typeof preferredDeviceId !== "undefined" && preferredDeviceId)
+      ? preferredDeviceId
+      : (localStorage.getItem("preferred_camera_id") || null);
+
+    if (savedDeviceId === "null" || savedDeviceId === "undefined") {
+      savedDeviceId = null;
+    }
 
     const baseVideoConstraints = savedDeviceId
       ? { deviceId: { exact: savedDeviceId } }
       : { facingMode: "user" };
 
     const candidateConstraints = [
-      // 1. Preferred constraints (ideal mobile portrait or laptop landscape)
+      // 1. Preferred constraints (with deviceId or facingMode)
       {
         audio: false,
         video: {
@@ -48,7 +54,16 @@ class RehabCamera {
           frameRate: { ideal: 30 },
         },
       },
-      // 3. Resilient fallback to any available video stream
+      // 3. Fallback without facingMode (needed on Windows/USB webcams)
+      {
+        audio: false,
+        video: {
+          width: { ideal: 640 },
+          height: { ideal: 480 },
+          frameRate: { ideal: 30 },
+        },
+      },
+      // 4. Resilient fallback to any available video stream
       {
         audio: false,
         video: true,
@@ -84,16 +99,9 @@ class RehabCamera {
     this.video.muted = true;
 
     try {
-      await new Promise((resolve) => {
-        if (this.video.readyState >= 2) return resolve();
-        this.video.onloadedmetadata = () => {
-          this.video.play().catch(() => {});
-          resolve();
-        };
-      });
-      await this.video.play().catch(() => {});
+      await this.video.play();
     } catch (e) {
-      // ignore play rejection
+      // ignore play rejection if browser enforces user gesture
     }
 
     this.startLoop();
@@ -116,8 +124,12 @@ class RehabCamera {
     this.isProcessing = true;
     const loop = async () => {
       if (!this.isProcessing) return;
-      if (this.video.readyState >= 2 && this.onFrame) {
-        await this.onFrame(this.video);
+      try {
+        if (this.video && this.video.readyState >= 2 && this.onFrame) {
+          await this.onFrame(this.video);
+        }
+      } catch (err) {
+        console.warn("[RehabCamera] onFrame error:", err);
       }
       this.animationId = requestAnimationFrame(loop);
     };

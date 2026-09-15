@@ -64,6 +64,24 @@ def add_security_headers(response):
     response.headers["X-Frame-Options"] = "SAMEORIGIN"
     return response
 
+
+@app.context_processor
+def inject_patient_theme():
+    """Inject the active patient's custom primary color into all templates."""
+    theme_color = "#FF6A00"
+    if "patient_id" in session:
+        try:
+            db = get_db()
+            row = db.execute(
+                "SELECT primary_color FROM patients WHERE patient_id = ?",
+                (session["patient_id"],),
+            ).fetchone()
+            if row and row["primary_color"]:
+                theme_color = row["primary_color"]
+        except Exception:
+            pass
+    return dict(patient_theme_color=theme_color)
+
 # ---------------------------------------------------------------------------
 # Embedded Database Schema (guaranteed to load even in serverless Lambda bundles)
 # ---------------------------------------------------------------------------

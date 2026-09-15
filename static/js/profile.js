@@ -66,9 +66,14 @@ document.addEventListener("DOMContentLoaded", async () => {
       // Theme Colors
       if (p.primary_color) {
         selectedPrimaryColor = p.primary_color;
+        try { localStorage.setItem("rehab_theme_color", selectedPrimaryColor); } catch(e) {}
         document.querySelectorAll(".color-swatch").forEach((b) => {
           b.classList.toggle("active", b.dataset.color.toLowerCase() === selectedPrimaryColor.toLowerCase());
         });
+        const st = document.getElementById("rehab-theme-styles");
+        if (st) {
+          st.textContent = `:root { --clin-orange: ${selectedPrimaryColor} !important; --clin-brand: ${selectedPrimaryColor} !important; }`;
+        }
       }
     } catch (e) {
       console.error("Profile load failed:", e);
@@ -138,6 +143,21 @@ document.addEventListener("DOMContentLoaded", async () => {
       swatch.classList.add("active");
       selectedPrimaryColor = swatch.dataset.color;
       document.documentElement.style.setProperty("--clin-orange", selectedPrimaryColor);
+      document.documentElement.style.setProperty("--clin-brand", selectedPrimaryColor);
+      try {
+        localStorage.setItem("rehab_theme_color", selectedPrimaryColor);
+      } catch (e) {}
+      const st = document.getElementById("rehab-theme-styles");
+      if (st) {
+        st.textContent = `:root { --clin-orange: ${selectedPrimaryColor} !important; --clin-brand: ${selectedPrimaryColor} !important; }`;
+      }
+      // Immediate background persist so color stays even if user leaves without clicking Save
+      fetch("/api/profile/colors", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ primary_color: selectedPrimaryColor }),
+      }).catch(() => {});
+      showToast(`🎨 Theme color set: ${swatch.title || selectedPrimaryColor}`, "info");
     });
   });
 
@@ -180,6 +200,9 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (name) document.getElementById("disp-name").textContent = name;
         localStorage.setItem("selectedCondition", condition);
         if (name) localStorage.setItem("patient_name", name);
+        if (selectedPrimaryColor) {
+          try { localStorage.setItem("rehab_theme_color", selectedPrimaryColor); } catch (e) {}
+        }
       } else {
         showToast(`❌ ${data.message}`, "error");
       }

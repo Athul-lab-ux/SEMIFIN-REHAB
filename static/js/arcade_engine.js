@@ -1428,4 +1428,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   updateHUD();
+  // Auto-activate camera immediately so live mirror preview is active
+  startVision();
 });
