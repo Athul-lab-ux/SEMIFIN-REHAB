@@ -33,6 +33,8 @@
   max-height: calc(100vh - var(--topbar-h) - 40px);
   display: flex;
   flex-direction: column;
+  min-width: 0;
+  box-sizing: border-box;
 }
 .shelf-label {
   font-size: 12px;
@@ -62,21 +64,22 @@
   font-family: inherit;
   text-align: left;
   transition: all 0.15s ease;
+  min-width: 0;
 }
-.game-btn:hover { background: var(--clin-orange-tint); border-color: rgba(255, 106, 0, 0.3); }
+.game-btn:hover { background: var(--clin-orange-tint); border-color: rgba(16, 185, 129, 0.35); }
 .game-btn.selected {
-  background: #EFF6FF;
-  border-color: var(--clin-cobalt);
-  box-shadow: inset 3px 0 0 var(--clin-orange);
+  background: #ECFDF5;
+  border-color: var(--clin-brand);
+  box-shadow: inset 3px 0 0 var(--clin-brand);
 }
 .g-icon { font-size: 24px; width: 32px; text-align: center; flex-shrink: 0; }
-.g-name { font-size: 13px; font-weight: 700; color: var(--clin-navy); line-height: 1.1; }
+.g-name { font-size: 13px; font-weight: 700; color: var(--clin-navy); line-height: 1.1; overflow-wrap: break-word; }
 .g-tag {
   margin-left: auto;
   font-size: 9.5px;
   font-weight: 800;
-  color: var(--clin-cobalt);
-  background: #E0E7FF;
+  color: #065F46;
+  background: #D1FAE5;
   padding: 2px 6px;
   border-radius: 999px;
   flex-shrink: 0;
@@ -88,10 +91,12 @@
   line-height: 1.5;
   border-top: 1px dashed var(--clin-border);
   padding-top: 10px;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 /* ---------------- Stage ---------------- */
-.stage-col { min-width: 0; }
+.stage-col { min-width: 0; box-sizing: border-box; }
 
 .video-frame {
   position: relative;
@@ -125,12 +130,12 @@
   padding: 24px;
   color: #E2E8F0;
   background:
-    radial-gradient(600px 300px at 50% 20%, rgba(56, 189, 248, 0.10), transparent 60%),
+    radial-gradient(600px 300px at 50% 20%, rgba(16, 185, 129, 0.15), transparent 60%),
     #0B1220;
 }
 .sp-icon { font-size: 52px; margin-bottom: 10px; }
-.stage-placeholder p { font-size: 15px; margin: 4px 0; }
-.stage-placeholder .sp-sub { font-size: 12px; color: #94A3B8; max-width: 420px; line-height: 1.6; }
+.stage-placeholder p { font-size: 15px; margin: 4px 0; overflow-wrap: break-word; }
+.stage-placeholder .sp-sub { font-size: 12px; color: #94A3B8; max-width: 420px; line-height: 1.6; overflow-wrap: break-word; }
 
 /* HUD strip */
 .hud-strip {
@@ -148,22 +153,26 @@
   border-radius: 10px;
   box-shadow: var(--shadow-card);
   padding: 6px 12px;
+  min-width: 0;
 }
-.hud-lab { font-size: 10px; font-weight: 700; color: var(--clin-slate); text-transform: uppercase; letter-spacing: 0.5px; }
-.hud-val { font-size: 14px; font-weight: 800; color: var(--clin-navy); font-variant-numeric: tabular-nums; }
+.hud-lab { font-size: 10px; font-weight: 700; color: var(--clin-slate); text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; }
+.hud-val { font-size: 14px; font-weight: 800; color: var(--clin-navy); font-variant-numeric: tabular-nums; overflow-wrap: break-word; }
 
 /* Live coaching line */
 .guide-line {
   margin-top: 10px;
-  background: linear-gradient(120deg, #EEF2FF, var(--clin-surface));
-  border: 1px solid #D6E0F5;
-  border-left: 4px solid var(--clin-cobalt);
+  background: linear-gradient(120deg, #ECFDF5, var(--clin-surface));
+  border: 1px solid #D1FAE5;
+  border-left: 4px solid var(--clin-brand);
   border-radius: 10px;
   padding: 10px 14px;
   font-size: 13px;
   font-weight: 600;
   color: var(--clin-navy);
   min-height: 44px;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  box-sizing: border-box;
 }
 
 /* ---------------- KPI panel ---------------- */
@@ -176,16 +185,22 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
+  min-width: 0;
+  box-sizing: border-box;
 }
 .kpi-card {
   background: var(--clin-canvas);
   border: 1px solid var(--clin-border);
   border-radius: 10px;
   padding: 10px 12px;
+  min-width: 0;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  box-sizing: border-box;
 }
-.kpi-label { font-size: 9.5px; font-weight: 800; color: var(--clin-slate); text-transform: uppercase; letter-spacing: 0.7px; }
-.kpi-value { font-size: 16px; font-weight: 800; color: var(--clin-navy); margin-top: 2px; line-height: 1.25; }
-.kpi-value.kpi-sm { font-size: 12.5px; font-weight: 700; }
+.kpi-label { font-size: 9.5px; font-weight: 800; color: var(--clin-slate); text-transform: uppercase; letter-spacing: 0.7px; overflow-wrap: break-word; word-break: break-word; }
+.kpi-value { font-size: 16px; font-weight: 800; color: var(--clin-navy); margin-top: 2px; line-height: 1.25; overflow-wrap: break-word; word-break: break-word; }
+.kpi-value.kpi-sm { font-size: 12.5px; font-weight: 700; overflow-wrap: break-word; word-break: break-word; }
 
 .kpi-controls {
   display: flex;
@@ -211,7 +226,7 @@
 .ctl-btn:hover { background: var(--clin-orange-tint); border-color: var(--clin-orange); }
 .ctl-btn.stop { background: var(--clin-red-tint); border-color: rgba(239, 68, 68, 0.4); color: #B91C1C; }
 .ctl-btn.stop:hover { background: #FBDCDC; }
-.ctl-speed { font-size: 13px; font-weight: 800; color: var(--clin-cobalt); }
+.ctl-speed { font-size: 13px; font-weight: 800; color: var(--clin-brand); }
 
 .keys-hint {
   display: flex;
@@ -220,6 +235,7 @@
   color: var(--clin-slate);
   border-top: 1px dashed var(--clin-border);
   padding-top: 10px;
+  overflow-wrap: break-word;
 }
 .keys-hint kbd {
   background: var(--clin-canvas);
@@ -254,7 +270,7 @@
 .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
 .toast.success { background: #D1FAE5; border: 1px solid #6EE7B7; color: #065F46; }
 .toast.error { background: #FEE2E2; border: 1px solid #FCA5A5; color: #991B1B; }
-.toast.info { background: var(--clin-orange-tint); border: 1px solid rgba(255, 106, 0, 0.4); color: #9A3412; }
+.toast.info { background: var(--clin-orange-tint); border: 1px solid rgba(16, 185, 129, 0.4); color: #065F46; }
 
 /* 4-second Countdown Overlay */
 .arcade-countdown-overlay {
@@ -267,7 +283,7 @@
 .arcade-countdown-overlay.show { display: flex; }
 .aco-box { text-align: center; color: #fff; }
 .aco-label { font-size: 15px; font-weight: 800; letter-spacing: 2px; color: var(--clin-orange); margin-bottom: 6px; text-transform: uppercase; }
-.aco-num { font-size: 96px; font-weight: 900; line-height: 1; color: #fff; text-shadow: 0 0 35px rgba(255, 106, 0, 0.7); font-variant-numeric: tabular-nums; }
+.aco-num { font-size: 96px; font-weight: 900; line-height: 1; color: #fff; text-shadow: 0 0 35px rgba(16, 185, 129, 0.7); font-variant-numeric: tabular-nums; }
 .aco-hint { font-size: 14px; color: #CBD5E1; margin-top: 10px; font-weight: 600; }
 
 /* Paused Overlay */

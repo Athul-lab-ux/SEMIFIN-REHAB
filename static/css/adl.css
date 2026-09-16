@@ -31,16 +31,16 @@ body {
 
 .top-bar h2 {
   font-size: 16px;
-  color: #ff9a3c;
+  color: #34D399;
   font-weight: 700;
 }
 
 .back-btn {
   padding: 6px 14px;
-  background: rgba(255, 106, 0, 0.1);
-  border: 1px solid rgba(255, 106, 0, 0.2);
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.28);
   border-radius: 8px;
-  color: #ff9a3c;
+  color: #34D399;
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
@@ -49,7 +49,8 @@ body {
 }
 
 .back-btn:hover {
-  background: rgba(255, 106, 0, 0.2);
+  background: rgba(16, 185, 129, 0.25);
+  color: #fff;
 }
 
 /* HUD Bar */
@@ -75,7 +76,7 @@ body {
 .hud-item .value {
   font-size: 14px;
   font-weight: 700;
-  color: #ff9a3c;
+  color: #34D399;
 }
 
 /* Game Area */
@@ -85,7 +86,7 @@ body {
   border-radius: 16px;
   overflow: hidden;
   background: #0a0c10;
-  border: 2px solid rgba(255, 106, 0, 0.12);
+  border: 2px solid rgba(16, 185, 129, 0.16);
 }
 
 #video {
@@ -227,10 +228,10 @@ body {
 
 .task-btn {
   padding: 14px 16px;
-  border: 2px solid rgba(255, 106, 0, 0.2);
+  border: 2px solid rgba(16, 185, 129, 0.25);
   border-radius: 14px;
-  background: rgba(15, 12, 8, 0.88);
-  color: #ff9a3c;
+  background: rgba(10, 16, 26, 0.92);
+  color: #34D399;
   font-size: 13.5px;
   font-weight: 700;
   cursor: pointer;
@@ -240,15 +241,16 @@ body {
 }
 
 .task-btn:hover {
-  border-color: #ff6a00;
+  border-color: #10B981;
+  color: #fff;
   transform: translateY(-3px) scale(1.02);
-  box-shadow: 0 8px 24px rgba(255, 106, 0, 0.25);
+  box-shadow: 0 8px 24px rgba(16, 185, 129, 0.28);
 }
 
 .task-btn .desc {
   display: block;
   font-size: 10px;
-  color: #a08a70;
+  color: #94A3B8;
   margin-top: 5px;
   font-weight: 400;
   line-height: 1.3;
@@ -276,15 +278,15 @@ body {
 }
 
 .toast.success {
-  background: rgba(0, 200, 120, 0.15);
-  border: 1px solid rgba(0, 200, 120, 0.3);
-  color: #6edba0;
+  background: rgba(16, 185, 129, 0.18);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  color: #34D399;
 }
 
 .toast.info {
-  background: rgba(255, 154, 60, 0.15);
-  border: 1px solid rgba(255, 154, 60, 0.3);
-  color: #ff9a3c;
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  color: #34D399;
 }
 
 /* 4-second ADL Guidance Popup Overlay (How to do & What to do) */
@@ -299,14 +301,14 @@ body {
 }
 .adl-guidance-popup.show { display: flex; }
 .agp-card {
-  background: #131822;
-  border: 1.5px solid #ff9a3c;
+  background: #0D1726;
+  border: 1.5px solid #10B981;
   border-radius: 16px;
   padding: 22px 24px;
   max-width: min(92%, 460px);
   width: 100%;
   color: #F8FAFC;
-  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.6), 0 0 24px rgba(255, 154, 60, 0.25);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.6), 0 0 24px rgba(16, 185, 129, 0.25);
   text-align: left;
 }
 .agp-header-row {
@@ -315,8 +317,8 @@ body {
 }
 .agp-badge {
   font-size: 11px; font-weight: 800; letter-spacing: 1px;
-  color: #ff9a3c; background: rgba(255, 154, 60, 0.15);
-  border: 1px solid rgba(255, 154, 60, 0.35); border-radius: 6px;
+  color: #34D399; background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.35); border-radius: 6px;
   padding: 3px 8px; text-transform: uppercase;
 }
 .agp-dismiss-btn {
@@ -344,8 +346,8 @@ body {
   width: 100%;
   padding: 9px 14px;
   margin: 10px 0 8px;
-  background: #ff9a3c;
-  color: #0a0c10;
+  background: #10B981;
+  color: #fff;
   border: none;
   border-radius: 8px;
   font-size: 13px;
@@ -355,13 +357,13 @@ body {
   transition: all 0.2s ease;
 }
 .agp-action-btn:hover {
-  background: #ffaa5c;
+  background: #059669;
   transform: scale(1.02);
 }
 .agp-title { font-size: 18px; font-weight: 800; color: #fff; margin: 0 0 10px; }
 .agp-section { margin-bottom: 10px; }
 .agp-label {
-  font-size: 10.5px; font-weight: 800; color: #a08a70;
+  font-size: 10.5px; font-weight: 800; color: #94A3B8;
   text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;
 }
 .agp-text { font-size: 13.5px; color: #E2E8F0; margin: 0; font-weight: 500; line-height: 1.4; }
@@ -377,7 +379,7 @@ body {
 }
 .agp-timer-fill {
   height: 100%; width: 100%;
-  background: linear-gradient(90deg, #ff9a3c, #00ff88);
+  background: linear-gradient(90deg, #10B981, #34D399);
   border-radius: 4px; transition: width 0.05s linear;
 }
 .agp-timer-sub {

@@ -35,59 +35,77 @@
 
         <!-- Segmented tab switch -->
         <div class="tab-bar" role="tablist" aria-label="Sign in or register">
-          <button id="sign-in-tab" class="tab active" role="tab" aria-selected="true">Sign In</button>
-          <button id="register-tab" class="tab" role="tab" aria-selected="false">New Patient</button>
+          <button id="sign-in-tab" class="tab active" role="tab" aria-selected="true"><span>🔑</span> Sign In</button>
+          <button id="register-tab" class="tab" role="tab" aria-selected="false"><span>✨</span> New Patient</button>
         </div>
 
         <!-- Sign In Panel -->
         <div id="sign-in-panel" class="panel visible" role="tabpanel" aria-live="polite">
           <form id="sign-in-form" novalidate>
             <div class="input-group">
-              <label for="si-patient-id">🪪 Patient ID, Email, or Username</label>
-              <input type="text" id="si-patient-id" placeholder="e.g. SP-000000001, u1, or your email" autocomplete="username" required />
-            </div>
-            <div class="input-group">
-              <label for="si-password">🔒 Password</label>
-              <div class="pw-field">
-                <input type="password" id="si-password" placeholder="Enter password" autocomplete="current-password" required />
-                <button type="button" class="toggle-pw" aria-label="Show password">👁️</button>
+              <label for="si-patient-id"><span class="lbl-sym">👤</span> Patient ID, Email, or Username</label>
+              <div class="input-icon-wrap">
+                <span class="input-icon" aria-hidden="true">🪪</span>
+                <input type="text" id="si-patient-id" placeholder="e.g. SP-000000001, testpatient, or email" autocomplete="username" required />
               </div>
             </div>
-            <button type="submit" class="clin-btn clin-btn-primary auth-submit">🔓 Sign In</button>
+            <div class="input-group">
+              <label for="si-password"><span class="lbl-sym">🔒</span> Password</label>
+              <div class="input-icon-wrap pw-field">
+                <span class="input-icon" aria-hidden="true">🔑</span>
+                <input type="password" id="si-password" placeholder="Enter password" autocomplete="current-password" required />
+                <button type="button" class="toggle-pw" aria-label="Show password" title="Toggle password visibility">👁️</button>
+              </div>
+            </div>
+            <button type="submit" class="clin-btn clin-btn-primary auth-submit">
+              <span>🚀</span> Sign In to Dashboard
+            </button>
           </form>
           <p class="switch-link">
             New patient or don't have an ID?
             <a href="#" id="go-register">Create an account here ➜</a>
           </p>
-          <button id="demo-btn" class="btn-demo">⚡ Quick Demo Account</button>
+          <button id="demo-btn" class="btn-demo" title="1-Click Patient Demo Login">
+            <span>⚡</span> Quick Demo Patient Login (1-Click)
+          </button>
         </div>
 
         <!-- Register Panel -->
         <div id="register-panel" class="panel" role="tabpanel" aria-live="polite">
           <form id="register-form" novalidate>
             <div class="input-group">
-              <label for="reg-name">👤 Full Name / Patient Name</label>
-              <input type="text" id="reg-name" placeholder="e.g. Athul or Patient 1" autocomplete="name" required />
+              <label for="reg-name"><span class="lbl-sym">🏷️</span> Full Name / Patient Name</label>
+              <div class="input-icon-wrap">
+                <span class="input-icon" aria-hidden="true">👤</span>
+                <input type="text" id="reg-name" placeholder="e.g. Athul or Patient 1" autocomplete="name" required />
+              </div>
             </div>
             <div class="input-group">
-              <label for="reg-email">📧 Email or Username</label>
-              <input type="text" id="reg-email" placeholder="e.g. u1 or you@hospital.org" autocomplete="username" required />
+              <label for="reg-email"><span class="lbl-sym">📧</span> Email or Username</label>
+              <div class="input-icon-wrap">
+                <span class="input-icon" aria-hidden="true">✉️</span>
+                <input type="text" id="reg-email" placeholder="e.g. patient@rehab.org or username" autocomplete="username" required />
+              </div>
             </div>
             <div class="input-group">
-              <label for="reg-password">🔒 Create Password</label>
-              <div class="pw-field">
+              <label for="reg-password"><span class="lbl-sym">🔒</span> Create Password</label>
+              <div class="input-icon-wrap pw-field">
+                <span class="input-icon" aria-hidden="true">🔑</span>
                 <input type="password" id="reg-password" placeholder="Min 6 characters" autocomplete="new-password" required minlength="6" />
-                <button type="button" class="toggle-pw" aria-label="Show password">👁️</button>
+                <button type="button" class="toggle-pw" aria-label="Show password" title="Toggle password visibility">👁️</button>
               </div>
             </div>
             <div class="input-group">
-              <label for="reg-password2">🔒 Confirm Password</label>
-              <div class="pw-field">
+              <label for="reg-password2"><span class="lbl-sym">🛡️</span> Confirm Password</label>
+              <div class="input-icon-wrap pw-field">
+                <span class="input-icon" aria-hidden="true">✅</span>
                 <input type="password" id="reg-password2" placeholder="Repeat password" autocomplete="new-password" required minlength="6" />
-                <button type="button" class="toggle-pw" aria-label="Show password">👁️</button>
+                <button type="button" class="toggle-pw" aria-label="Show password" title="Toggle password visibility">👁️</button>
               </div>
             </div>
-            <button type="submit" class="clin-btn clin-btn-secondary auth-submit">📋 Register Patient Profile</button>
+            <button type="submit" class="clin-btn clin-btn-primary auth-submit">
+              <span>📋</span> Register Patient Profile
+            </button>
           </form>
           <p class="switch-link">
             Already registered?
@@ -98,6 +116,7 @@
         <div class="security-row">
           <span class="security-badge">🔒 Zero-Leak Privacy</span>
           <span class="security-badge">🏥 Hospital Grade</span>
+          <span class="security-badge">🌿 Clinical Green</span>
         </div>
       </div>
     </section>

@@ -6,20 +6,21 @@
    ========================================================================== */
 
 :root {
-  /* Clinical palette architecture */
+  /* Clinical palette architecture (Default: Light Green & Crisp White) */
   --clin-canvas: #F8FAFC;            /* Clean ice white canvas base */
   --clin-surface: #FFFFFF;           /* Pure clinical white cards */
   --clin-border: #E2E8F0;            /* Hairline borders */
   --clin-navy: #0F2A4A;              /* Deep hospital navy (headings) */
   --clin-cobalt: #1E40AF;            /* Clinical cobalt (active headers) */
-  --clin-orange: #FF6A00;            /* Neuro-orange primary accent */
-  --clin-orange-soft: #F97316;
-  --clin-orange-tint: #FFF3E8;       /* Orange 6% wash for hovers */
+  --clin-orange: #10B981;            /* Primary light green clinical accent (default) */
+  --clin-brand: #10B981;
+  --clin-orange-soft: #34D399;       /* Soft mint light green */
+  --clin-orange-tint: #ECFDF5;       /* Mint 6% wash for hovers & badges */
   --clin-slate: #64748B;             /* Muted slate for secondary text */
-  --clin-theme-primary: var(--clin-orange);   /* user primary accent (default orange) */
+  --clin-theme-primary: var(--clin-orange);   /* user primary accent (default light green) */
   --clin-theme-secondary: #1E40AF;            /* user secondary accent (default cobalt) */
   --clin-emerald: #10B981;           /* Kinematic success green */
-  --clin-emerald-tint: #E7F8F1;
+  --clin-emerald-tint: #ECFDF5;
   --clin-red: #EF4444;               /* Vivid crimson (posture warnings) */
   --clin-red-tint: #FDECEC;
   --clin-text: #1E293B;              /* Body text (readable slate-navy) */
@@ -33,11 +34,21 @@
 }
 
 /* ------------------------------------------------------------------ */
-/* Base                                                                */
+/* Base & Universal Containment (Zero Word Overflow / Perfect Symmetry) */
 /* ------------------------------------------------------------------ */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
 html, body {
   margin: 0;
   padding: 0;
+  overflow-x: hidden;
+}
+
+body, h1, h2, h3, h4, h5, h6, p, span, div, button, a, label {
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 body {
@@ -109,9 +120,9 @@ button, .btn-link {
 .clin-btn-primary {
   background: linear-gradient(135deg, var(--clin-orange), var(--clin-orange-soft));
   color: #fff;
-  box-shadow: 0 6px 18px rgba(255, 106, 0, 0.28);
+  box-shadow: 0 6px 18px rgba(16, 185, 129, 0.28);
 }
-.clin-btn-primary:hover { box-shadow: 0 9px 26px rgba(255, 106, 0, 0.36); }
+.clin-btn-primary:hover { box-shadow: 0 9px 26px rgba(16, 185, 129, 0.36); }
 
 .clin-btn-secondary {
   background: var(--clin-navy);
@@ -151,7 +162,7 @@ button, .btn-link {
   background: linear-gradient(135deg, var(--clin-orange), var(--clin-orange-soft));
   border: none;
   color: #fff;
-  box-shadow: 0 4px 14px rgba(255, 106, 0, 0.3);
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.3);
 }
 .clin-chip.green { background: var(--clin-emerald-tint); border-color: rgba(16,185,129,0.4); color: #047857; }
 .clin-chip.red { background: var(--clin-red-tint); border-color: rgba(239,68,68,0.35); color: #B91C1C; }

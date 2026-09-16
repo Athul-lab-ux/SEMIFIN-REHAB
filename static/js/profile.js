@@ -13,7 +13,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     setTimeout(() => { toast.className = "toast"; }, 3000);
   }
 
-  let selectedPrimaryColor = "#FF6A00";
+  let selectedPrimaryColor = "#10B981";
 
   // --- Load Profile Data ---
   async function loadProfile() {

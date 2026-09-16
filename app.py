@@ -70,7 +70,7 @@ def add_security_headers(response):
 @app.context_processor
 def inject_patient_theme():
     """Inject the active patient's custom primary color into all templates."""
-    theme_color = "#FF6A00"
+    theme_color = "#10B981"
     if "patient_id" in session:
         try:
             db = get_db()

@@ -10,7 +10,7 @@
     (function() {
       const serverTheme = "{{ patient_theme_color or '' }}";
       const localTheme = localStorage.getItem("rehab_theme_color");
-      const activeTheme = localTheme || serverTheme || "#FF6A00";
+      const activeTheme = localTheme || serverTheme || "#10B981";
       if (activeTheme) {
         document.documentElement.style.setProperty("--clin-orange", activeTheme);
         document.documentElement.style.setProperty("--clin-brand", activeTheme);
@@ -22,8 +22,8 @@
   </script>
   <style id="rehab-theme-styles">
     :root {
-      --clin-orange: {{ patient_theme_color or '#FF6A00' }} !important;
-      --clin-brand: {{ patient_theme_color or '#FF6A00' }} !important;
+      --clin-orange: {{ patient_theme_color or '#10B981' }} !important;
+      --clin-brand: {{ patient_theme_color or '#10B981' }} !important;
     }
   </style>
   {% block extra_head %}{% endblock %}

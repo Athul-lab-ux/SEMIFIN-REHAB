@@ -31,16 +31,16 @@ body {
 
 .top-bar h2 {
   font-size: 16px;
-  color: #ff9a3c;
+  color: #34D399;
   font-weight: 700;
 }
 
 .back-btn {
   padding: 6px 14px;
-  background: rgba(255, 106, 0, 0.1);
-  border: 1px solid rgba(255, 106, 0, 0.2);
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.28);
   border-radius: 8px;
-  color: #ff9a3c;
+  color: #34D399;
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
@@ -49,7 +49,8 @@ body {
 }
 
 .back-btn:hover {
-  background: rgba(255, 106, 0, 0.2);
+  background: rgba(16, 185, 129, 0.25);
+  color: #fff;
 }
 
 .toolbar {
@@ -74,7 +75,7 @@ body {
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 8px;
-  color: #a08a70;
+  color: #94A3B8;
   font-size: 11px;
   font-weight: 600;
   cursor: pointer;
@@ -84,9 +85,9 @@ body {
 
 .template-btn:hover,
 .template-btn.active {
-  background: rgba(255, 106, 0, 0.12);
-  border-color: #ff6a00;
-  color: #ff9a3c;
+  background: rgba(16, 185, 129, 0.16);
+  border-color: #10B981;
+  color: #34D399;
 }
 
 /* Color Palette */
@@ -180,11 +181,11 @@ body {
 .hud-pill {
   padding: 6px 14px;
   background: rgba(10, 8, 5, 0.85);
-  border: 1px solid rgba(255, 106, 0, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.25);
   border-radius: 20px;
   font-size: 12px;
   font-weight: 600;
-  color: #ff9a3c;
+  color: #34D399;
   backdrop-filter: blur(8px);
 }
 
@@ -224,15 +225,15 @@ body {
 }
 
 .toast.success {
-  background: rgba(0, 200, 120, 0.15);
-  border: 1px solid rgba(0, 200, 120, 0.3);
-  color: #6edba0;
+  background: rgba(16, 185, 129, 0.18);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  color: #34D399;
 }
 
 .toast.info {
-  background: rgba(255, 154, 60, 0.15);
-  border: 1px solid rgba(255, 154, 60, 0.3);
-  color: #ff9a3c;
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  color: #34D399;
 }
 
 /* Canvas Controls */
@@ -257,8 +258,8 @@ body {
 }
 
 .c-ctrl-btn:hover { background: rgba(255, 255, 255, 0.15); }
-.c-ctrl-btn.primary { background: #FF6A00; color: #fff; border-color: #FF6A00; }
-.c-ctrl-btn.primary:hover { background: #EA580C; }
+.c-ctrl-btn.primary { background: #10B981; color: #fff; border-color: #10B981; }
+.c-ctrl-btn.primary:hover { background: #059669; }
 .c-ctrl-btn.danger { background: rgba(239, 68, 68, 0.2); color: #FCA5A5; border-color: rgba(239, 68, 68, 0.4); }
 .c-ctrl-btn.danger:hover { background: rgba(239, 68, 68, 0.35); }
 
@@ -284,9 +285,9 @@ body {
 }
 
 .palette-tool:hover, .palette-tool.active {
-  background: rgba(255, 106, 0, 0.2);
-  border-color: #FF6A00;
-  color: #FF9A3C;
+  background: rgba(16, 185, 129, 0.2);
+  border-color: #10B981;
+  color: #34D399;
 }
 
 .palette-tool.clear {
