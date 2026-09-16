@@ -99,6 +99,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (bsrFill) bsrFill.style.height = `${pct}%`;
     if (bsrThumb) bsrThumb.style.top = `${pct}%`;
     if (bsrVal) bsrVal.textContent = `${brushSize}px`;
+    document.querySelectorAll(".inair-size-btn").forEach((b) => {
+      const bsz = parseInt(b.dataset.size, 10);
+      b.classList.toggle("active", Math.abs(bsz - brushSize) <= 3);
+    });
   }
   setBrushSize(6);
 
@@ -116,7 +120,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Dwell-click hover state
   let hoverBtn = null;
   let hoverStart = 0;
-  const DWELL_CLICK_TIME = 500; // 0.5s dwell ring fill
+  const DWELL_CLICK_TIME = 450; // 0.45s dwell ring fill for clinical responsiveness
 
   const TEMPLATES = {
     freeform: { name: "✨ Custom", points: [] },
@@ -274,7 +278,40 @@ document.addEventListener("DOMContentLoaded", async () => {
     }, 1000);
   }
 
-  // --- Session Controls ---
+  // --- Session Controls Synchronization ---
+  function updateSessionButtons(state) {
+    const inairStart = document.getElementById("inair-start-btn");
+    const inairPause = document.getElementById("inair-pause-btn");
+    const inairResume = document.getElementById("inair-resume-btn");
+    const inairStop = document.getElementById("inair-stop-btn");
+
+    if (state === "running") {
+      btnStart.style.display = "none";
+      btnPause.style.display = "inline-flex";
+      btnResume.style.display = "none";
+      btnStop.style.display = "inline-flex";
+      if (inairStart) inairStart.style.display = "none";
+      if (inairPause) inairPause.style.display = "inline-flex";
+      if (inairResume) inairResume.style.display = "none";
+      if (inairStop) inairStop.style.display = "inline-flex";
+    } else if (state === "paused") {
+      btnPause.style.display = "none";
+      btnResume.style.display = "inline-flex";
+      if (inairPause) inairPause.style.display = "none";
+      if (inairResume) inairResume.style.display = "inline-flex";
+    } else {
+      // idle / stopped
+      btnStart.style.display = "inline-flex";
+      btnPause.style.display = "none";
+      btnResume.style.display = "none";
+      btnStop.style.display = "none";
+      if (inairStart) inairStart.style.display = "inline-flex";
+      if (inairPause) inairPause.style.display = "none";
+      if (inairResume) inairResume.style.display = "none";
+      if (inairStop) inairStop.style.display = "none";
+    }
+  }
+
   async function startDrawingSession() {
     if (!cameraActive) {
       await initCamera();
@@ -283,10 +320,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       sessionActive = true;
       sessionPaused = false;
       sessionStartTime = Date.now();
-      btnStart.style.display = "none";
-      btnPause.style.display = "inline-flex";
-      btnResume.style.display = "none";
-      btnStop.style.display = "inline-flex";
+      updateSessionButtons("running");
       showToast("🎨 Session Active — Draw with Open Hand!", "success");
     });
   }
@@ -297,8 +331,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     lastPoint = null;
     panLastPoint = null;
     document.getElementById("aircanvas-paused-overlay").classList.add("show");
-    btnPause.style.display = "none";
-    btnResume.style.display = "inline-flex";
+    updateSessionButtons("paused");
     if (window.RehabBio) window.RehabBio.speak("Drawing paused");
   }
 
@@ -306,8 +339,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     document.getElementById("aircanvas-paused-overlay").classList.remove("show");
     runCanvasCountdown("RESUMING IN", 5, () => {
       sessionPaused = false;
-      btnResume.style.display = "none";
-      btnPause.style.display = "inline-flex";
+      updateSessionButtons("running");
       showToast("▶ Drawing Resumed!", "info");
     });
   }
@@ -321,10 +353,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     document.getElementById("aircanvas-paused-overlay").classList.remove("show");
     document.getElementById("aircanvas-countdown-overlay").classList.remove("show");
-    btnStart.style.display = "inline-flex";
-    btnPause.style.display = "none";
-    btnResume.style.display = "none";
-    btnStop.style.display = "none";
+    updateSessionButtons("idle");
 
     // Turn off camera hardware LED when session stops
     if (cameraActive) {
@@ -398,42 +427,81 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   // --- Dwell Pointer Hover / Click Mode ---
+  // --- Dwell Pointer Hover / Click Mode ---
   function checkHoverInteract(tip) {
     const rect = drawCanvas.getBoundingClientRect();
     const screenX = rect.left + tip.x * rect.width;
     const screenY = rect.top + tip.y * rect.height;
 
-    // Highlight pointer position
+    // Highlight pointer position with glowing target ring
     handCtx.beginPath();
     handCtx.arc(tip.x * handCanvas.width, tip.y * handCanvas.height, 12, 0, Math.PI * 2);
     handCtx.strokeStyle = "#00CCFF";
     handCtx.lineWidth = 3;
     handCtx.stroke();
 
+    let target = null;
     const el = document.elementFromPoint(screenX, screenY);
-    if (!el) { hoverBtn = null; return; }
-    const target = el.closest(".c-ctrl-btn, .color-btn, .palette-tool, .template-btn, .btn-cam-toggle");
+    if (el) {
+      target = el.closest(".inair-btn, .c-ctrl-btn, .color-btn, .palette-tool, .template-btn, .btn-cam-toggle");
+    }
+    if (!target) {
+      // Direct bounding box fallback for .inair-btn and touchless buttons
+      const candidates = document.querySelectorAll(".inair-btn, .c-ctrl-btn, .template-btn");
+      for (const btn of candidates) {
+        if (btn.offsetParent === null) continue;
+        const bRect = btn.getBoundingClientRect();
+        if (screenX >= bRect.left && screenX <= bRect.right && screenY >= bRect.top && screenY <= bRect.bottom) {
+          target = btn;
+          break;
+        }
+      }
+    }
+
+    if (hoverBtn && hoverBtn !== target) {
+      hoverBtn.classList.remove("hovered");
+    }
 
     if (target && target !== hoverBtn) {
       hoverBtn = target;
+      hoverBtn.classList.add("hovered");
       hoverStart = Date.now();
     } else if (target && target === hoverBtn) {
+      hoverBtn.classList.add("hovered");
       const elapsed = Date.now() - hoverStart;
       const progress = Math.min(1, elapsed / DWELL_CLICK_TIME);
-      // Dwell circle fill
+
+      // Dwell circle fill around fingertip
       handCtx.beginPath();
-      handCtx.arc(tip.x * handCanvas.width, tip.y * handCanvas.height, 12, 0, Math.PI * 2 * progress);
-      handCtx.strokeStyle = "#FF6A00";
+      handCtx.arc(tip.x * handCanvas.width, tip.y * handCanvas.height, 16, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * progress);
+      handCtx.strokeStyle = "#10B981";
       handCtx.lineWidth = 4;
       handCtx.stroke();
 
       if (elapsed >= DWELL_CLICK_TIME) {
         hoverBtn.click();
-        if (window.RehabBio) window.RehabBio.playBeep(880, 0.06, 0.25);
+        hoverBtn.classList.remove("hovered");
+        if (window.RehabBio && typeof window.RehabBio.playBeep === "function") {
+          window.RehabBio.playBeep(880, 0.08, 0.3);
+        } else {
+          try {
+            const actx = new (window.AudioContext || window.webkitAudioContext)();
+            const osc = actx.createOscillator();
+            const g = actx.createGain();
+            osc.connect(g);
+            g.connect(actx.destination);
+            osc.frequency.setValueAtTime(880, actx.currentTime);
+            g.gain.setValueAtTime(0.2, actx.currentTime);
+            g.gain.exponentialRampToValueAtTime(0.001, actx.currentTime + 0.08);
+            osc.start();
+            osc.stop(actx.currentTime + 0.08);
+          } catch (e) {}
+        }
         hoverBtn = null;
-        hoverStart = Date.now() + 1200; // prevent double trigger
+        hoverStart = Date.now() + 800; // prevent rapid re-triggering
       }
     } else {
+      if (hoverBtn) hoverBtn.classList.remove("hovered");
       hoverBtn = null;
     }
   }
@@ -527,7 +595,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     let rawGesture = "IDLE";
     if (f.indexOpen && f.middleOpen && f.ringOpen && !f.pinkyOpen) {
       rawGesture = "MOVE";
-    } else if (f.indexOpen && f.middleOpen && !f.ringOpen && !f.pinkyOpen) {
+    } else if (f.indexOpen && !f.ringOpen && !f.pinkyOpen) {
       rawGesture = "POINTER";
     } else if (f.openCount >= 4) {
       rawGesture = "DRAW";
@@ -582,14 +650,15 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
     panLastPoint = null;
 
-    // RULE 2: 2 Fingers Open (Index + Middle) -> Stop Drawing & Pointer Click / Resize Mode
-    if (activeGesture === "POINTER") {
-      if (modeEl) modeEl.textContent = "✌️ Mode: POINTER / CONTROLS";
+    // RULE 2: Pointing Gesture or Top Dock Area -> Stop Drawing & Touchless In-Air Controls Mode
+    const inDockArea = smoothedPoint.y < 0.22;
+    if (inDockArea || activeGesture === "POINTER" || (f.indexOpen && !f.ringOpen && !f.pinkyOpen && activeGesture !== "MOVE")) {
+      if (modeEl) modeEl.textContent = "✌️ Mode: TOUCHLESS CONTROLS";
       lastPoint = null;
       isDrawing = false;
 
       // Check if hovering over left brush slider rail
-      if (smoothedPoint.x < 0.16) {
+      if (smoothedPoint.x < 0.16 && !inDockArea) {
         // Map y from 0.15 (top) to 0.85 (bottom)
         const ratio = Math.max(0, Math.min(1, (smoothedPoint.y - 0.15) / 0.70));
         const newSize = Math.round(2 + ratio * (24 - 2));
@@ -606,7 +675,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         handCtx.font = "bold 13px Inter, sans-serif";
         handCtx.fillText(`Size: ${newSize}px`, px + 16, py + 5);
       } else {
-        // Normal top bar / buttons dwell pointer
+        // In-air dock buttons and top toolbar touchless dwell pointer
         checkHoverInteract(smoothedPoint);
       }
 
@@ -749,9 +818,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     btn.addEventListener("click", () => {
       isEraser = false;
       currentColor = btn.dataset.color;
-      document.querySelectorAll(".color-btn").forEach((b) => b.classList.remove("active"));
-      btn.classList.add("active");
+      document.querySelectorAll(".color-btn, .inair-color-btn").forEach((b) => {
+        b.classList.toggle("active", b.dataset.color === currentColor);
+      });
       if (rubBtn) rubBtn.classList.remove("active");
+      const inairRub = document.getElementById("inair-rub-btn");
+      if (inairRub) inairRub.classList.remove("active");
       showToast(`🎨 Color: ${btn.title || currentColor}`, "info");
     });
   });
@@ -761,7 +833,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     rubBtn.addEventListener("click", () => {
       isEraser = !isEraser;
       rubBtn.classList.toggle("active", isEraser);
-      document.querySelectorAll(".color-btn").forEach((b) => b.classList.remove("active"));
+      const inairRub = document.getElementById("inair-rub-btn");
+      if (inairRub) inairRub.classList.toggle("active", isEraser);
+      if (isEraser) {
+        document.querySelectorAll(".color-btn, .inair-color-btn").forEach((b) => b.classList.remove("active"));
+      }
       showToast(isEraser ? "🧽 Rub / Eraser mode active" : "✏️ Drawing mode active", "info");
     });
   }
@@ -769,6 +845,68 @@ document.addEventListener("DOMContentLoaded", async () => {
   // --- Clear Canvas ---
   if (clearBtn) {
     clearBtn.addEventListener("click", () => {
+      drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
+      totalError = 0;
+      errorCount = 0;
+      accuracy = 100;
+      if (accuracyEl) accuracyEl.textContent = "📐 100%";
+      drawTemplate();
+      showToast("🧹 Canvas cleared", "info");
+    });
+  }
+
+  // --- In-Air Virtual Control Dock Listeners ---
+  const inairStart = document.getElementById("inair-start-btn");
+  const inairPause = document.getElementById("inair-pause-btn");
+  const inairResume = document.getElementById("inair-resume-btn");
+  const inairStop = document.getElementById("inair-stop-btn");
+  const inairRub = document.getElementById("inair-rub-btn");
+  const inairClear = document.getElementById("inair-clear-btn");
+
+  if (inairStart) inairStart.addEventListener("click", startDrawingSession);
+  if (inairPause) inairPause.addEventListener("click", pauseDrawingSession);
+  if (inairResume) inairResume.addEventListener("click", resumeDrawingSession);
+  if (inairStop) inairStop.addEventListener("click", stopDrawingSession);
+
+  // In-Air Colors
+  document.querySelectorAll(".inair-color-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      isEraser = false;
+      currentColor = btn.dataset.color;
+      document.querySelectorAll(".color-btn, .inair-color-btn").forEach((b) => {
+        b.classList.toggle("active", b.dataset.color === currentColor);
+      });
+      if (rubBtn) rubBtn.classList.remove("active");
+      if (inairRub) inairRub.classList.remove("active");
+      showToast(`🎨 Color: ${btn.title || currentColor}`, "info");
+    });
+  });
+
+  // In-Air Brush Sizes
+  document.querySelectorAll(".inair-size-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const sz = parseInt(btn.dataset.size, 10);
+      setBrushSize(sz);
+      showToast(`✏️ Brush: ${btn.textContent.trim()} (${sz}px)`, "info");
+    });
+  });
+
+  // In-Air Rub / Eraser
+  if (inairRub) {
+    inairRub.addEventListener("click", () => {
+      isEraser = !isEraser;
+      if (rubBtn) rubBtn.classList.toggle("active", isEraser);
+      inairRub.classList.toggle("active", isEraser);
+      if (isEraser) {
+        document.querySelectorAll(".color-btn, .inair-color-btn").forEach((b) => b.classList.remove("active"));
+      }
+      showToast(isEraser ? "🧽 Rub / Eraser mode active" : "✏️ Drawing mode active", "info");
+    });
+  }
+
+  // In-Air Clear
+  if (inairClear) {
+    inairClear.addEventListener("click", () => {
       drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
       totalError = 0;
       errorCount = 0;

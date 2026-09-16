@@ -342,13 +342,16 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       if (repsCompleted >= targetReps) {
         tasksCompleted++;
-        showToast(`🎉 ${taskInfo.name} Completed! (${targetReps} reps)`, "success");
-        currentStepIndex = 5;
-        updateStepCardsUI();
-        setTimeout(() => {
-          stopAdl();
-        }, 2200);
-        return;
+        showToast(`🎉 Target ${targetReps} reps achieved! Keep practicing or click Stop when done.`, "success");
+        if (window.RehabBio) {
+          window.RehabBio.speak(`Goal achieved! ${repsCompleted} repetitions completed. Great work!`);
+          window.RehabBio.playRepChime();
+        }
+        // Log telemetry without stopping session or killing camera
+        logSession();
+        // Allow patient to continue practicing without kicking them out
+        currentStepIndex = 0;
+        resetTaskVariables();
       } else {
         showToast(`✅ Rep ${repsCompleted} of ${targetReps} complete! Return to Step 1`, "info");
         currentStepIndex = 0;
@@ -578,21 +581,21 @@ document.addEventListener("DOMContentLoaded", async () => {
     const now = Date.now();
 
     switch (currentStepIndex) {
-      case 0: // Step 1: Neutral Rest (Hand at ready base, distance > 0.22)
+      case 0: // Step 1: Neutral Rest (Hand at ready base, distance > 0.20)
         if (distToTarget > 0.20 || handPos.y > 0.65) {
-          if (now - stepStartTime >= 500) advanceStep();
+          if (now - stepStartTime >= 400) advanceStep();
         }
         break;
 
       case 1: // Step 2: Forward Reach (Approaching target center < 0.22)
         if (distToTarget < 0.22) {
-          advanceStep();
+          if (now - stepStartTime >= 350) advanceStep();
         }
         break;
 
-      case 2: // Step 3: Contact Align (Entering active target zone < 0.15)
-        if (distToTarget < 0.15) {
-          advanceStep();
+      case 2: // Step 3: Contact Align (Entering active target zone < 0.16)
+        if (distToTarget < 0.16) {
+          if (now - stepStartTime >= 350) advanceStep();
         }
         break;
 
@@ -611,18 +614,20 @@ document.addEventListener("DOMContentLoaded", async () => {
         } else if (currentTask === "pill") {
           actionDone = pillDepressed && pillAngle >= 50;
         }
-        if (actionDone) advanceStep();
+        if (actionDone) {
+          if (now - stepStartTime >= 350) advanceStep();
+        }
         break;
 
-      case 4: // Step 5: Peak Sustain (Hold for 1.0 second)
-        if (now - stepStartTime >= 1000) {
+      case 4: // Step 5: Peak Sustain (Hold for 0.8 second)
+        if (now - stepStartTime >= 800) {
           advanceStep();
         }
         break;
 
-      case 5: // Step 6: Home Return (Retract hand back to base > 0.22)
-        if (distToTarget > 0.22 || handPos.y > 0.65) {
-          advanceStep();
+      case 5: // Step 6: Home Return (Retract hand back to base > 0.20)
+        if (distToTarget > 0.20 || handPos.y > 0.65) {
+          if (now - stepStartTime >= 400) advanceStep();
         }
         break;
     }
@@ -694,23 +699,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     repsCompleted = 0;
     resetTaskVariables();
 
-    // Turn off camera hardware LED when session stops
-    if (cameraActive) {
-      if (adlCamera) adlCamera.stop();
-      const v = document.getElementById("video");
-      if (v && v.srcObject) {
-        try {
-          v.srcObject.getTracks().forEach((t) => t.stop());
-        } catch (e) {}
-        v.srcObject = null;
-      }
-      cameraActive = false;
-      if (btnCam) {
-        btnCam.textContent = "📷 Camera: OFF";
-        btnCam.classList.add("danger");
-      }
-    }
-
+    // Return to menu cleanly while keeping camera live for next task selection
     document.getElementById("task-menu").classList.remove("hidden");
     document.getElementById("adl-paused-overlay").classList.remove("show");
     document.getElementById("adl-countdown-overlay").classList.remove("show");
@@ -722,6 +711,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (stepEl) stepEl.textContent = "Ready";
     if (repsEl) repsEl.textContent = `0 / ${targetReps}`;
     gCtx.clearRect(0, 0, gameCanvas.width, gameCanvas.height);
+    showToast("📋 Returned to Task Menu — select a task to practice", "info");
   }
 
   document.getElementById("adl-pause").addEventListener("click", pauseAdl);

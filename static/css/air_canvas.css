@@ -420,6 +420,107 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* In-Air Touchless Virtual Controls Dock inside Dynamic Mirror */
+.inair-control-dock {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 8;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(7, 13, 24, 0.88);
+  border: 1.5px solid rgba(16, 185, 129, 0.35);
+  border-radius: 999px;
+  padding: 6px 14px;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.55), 0 0 16px rgba(16, 185, 129, 0.2);
+  max-width: min(96%, 920px);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.inair-control-dock::-webkit-scrollbar { display: none; }
+.inair-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.inair-divider {
+  width: 1px;
+  height: 22px;
+  background: rgba(255, 255, 255, 0.15);
+  margin: 0 4px;
+}
+.inair-btn {
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.07);
+  color: #E2E8F0;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  font-family: inherit;
+  user-select: none;
+  white-space: nowrap;
+}
+.inair-btn:hover, .inair-btn.hovered {
+  background: rgba(16, 185, 129, 0.25);
+  border-color: #10B981;
+  color: #fff;
+  transform: scale(1.08);
+}
+.inair-action-btn.primary {
+  background: #10B981;
+  border-color: #10B981;
+  color: #fff;
+}
+.inair-action-btn.primary:hover {
+  background: #059669;
+}
+.inair-action-btn.danger {
+  background: rgba(239, 68, 68, 0.25);
+  border-color: rgba(239, 68, 68, 0.45);
+  color: #FCA5A5;
+}
+.inair-action-btn.danger:hover {
+  background: rgba(239, 68, 68, 0.6);
+  color: #fff;
+}
+.inair-color-btn {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  transition: all 0.2s;
+}
+.inair-color-btn.active {
+  border-color: #fff;
+  transform: scale(1.22);
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+}
+.inair-size-btn.active {
+  background: #10B981;
+  border-color: #10B981;
+  color: #fff;
+}
+.inair-tool-btn.active {
+  background: #F59E0B;
+  border-color: #F59E0B;
+  color: #000;
+}
+.inair-tool-btn.clear:hover {
+  background: rgba(239, 68, 68, 0.35);
+  color: #FCA5A5;
+}
+
 @media (max-width: 640px) {
   .canvas-container {
     height: auto;

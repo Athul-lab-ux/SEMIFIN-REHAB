@@ -87,6 +87,36 @@
         </div>
       </div>
 
+      <!-- In-Air Touchless Virtual Controls Dock (Inside Dynamic Mirror Viewport) -->
+      <div id="inair-control-dock" class="inair-control-dock" title="Touchless In-Air Controls — Hover your index finger to select">
+        <div class="inair-group actions-group">
+          <button id="inair-start-btn" class="inair-btn inair-action-btn primary" title="Hover to Start Drawing">▶ Start</button>
+          <button id="inair-pause-btn" class="inair-btn inair-action-btn" title="Hover to Pause" style="display:none;">⏸ Pause</button>
+          <button id="inair-resume-btn" class="inair-btn inair-action-btn primary" title="Hover to Resume" style="display:none;">▶ Resume</button>
+          <button id="inair-stop-btn" class="inair-btn inair-action-btn danger" title="Hover to Stop &amp; Save" style="display:none;">⏹ Stop</button>
+        </div>
+        <div class="inair-divider"></div>
+        <div class="inair-group colors-group">
+          <button class="inair-btn inair-color-btn active" data-color="#00ff88" style="background:#00ff88;" title="Neon Green"></button>
+          <button class="inair-btn inair-color-btn" data-color="#ff6a00" style="background:#ff6a00;" title="Orange"></button>
+          <button class="inair-btn inair-color-btn" data-color="#00ccff" style="background:#00ccff;" title="Cyan"></button>
+          <button class="inair-btn inair-color-btn" data-color="#ff4488" style="background:#ff4488;" title="Pink"></button>
+          <button class="inair-btn inair-color-btn" data-color="#ffd000" style="background:#ffd000;" title="Yellow"></button>
+          <button class="inair-btn inair-color-btn" data-color="#ffffff" style="background:#ffffff;" title="White"></button>
+        </div>
+        <div class="inair-divider"></div>
+        <div class="inair-group sizes-group">
+          <button class="inair-btn inair-size-btn" data-size="3" title="Thin Brush (3px)">Thin</button>
+          <button class="inair-btn inair-size-btn active" data-size="8" title="Medium Brush (8px)">Med</button>
+          <button class="inair-btn inair-size-btn" data-size="18" title="Thick Brush (18px)">Thick</button>
+        </div>
+        <div class="inair-divider"></div>
+        <div class="inair-group tools-group">
+          <button id="inair-rub-btn" class="inair-btn inair-tool-btn" title="Hover to Erase / Rub">🧽 Rub</button>
+          <button id="inair-clear-btn" class="inair-btn inair-tool-btn clear" title="Hover to Clear Canvas">🧹 Clear</button>
+        </div>
+      </div>
+
       <!-- HUD -->
       <div class="canvas-hud">
         <div class="hud-pill" id="mode-display">✏️ Mode: DRAWING</div>

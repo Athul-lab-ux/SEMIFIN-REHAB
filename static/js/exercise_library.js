@@ -58,26 +58,6 @@ const EXERCISES = [
       S("Slowly lower arm to side (<35°)", (m) => m.elevMax != null && m.elevMax < 35),
     ],
   },
-  {
-    key: "side_sweep", profile: "Hemiparesis", emoji: "↔️", name: "Lateral Shoulder Sweep",
-    metric: "ELEV °", hint: "Abduct your straight arm out to the side in the coronal plane.",
-    steps: [
-      S("Arm neutral against hip (<35°)", (m) => m.elevMax != null && m.elevMax < 35),
-      S("Sweep arm outward to the side", (m) => m.elevMax != null && m.elevMax >= 35 && m.elevMax < 48),
-      S("Full lateral reach & hold (≥48°)", (m) => m.elevMax != null && m.elevMax >= 48, 0.8),
-      S("Controlled return to neutral (<35°)", (m) => m.elevMax != null && m.elevMax < 35),
-    ],
-  },
-  {
-    key: "bimanual_push", profile: "Hemiparesis", emoji: "🤲", name: "Bimanual Symmetrical Push",
-    metric: "BOTH ELBOW", hint: "Push BOTH hands forward together symmetrically, matching extension.",
-    steps: [
-      S("Both elbows bent near chest (≤100°)", (m) => m.elbowMax != null && m.elbowMax <= 100),
-      S("Push both hands forward together", (m) => m.elbowMin != null && m.elbowMin > 100 && m.elbowMin < 120),
-      S("Lock symmetrical extension (≥120°)", (m) => m.elbowMin != null && m.elbowMin >= 120, 1.0),
-      S("Return both hands to chest (≤105°)", (m) => m.elbowMax != null && m.elbowMax <= 105),
-    ],
-  },
 
   /* ============ 2 · FLEXOR SPASTICITY (involuntary tightness) ============ */
   {
@@ -98,26 +78,6 @@ const EXERCISES = [
       S("Slowly open elbow without rushing", (m) => m.elbowMax != null && m.elbowMax > 95 && m.elbowMax < 115 && (m.speed == null || m.speed < 1.0)),
       S("Hold gentle extension (≥115°)", (m) => m.elbowMax != null && m.elbowMax >= 115 && (m.speed == null || m.speed < 0.9), 1.2),
       S("Slowly return to flexed rest (≤95°)", (m) => m.elbowMax != null && m.elbowMax <= 95),
-    ],
-  },
-  {
-    key: "fist_rhythm", profile: "Flexor Spasticity", emoji: "✊", name: "Fist–Open Rhythm",
-    metric: "PALM", hint: "Deliberate cycle: deliberate fist clench followed by full finger unfurl.",
-    steps: [
-      S("Neutral resting hand", (m) => m.spread != null && m.spread < 0.085),
-      S("Clench firm fist & hold (spread <0.06)", (m) => m.spread != null && m.spread < 0.06, 0.8),
-      S("Explosive wide finger unfurl (>0.095)", (m) => m.spread != null && m.spread > 0.095, 0.8),
-      S("Return to relaxed baseline", (m) => m.spread != null && m.spread < 0.085),
-    ],
-  },
-  {
-    key: "finger_fan", profile: "Flexor Spasticity", emoji: "🖐️", name: "Finger Fan-Out",
-    metric: "FAN", hint: "Abduct index and pinky fingers apart to expand the metacarpal arch.",
-    steps: [
-      S("Fingers aligned together (fan <0.11)", (m) => m.fan != null && m.fan < 0.11),
-      S("Begin spreading fingers sideways", (m) => m.fan != null && m.fan >= 0.11 && m.fan < 0.13),
-      S("Wide fan-out abduction & hold (≥0.13)", (m) => m.fan != null && m.fan >= 0.13, 1.0),
-      S("Relax fingers back together (<0.11)", (m) => m.fan != null && m.fan < 0.11),
     ],
   },
   {
@@ -162,26 +122,6 @@ const EXERCISES = [
       S("Return and dock in low target (y>0.64)", (m) => m.tipY != null && m.tipY > 0.64),
     ],
   },
-  {
-    key: "ataxia_stop", profile: "Motor Ataxia", emoji: "⏹️", name: "Decelerated Stop-on-Circle",
-    metric: "STOP", hint: "Approach outer perimeter and decelerate to zero speed inside the ring.",
-    steps: [
-      S("Center resting dock (0.4 < x < 0.6)", (m) => m.tipX != null && m.tipX > 0.40 && m.tipX < 0.60),
-      S("Drive toward the outer ring", (m) => m.tipX != null && m.tipX >= 0.60 && m.tipX < 0.72),
-      S("Decelerate to full stop in ring (speed <0.5)", (m) => m.tipX != null && m.tipX >= 0.70 && (m.speed == null || m.speed < 0.50), 1.2),
-      S("Return to center dock (0.4 < x < 0.6)", (m) => m.tipX != null && m.tipX > 0.40 && m.tipX < 0.60),
-    ],
-  },
-  {
-    key: "ataxia_diag", profile: "Motor Ataxia", emoji: "⤡", name: "Diagonal Trajectory Track",
-    metric: "PATH", hint: "Trace a diagonal vector from bottom-left to top-right corner.",
-    steps: [
-      S("Dock in bottom-left anchor (x<0.32, y>0.62)", (m) => m.tipX != null && m.tipX < 0.32 && m.tipY > 0.62),
-      S("Ascend diagonally across midpoint", (m) => m.tipX != null && m.tipX >= 0.32 && m.tipX < 0.68 && m.tipY <= 0.62 && m.tipY > 0.36),
-      S("Reach top-right apex & hold (x>0.68, y<0.36)", (m) => m.tipX != null && m.tipX >= 0.68 && m.tipY <= 0.36, 0.8),
-      S("Trace back to bottom-left anchor", (m) => m.tipX != null && m.tipX < 0.32 && m.tipY > 0.62),
-    ],
-  },
 
   /* ============ 4 · INTENTION TREMOR (terminal shaking) ============ */
   {
@@ -202,26 +142,6 @@ const EXERCISES = [
       S("Ascend into upper hover ceiling", (m) => m.tipY != null && m.tipY <= 0.60 && m.tipY > 0.34),
       S("Hover steady inside ceiling (3s)", (m) => m.tipY != null && m.tipY <= 0.34 && m.tipX > 0.30 && m.tipX < 0.70, 3.0),
       S("Controlled lowering to resting base", (m) => m.tipY != null && m.tipY > 0.60),
-    ],
-  },
-  {
-    key: "tremor_slowstop", profile: "Intention Tremor", emoji: "🐌", name: "Speed-Governed Stop",
-    metric: "SLOW", hint: "Slowly glide toward center ring and come to a zero-velocity halt.",
-    steps: [
-      S("Start on the left flank (x<0.30)", (m) => m.tipX != null && m.tipX < 0.30),
-      S("Slowly glide inward (speed <0.8)", (m) => m.tipX != null && m.tipX >= 0.30 && m.tipX < 0.45 && (m.speed == null || m.speed < 0.8)),
-      S("Stop dead-center & hold steady (speed <0.45)", (m) => m.tipX != null && m.tipX > 0.42 && m.tipX < 0.58 && (m.speed == null || m.speed < 0.45), 1.5),
-      S("Glide back to left flank (x<0.30)", (m) => m.tipX != null && m.tipX < 0.30),
-    ],
-  },
-  {
-    key: "tremor_recip", profile: "Intention Tremor", emoji: "⇄", name: "Reciprocal Line Hover",
-    metric: "HOVER", hint: "Alternate hovering over the left and right reference lines.",
-    steps: [
-      S("Align hand over LEFT gate", (m) => m.tipX != null && m.tipX > 0.20 && m.tipX < 0.34, 1.2),
-      S("Transition smoothly across center", (m) => m.tipX != null && m.tipX >= 0.34 && m.tipX <= 0.66),
-      S("Align hand over RIGHT gate & hold", (m) => m.tipX != null && m.tipX > 0.66 && m.tipX < 0.80, 1.2),
-      S("Return to starting position", (m) => m.tipX != null && m.tipX > 0.20 && m.tipX < 0.34),
     ],
   },
   {
@@ -276,16 +196,6 @@ const EXERCISES = [
       S("Phase 4: Return to relaxed resting hand", (m) => m.spread != null && m.spread < 0.085),
     ],
   },
-  {
-    key: "apraxia_vert", profile: "Motor Apraxia", emoji: "↕️", name: "Patterned Vertical Reach",
-    metric: "PATTERN", hint: "Follow the vertical reach pattern: low rest → upward reach → peak hold → low rest.",
-    steps: [
-      S("Hand in low starting position (y>0.65)", (m) => m.tipY != null && m.tipY > 0.65),
-      S("Ascend upward in smooth vertical line", (m) => m.tipY != null && m.tipY <= 0.65 && m.tipY > 0.32),
-      S("Reach high apex & hold (y<0.32)", (m) => m.tipY != null && m.tipY <= 0.32, 0.8),
-      S("Controlled return down to low start (y>0.65)", (m) => m.tipY != null && m.tipY > 0.65),
-    ],
-  },
 
   /* ============ 6 · WRIST DROP (extensor paresis) ============ */
   {
@@ -306,16 +216,6 @@ const EXERCISES = [
       S("Sweep outward toward thumb (dev >8°)", (m) => m.dev != null && m.dev > 8, 0.8),
       S("Sweep inward toward pinky (dev <-6°)", (m) => m.dev != null && m.dev < -6, 0.8),
       S("Return to neutral center (|dev| <6°)", (m) => m.dev != null && Math.abs(m.dev) < 6),
-    ],
-  },
-  {
-    key: "wrist_slow", profile: "Wrist Drop", emoji: "🐢", name: "Slow Wrist Extension",
-    metric: "DEV °", hint: "Slow, governed wrist extension against gravity without sudden drops.",
-    steps: [
-      S("Wrist relaxed down (dev <6°)", (m) => m.dev != null && m.dev < 6),
-      S("Slowly lift wrist upward (speed <0.9)", (m) => m.dev != null && m.dev >= 6 && m.dev < 10 && (m.speed == null || m.speed < 0.9)),
-      S("Hold peak extension steady (dev ≥10°)", (m) => m.dev != null && m.dev >= 10, 1.2),
-      S("Slowly lower back down to rest (dev <6°)", (m) => m.dev != null && m.dev < 6),
     ],
   },
   {

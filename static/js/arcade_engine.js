@@ -366,47 +366,53 @@ document.addEventListener("DOMContentLoaded", async () => {
     // 4. Fist Pop
     fistpop: {
       name: "Fist Pop", emoji: "✊", trains: "Spasticity release (fist to open palm)", formula: "Spasticity Release",
-      guide: "Clench a tight fist to charge energy, then spread your palm wide to burst all descending bubbles!",
+      guide: "Clench a fist to charge energy, then open your hand or wrist to trigger a bursting shockwave!",
       lives: true,
       init() {
         this.bubbles = [];
         this.timer = 0;
         this.charge = 0;
         this.shockwave = null;
+        this.wasFist = false;
       },
       update(res, W, H) {
-        const isFist = (engine.disp < 0.12) || (!engine.open && engine.tipFromCamera);
-        const isOpen = (engine.disp > 0.20) || (engine.open);
+        const isFist = (engine.disp < 0.16) || (!engine.open && engine.tipFromCamera);
+        const isOpen = (engine.disp > 0.18) || (engine.open);
 
         if (isFist) {
-          this.charge = Math.min(1.0, this.charge + 0.05);
-        } else if (isOpen && this.charge >= 0.7) {
-          // Detonate shockwave!
+          this.charge = Math.min(1.0, this.charge + 0.08);
+          this.wasFist = true;
+        } else if (isOpen && (this.charge >= 0.25 || this.wasFist)) {
+          // Detonate responsive shockwave!
           const cx = engine.tip ? engine.tip.x * W : W / 2;
           const cy = engine.tip ? engine.tip.y * H : H / 2;
-          this.shockwave = { x: cx, y: cy, r: 20, maxR: W * 0.75, alpha: 1.0 };
+          this.shockwave = { x: cx, y: cy, r: 20, maxR: W * 0.8, alpha: 1.0 };
           this.charge = 0;
+          this.wasFist = false;
 
           let poppedCount = 0;
           for (const b of this.bubbles) {
             b.popped = true;
             poppedCount++;
             this.$engine.addScore(10);
-            spawnParticles(b.x * W, b.y * H, "#38BDF8", 12);
+            spawnParticles(b.x * W, b.y * H, "#38BDF8", 16);
           }
           if (poppedCount > 0) {
-            addScorePopup(cx, cy - 25, `+${poppedCount * 10} 💥`, "#38BDF8");
+            addScorePopup(cx, cy - 25, `+${poppedCount * 10} 💥 BURST!`, "#38BDF8");
+          }
+          if (window.RehabBio && typeof window.RehabBio.playBeep === "function") {
+            window.RehabBio.playBeep(880, 0.1, 0.35);
           }
         }
 
         if (this.shockwave) {
-          this.shockwave.r += 24;
-          this.shockwave.alpha -= 0.04;
+          this.shockwave.r += 26;
+          this.shockwave.alpha -= 0.045;
           if (this.shockwave.alpha <= 0) this.shockwave = null;
         }
 
         // Descending bubbles
-        if (++this.timer > Math.max(25, 55 / this.$speed) && this.bubbles.length < 8) {
+        if (++this.timer > Math.max(22, 50 / this.$speed) && this.bubbles.length < 8) {
           this.timer = 0;
           this.bubbles.push({
             x: rand(0.15, 0.85),
@@ -416,9 +422,21 @@ document.addEventListener("DOMContentLoaded", async () => {
             popped: false,
           });
         }
+
+        const tip = engine.tip ? { x: engine.tip.x * W, y: engine.tip.y * H } : null;
         for (const b of this.bubbles) {
           b.y += b.v;
-          if (b.y > 1.05) {
+          const bx = b.x * W, by = b.y * H;
+
+          // Also pop directly on hand / fingertip contact
+          if (tip && Math.hypot(tip.x - bx, tip.y - by) < b.r + 25 && !b.popped) {
+            b.popped = true;
+            this.$engine.addScore(10);
+            spawnParticles(bx, by, "#38BDF8", 14);
+            addScorePopup(bx, by - 15, "+10 💥", "#38BDF8");
+          }
+
+          if (b.y > 1.05 && !b.popped) {
             b.popped = true;
             this.$engine.loseLife();
             showToast("Bubble reached the bottom! −1 ❤️", "error");
@@ -469,27 +487,31 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // 5. Wrist Hammer
     hammer: {
-      name: "Wrist Hammer", emoji: "🔨", trains: "Fast downward wrist snap & acceleration", formula: "Wrist Acceleration",
-      guide: "Bubbles rise from below! Snap your wrist downward quickly to smash bubbles at the strike line.",
+      name: "Wrist Hammer", emoji: "🔨", trains: "Fast downward wrist snap & upward curl", formula: "Wrist Acceleration",
+      guide: "Bubbles rise from below! Curl your wrist up or snap down to smash bubbles with your virtual hammer!",
       lives: true,
       init() {
         this.bubbles = [];
         this.timer = 0;
         this.wasDown = false;
+        this.wasUp = false;
         this.strikeY = 0.45;
       },
       update(res, W, H) {
-        const snapDown = this.$vy > 1.1 || engine.dy > 0.04;
+        const wristUp = engine.vy < -0.5 || engine.dy < -0.015;
+        const wristDown = engine.vy > 0.5 || engine.dy > 0.015;
+        const isSwinging = wristUp || wristDown;
         const lineY = this.strikeY * H;
+        const tip = engine.tip ? { x: engine.tip.x * W, y: engine.tip.y * H } : null;
 
         // Rising bubbles from bottom
-        if (++this.timer > Math.max(22, 50 / this.$speed) && this.bubbles.length < 7) {
+        if (++this.timer > Math.max(18, 45 / this.$speed) && this.bubbles.length < 7) {
           this.timer = 0;
           this.bubbles.push({
             x: rand(0.18, 0.82),
             y: 1.05,
             v: rand(0.003, 0.006) * this.$speed,
-            r: 24,
+            r: 26,
             hit: false,
           });
         }
@@ -498,12 +520,18 @@ document.addEventListener("DOMContentLoaded", async () => {
           b.y -= b.v;
           const by = b.y * H;
           const bx = b.x * W;
-          // When bubble reaches strike line
-          if (Math.abs(by - lineY) < 32 && snapDown && !this.wasDown) {
+
+          const nearStrike = Math.abs(by - lineY) < 55;
+          const nearHand = tip && Math.hypot(bx - tip.x, by - tip.y) < b.r + 50;
+
+          if (((nearStrike && isSwinging) || (nearHand && (isSwinging || !engine.tipFromCamera))) && !b.hit) {
             b.hit = true;
             this.$engine.addScore(10);
-            spawnParticles(bx, by, "#F59E0B", 18);
-            addScorePopup(bx, by - 15, "+10 🔨", "#F59E0B");
+            spawnParticles(bx, by, "#F59E0B", 20);
+            addScorePopup(bx, by - 15, wristUp ? "+10 🔨 CURL!" : "+10 🔨 SMASH!", "#F59E0B");
+            if (window.RehabBio && typeof window.RehabBio.playBeep === "function") {
+              window.RehabBio.playBeep(920, 0.08, 0.3);
+            }
           }
           if (b.y < -0.05) {
             b.hit = true;
@@ -512,7 +540,8 @@ document.addEventListener("DOMContentLoaded", async () => {
           }
         }
         this.bubbles = this.bubbles.filter((b) => !b.hit);
-        this.wasDown = snapDown;
+        this.wasDown = wristDown;
+        this.wasUp = wristUp;
       },
       draw(ctx, W, H) {
         // Strike line
@@ -1178,6 +1207,89 @@ document.addEventListener("DOMContentLoaded", async () => {
     computeFrame(res);
   }
 
+  const HAND_CONNECTIONS = [
+    [0, 1], [1, 2], [2, 3], [3, 4],       // Thumb
+    [0, 5], [5, 6], [6, 7], [7, 8],       // Index
+    [0, 9], [9, 10], [10, 11], [11, 12],  // Middle
+    [0, 13], [13, 14], [14, 15], [15, 16],// Ring
+    [0, 17], [17, 18], [18, 19], [19, 20],// Pinky
+    [5, 9], [9, 13], [13, 17],            // Knuckle base
+  ];
+
+  function drawHammerGraphic(ctx, wrist, knuckle, W, H) {
+    const wx = wrist.x * W, wy = wrist.y * H;
+    const kx = knuckle.x * W, ky = knuckle.y * H;
+    const angle = Math.atan2(ky - wy, kx - wx);
+    const handleLen = 80;
+
+    ctx.save();
+    ctx.translate(wx, wy);
+    ctx.rotate(angle);
+
+    // Hammer handle (sturdy wood and bronze)
+    ctx.fillStyle = "#8B4513";
+    ctx.strokeStyle = "#D97706";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.roundRect(0, -6, handleLen, 12, 5);
+    ctx.fill();
+    ctx.stroke();
+
+    // Grip wrapping ribs
+    ctx.strokeStyle = "#FDE68A";
+    ctx.lineWidth = 2;
+    for (let i = 12; i < handleLen - 15; i += 8) {
+      ctx.beginPath();
+      ctx.moveTo(i, -6);
+      ctx.lineTo(i + 4, 6);
+      ctx.stroke();
+    }
+
+    // Impact aura when curling wrist or snapping
+    const headX = handleLen;
+    const isSwinging = Math.abs(engine.vy) > 0.6 || Math.abs(engine.dy) > 0.02;
+    if (isSwinging) {
+      ctx.save();
+      ctx.shadowColor = "#F59E0B";
+      ctx.shadowBlur = 20;
+      ctx.fillStyle = "rgba(245, 158, 11, 0.45)";
+      ctx.beginPath();
+      ctx.arc(headX + 12, 0, 36, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    // Metallic hammer head
+    const grad = ctx.createLinearGradient(headX - 8, -24, headX + 32, 24);
+    grad.addColorStop(0, "#94A3B8");
+    grad.addColorStop(0.5, "#F1F5F9");
+    grad.addColorStop(1, "#475569");
+
+    ctx.fillStyle = grad;
+    ctx.strokeStyle = "#CBD5E1";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.roundRect(headX - 6, -24, 32, 48, 5);
+    ctx.fill();
+    ctx.stroke();
+
+    // Striking face bevel
+    ctx.fillStyle = "#E2E8F0";
+    ctx.fillRect(headX + 26, -22, 6, 44);
+
+    // Claw / back bevel
+    ctx.fillStyle = "#64748B";
+    ctx.fillRect(headX - 10, -18, 5, 36);
+
+    // Hammer icon
+    ctx.font = "18px sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("⚡", headX + 10, 0);
+
+    ctx.restore();
+  }
+
   // ---------------- Canvas Skeleton Overlay ----------------------------
   function drawOverlay(res) {
     oCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
@@ -1200,13 +1312,59 @@ document.addEventListener("DOMContentLoaded", async () => {
       });
     }
 
+    // Draw full 21 hand landmarks & connecting skeleton bones!
+    const hand = (res && res.hand) || (engine.lastRes && engine.lastRes.hand);
+    if (hand && hand[0]) {
+      // 1. Hand skeleton bones
+      oCtx.strokeStyle = engine.open ? "rgba(16, 185, 129, 0.85)" : "rgba(56, 189, 248, 0.85)";
+      oCtx.lineWidth = 2.5;
+      oCtx.lineCap = "round";
+      oCtx.lineJoin = "round";
+      for (const [i, j] of HAND_CONNECTIONS) {
+        const p1 = hand[i], p2 = hand[j];
+        if (p1 && p2) {
+          oCtx.beginPath();
+          oCtx.moveTo(p1.x * W, p1.y * H);
+          oCtx.lineTo(p2.x * W, p2.y * H);
+          oCtx.stroke();
+        }
+      }
+
+      // 2. Hand joint nodes
+      for (let i = 0; i < 21; i++) {
+        const p = hand[i];
+        if (!p) continue;
+        const isTip = i === 4 || i === 8 || i === 12 || i === 16 || i === 20;
+        const radius = i === 8 ? 6.5 : isTip ? 4.5 : 3.5;
+        oCtx.beginPath();
+        oCtx.arc(p.x * W, p.y * H, radius, 0, Math.PI * 2);
+        oCtx.fillStyle = i === 8 ? "#38BDF8" : isTip ? "#34D399" : "#FFFFFF";
+        oCtx.fill();
+        oCtx.strokeStyle = "rgba(0, 0, 0, 0.4)";
+        oCtx.lineWidth = 1;
+        oCtx.stroke();
+      }
+
+      // 3. Dynamic hammer attached to wrist & knuckle in Wrist Hammer game
+      if (engine.key === "hammer" && hand[0] && (hand[9] || hand[5])) {
+        const wrist = hand[0];
+        const knuckle = hand[9] || hand[5];
+        drawHammerGraphic(oCtx, wrist, knuckle, W, H);
+      }
+    }
+
     // Draw hand tip reticle
     if (engine.tip) {
       oCtx.beginPath();
-      oCtx.arc(engine.tip.x * W, engine.tip.y * H, 16, 0, Math.PI * 2);
-      oCtx.strokeStyle = engine.open ? "rgba(16,185,129,0.9)" : "rgba(249,115,22,0.85)";
+      oCtx.arc(engine.tip.x * W, engine.tip.y * H, 14, 0, Math.PI * 2);
+      oCtx.strokeStyle = engine.open ? "rgba(16, 185, 129, 0.95)" : "rgba(56, 189, 248, 0.95)";
       oCtx.lineWidth = 3;
       oCtx.stroke();
+
+      oCtx.beginPath();
+      oCtx.arc(engine.tip.x * W, engine.tip.y * H, 4, 0, Math.PI * 2);
+      oCtx.fillStyle = "#FFFFFF";
+      oCtx.fill();
     }
   }
 
@@ -1273,8 +1431,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         gCtx.restore();
       }
 
-      drawOverlay(engine.lastRes || {});
-
       // Live metrics readout
       metricEl.textContent =
         engine.key === "fruit" ? `Palm ${engine.open ? "OPEN 🌱" : "Fist ✊"} · v=${engine.vel.toFixed(1)}` :
@@ -1283,6 +1439,11 @@ document.addEventListener("DOMContentLoaded", async () => {
         engine.key === "pinchpop" || engine.key === "fistpop" ? `Dispersion ${engine.disp.toFixed(2)}` :
         engine.key === "hammer" ? `Speed ${engine.vy.toFixed(1)}/s` :
         `Disp ${engine.disp.toFixed(2)} · v ${engine.vel.toFixed(1)}`;
+    }
+
+    // Render hand and arm skeleton unconditionally on every frame whenever camera data is present
+    drawOverlay(engine.lastRes || {});
+    if (engine.lastRes && engine.lastRes.hand) {
       kpiHand.textContent = engine.open ? "🖐️ Open palm" : "✊ Fist / closed";
     }
   }

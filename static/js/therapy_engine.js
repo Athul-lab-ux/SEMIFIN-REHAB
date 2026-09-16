@@ -60,37 +60,92 @@ document.addEventListener("DOMContentLoaded", () => {
     ovResizeTimer = setTimeout(sizeOverlay, 150);
   });
 
+  const HAND_CONNECTIONS = [
+    [0, 1], [1, 2], [2, 3], [3, 4],       // Thumb
+    [0, 5], [5, 6], [6, 7], [7, 8],       // Index
+    [0, 9], [9, 10], [10, 11], [11, 12],  // Middle
+    [0, 13], [13, 14], [14, 15], [15, 16],// Ring
+    [0, 17], [17, 18], [18, 19], [19, 20],// Pinky
+    [5, 9], [9, 13], [13, 17],            // Palm knuckle base
+  ];
+
   function drawOverlay(res) {
-    const W = overlayCanvas.width, H = overlayCanvas.height;
-    oCtx.clearRect(0, 0, W, H);
-    const c = res && res.chain;
-    if (!c || !c.sh || !c.el || !c.wr) return;
-    const X = (p) => p.x * W, Y = (p) => p.y * H;
-    oCtx.lineCap = "round";
-    // Bones — shoulder → elbow → wrist (single arm)
-    oCtx.strokeStyle = "rgba(255, 106, 0, 0.9)";
-    oCtx.lineWidth = 5;
-    oCtx.beginPath();
-    oCtx.moveTo(X(c.sh), Y(c.sh));
-    oCtx.lineTo(X(c.el), Y(c.el));
-    oCtx.lineTo(X(c.wr), Y(c.wr));
-    oCtx.stroke();
-    // Joints — shoulder slate, elbow + wrist amber rings with white outline
-    [[c.sh, "rgba(100, 116, 139, 0.9)"], [c.el, "#FF6A00"], [c.wr, "#FF6A00"]].forEach(([p, col]) => {
-      oCtx.beginPath();
-      oCtx.arc(X(p), Y(p), 7, 0, Math.PI * 2);
-      oCtx.fillStyle = col;
-      oCtx.fill();
-      oCtx.strokeStyle = "rgba(255, 255, 255, 0.9)";
-      oCtx.lineWidth = 2.5;
-      oCtx.stroke();
-    });
-    // Fingertip marker of the one tracked hand (emerald dot)
-    if (res.hand && res.hand[8]) {
-      oCtx.beginPath();
-      oCtx.arc(res.hand[8].x * W, res.hand[8].y * H, 5, 0, Math.PI * 2);
-      oCtx.fillStyle = "#10B981";
-      oCtx.fill();
+    try {
+      const W = overlayCanvas.width, H = overlayCanvas.height;
+      oCtx.clearRect(0, 0, W, H);
+      if (!res) return;
+
+      const X = (p) => p.x * W, Y = (p) => p.y * H;
+      oCtx.lineCap = "round";
+      oCtx.lineJoin = "round";
+
+      // 1. Arm skeleton (Shoulder -> Elbow -> Wrist)
+      const c = res.chain || (res.pose && (
+        (res.pose[12] && res.pose[14] && res.pose[16] && { sh: res.pose[12], el: res.pose[14], wr: res.pose[16] }) ||
+        (res.pose[11] && res.pose[13] && res.pose[15] && { sh: res.pose[11], el: res.pose[13], wr: res.pose[15] })
+      ));
+
+      if (c && c.sh && c.el && c.wr && (c.sh.x !== 0 || c.sh.y !== 0)) {
+        oCtx.strokeStyle = "rgba(56, 189, 248, 0.9)";
+        oCtx.lineWidth = 4.5;
+        oCtx.beginPath();
+        oCtx.moveTo(X(c.sh), Y(c.sh));
+        oCtx.lineTo(X(c.el), Y(c.el));
+        oCtx.lineTo(X(c.wr), Y(c.wr));
+        oCtx.stroke();
+
+        [[c.sh, "rgba(100, 116, 139, 0.9)"], [c.el, "#10B981"], [c.wr, "#38BDF8"]].forEach(([p, col]) => {
+          oCtx.beginPath();
+          oCtx.arc(X(p), Y(p), 6.5, 0, Math.PI * 2);
+          oCtx.fillStyle = col;
+          oCtx.fill();
+          oCtx.strokeStyle = "rgba(255, 255, 255, 0.9)";
+          oCtx.lineWidth = 2;
+          oCtx.stroke();
+        });
+      }
+
+      // 2. Full 21 Hand Landmarks & Connecting Bones
+      if (res.hand && res.hand[0]) {
+        // Draw hand bones
+        oCtx.strokeStyle = "rgba(16, 185, 129, 0.85)";
+        oCtx.lineWidth = 2.5;
+        for (const [i, j] of HAND_CONNECTIONS) {
+          const p1 = res.hand[i], p2 = res.hand[j];
+          if (p1 && p2) {
+            oCtx.beginPath();
+            oCtx.moveTo(X(p1), Y(p1));
+            oCtx.lineTo(X(p2), Y(p2));
+            oCtx.stroke();
+          }
+        }
+
+        // Draw 21 hand joint nodes
+        for (let i = 0; i < 21; i++) {
+          const p = res.hand[i];
+          if (!p) continue;
+          const isTip = i === 4 || i === 8 || i === 12 || i === 16 || i === 20;
+          const radius = i === 8 ? 6 : isTip ? 4.5 : 3.5;
+          oCtx.beginPath();
+          oCtx.arc(X(p), Y(p), radius, 0, Math.PI * 2);
+          oCtx.fillStyle = i === 8 ? "#38BDF8" : isTip ? "#34D399" : "#FFFFFF";
+          oCtx.fill();
+          oCtx.strokeStyle = "rgba(0, 0, 0, 0.4)";
+          oCtx.lineWidth = 1;
+          oCtx.stroke();
+        }
+
+        // Index fingertip targeting halo
+        if (res.hand[8]) {
+          oCtx.beginPath();
+          oCtx.arc(X(res.hand[8]), Y(res.hand[8]), 14, 0, Math.PI * 2);
+          oCtx.strokeStyle = "rgba(56, 189, 248, 0.9)";
+          oCtx.lineWidth = 2.5;
+          oCtx.stroke();
+        }
+      }
+    } catch (err) {
+      console.warn("[Therapy] drawOverlay error caught defensively:", err);
     }
   }
 
@@ -260,49 +315,66 @@ document.addEventListener("DOMContentLoaded", () => {
     const M = { elbowMax: null, elbowMin: null, elevMax: null, reach: 0, tilt: 0,
                 spread: null, pinch: null, fan: null, dev: null, tipX: null, tipY: null,
                 speed: 0 };
-    // Pose arm metrics (either arm may drive the drill)
-    if (res.pose) {
-      const arms = [
-        { sh: res.pose[11], el: res.pose[13], wr: res.pose[15] },
-        { sh: res.pose[12], el: res.pose[14], wr: res.pose[16] },
-      ];
-      const elbows = [], elevs = [];
-      arms.forEach((a) => {
-        if (a.sh && a.el && a.wr && (a.sh.x !== 0 || a.sh.y !== 0)) {
-          elbows.push(Kinematics.calculateJointAngle(a.sh, a.el, a.wr));
-          const dx = Math.abs(a.el.x - a.sh.x), dy = Math.abs(a.el.y - a.sh.y);
-          elevs.push((Math.atan2(dx, dy) * 180) / Math.PI);
-          M.reach = Math.max(M.reach, Math.abs(a.wr.x - a.sh.x));
+    if (!res) return M;
+    try {
+      // Pose arm metrics (either arm may drive the drill)
+      if (res.pose) {
+        const arms = [
+          { sh: res.pose[11], el: res.pose[13], wr: res.pose[15] },
+          { sh: res.pose[12], el: res.pose[14], wr: res.pose[16] },
+        ];
+        const elbows = [], elevs = [];
+        arms.forEach((a) => {
+          if (a.sh && a.el && a.wr && (a.sh.x !== 0 || a.sh.y !== 0)) {
+            try {
+              if (window.Kinematics && typeof Kinematics.calculateJointAngle === "function") {
+                elbows.push(Kinematics.calculateJointAngle(a.sh, a.el, a.wr));
+              }
+              const dx = Math.abs(a.el.x - a.sh.x), dy = Math.abs(a.el.y - a.sh.y);
+              elevs.push((Math.atan2(dx, dy) * 180) / Math.PI);
+              M.reach = Math.max(M.reach, Math.abs(a.wr.x - a.sh.x));
+            } catch (e) {}
+          }
+        });
+        if (elbows.length) { M.elbowMax = Math.max(...elbows); M.elbowMin = Math.min(...elbows); }
+        if (elevs.length) M.elevMax = Math.max(...elevs);
+        if (res.pose[11] && res.pose[12] && window.Kinematics && typeof Kinematics.calculateTrunkTilt === "function") {
+          try {
+            M.tilt = Kinematics.calculateTrunkTilt(res.pose[11], res.pose[12]).tiltDegrees || 0;
+          } catch (e) {}
         }
-      });
-      if (elbows.length) { M.elbowMax = Math.max(...elbows); M.elbowMin = Math.min(...elbows); }
-      if (elevs.length) M.elevMax = Math.max(...elevs);
-      if (res.pose[11] && res.pose[12]) M.tilt = Kinematics.calculateTrunkTilt(res.pose[11], res.pose[12]).tiltDegrees || 0;
-    }
-    // Hand metrics
-    if (res.hand) {
-      const pts = [];
-      for (let i = 0; i < 21; i++) pts.push(res.hand[i] || { x: 0, y: 0 });
-      M.spread = handVariance(pts);
-      M.pinch = res.hand[4] && res.hand[8]
-        ? Math.sqrt((res.hand[4].x - res.hand[8].x) ** 2 + (res.hand[4].y - res.hand[8].y) ** 2) : null;
-      M.fan = res.hand[8] && res.hand[20]
-        ? Math.sqrt((res.hand[8].x - res.hand[20].x) ** 2 + (res.hand[8].y - res.hand[20].y) ** 2) : null;
-      if (res.hand[5] && res.hand[0] && res.hand[12]) {
-        M.dev = Kinematics.calculateWristDeviation(
-          { x: res.hand[5].x, y: res.hand[5].y }, { x: res.hand[0].x, y: res.hand[0].y },
-          { x: res.hand[12].x, y: res.hand[12].y });
       }
-      const tip = res.hand[8];
-      if (tip) {
-        M.tipX = tip.x; M.tipY = tip.y;
-        const now = Date.now(), dt = (now - S.lastT) / 1000;
-        if (S.lastTip && dt > 0) {
-          S.speed = Math.sqrt((tip.x - S.lastTip.x) ** 2 + (tip.y - S.lastTip.y) ** 2) / dt;
-          M.speed = S.speed;
+      // Hand metrics
+      if (res.hand && res.hand.length >= 21) {
+        const pts = [];
+        for (let i = 0; i < 21; i++) pts.push(res.hand[i] || { x: 0, y: 0 });
+        M.spread = handVariance(pts);
+        M.pinch = res.hand[4] && res.hand[8]
+          ? Math.sqrt((res.hand[4].x - res.hand[8].x) ** 2 + (res.hand[4].y - res.hand[8].y) ** 2) : null;
+        M.fan = res.hand[8] && res.hand[20]
+          ? Math.sqrt((res.hand[8].x - res.hand[20].x) ** 2 + (res.hand[8].y - res.hand[20].y) ** 2) : null;
+        if (res.hand[5] && res.hand[0] && res.hand[12] && window.Kinematics && typeof Kinematics.calculateWristDeviation === "function") {
+          try {
+            M.dev = Kinematics.calculateWristDeviation(
+              { x: res.hand[5].x, y: res.hand[5].y },
+              { x: res.hand[0].x, y: res.hand[0].y },
+              { x: res.hand[12].x, y: res.hand[12].y }
+            );
+          } catch (e) {}
         }
-        S.lastTip = { x: tip.x, y: tip.y }; S.lastT = now;
+        const tip = res.hand[8];
+        if (tip) {
+          M.tipX = tip.x; M.tipY = tip.y;
+          const now = Date.now(), dt = (now - S.lastT) / 1000;
+          if (S.lastTip && dt > 0) {
+            S.speed = Math.sqrt((tip.x - S.lastTip.x) ** 2 + (tip.y - S.lastTip.y) ** 2) / dt;
+            M.speed = S.speed;
+          }
+          S.lastTip = { x: tip.x, y: tip.y }; S.lastT = now;
+        }
       }
+    } catch (err) {
+      console.warn("[Therapy] computeMetrics caught error:", err);
     }
     return M;
   }
@@ -365,71 +437,80 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function handleWorkoutFrame(res) {
     if (S.phase !== "workout" || S.paused) return;
-    const M = computeMetrics(res);
-    S.metrics = M;
-    $("metric-value").textContent = metricReadout(S.ex, M);
+    try {
+      const M = computeMetrics(res);
+      S.metrics = M;
+      $("metric-value").textContent = metricReadout(S.ex, M);
 
-    // Anti-cheat trunk lock (E1 > 10°)
-    if (M.tilt > 10) {
-      if (!S.cheat) {
-        S.cheat = true;
-        $("cheat-banner").classList.add("show");
-        if (window.RehabBio) { window.RehabBio.stopRomTone(); window.RehabBio.playCheatBuzz(); window.RehabBio.speak("Posture cheat detected: keep your shoulders level.", { priority: true }); }
+      // Anti-cheat trunk lock (E1 > 10°)
+      if (M.tilt > 10) {
+        if (!S.cheat) {
+          S.cheat = true;
+          $("cheat-banner").classList.add("show");
+          if (window.RehabBio) {
+            window.RehabBio.stopRomTone();
+            window.RehabBio.playCheatBuzz();
+            window.RehabBio.speak("Posture cheat detected: keep your shoulders level.", { priority: true });
+          }
+        }
+        S.holdStart = 0;
+        return;
       }
-      S.holdStart = 0;
-      return;
-    }
-    if (S.cheat) {
-      S.cheat = false;
-      $("cheat-banner").classList.remove("show");
-    }
+      if (S.cheat) {
+        S.cheat = false;
+        $("cheat-banner").classList.remove("show");
+      }
 
-    const step = S.ex.steps[S.step];
-    if (!step) return;
-    const ok = step.test(M);
-    const now = Date.now();
-    if (M.speed > 0.04 || ok) S.lastActionTime = now;
+      if (!S.ex || !S.ex.steps) return;
+      const step = S.ex.steps[S.step];
+      if (!step || typeof step.test !== "function") return;
+      const ok = step.test(M);
+      const now = Date.now();
+      if (M.speed > 0.04 || ok) S.lastActionTime = now;
 
-    if (ok) {
-      // Pitch-tone sonification for elbow ROM drills
-      if (window.RehabBio) {
-        if (S.ex.metric.indexOf("ELBOW") === 0 && M.elbowMax != null) {
-          window.RehabBio.setRomTone(M.elbowMax, { minAngle: 30, maxAngle: 150 });
-        } else if (S.ex.metric === "DEV °" && M.dev != null) {
-          window.RehabBio.setRomTone(Math.abs(M.dev), { minAngle: 0, maxAngle: 25, minHz: 220, maxHz: 700 });
-        } else {
-          window.RehabBio.stopRomTone();
+      if (ok) {
+        // Pitch-tone sonification for elbow ROM drills
+        if (window.RehabBio) {
+          if (S.ex.metric && S.ex.metric.indexOf("ELBOW") === 0 && M.elbowMax != null) {
+            window.RehabBio.setRomTone(M.elbowMax, { minAngle: 30, maxAngle: 150 });
+          } else if (S.ex.metric === "DEV °" && M.dev != null) {
+            window.RehabBio.setRomTone(Math.abs(M.dev), { minAngle: 0, maxAngle: 25, minHz: 220, maxHz: 700 });
+          } else {
+            window.RehabBio.stopRomTone();
+          }
+        }
+        if (step.hold > 0) {
+          if (!S.holdStart) S.holdStart = now;
+          const held = (now - S.holdStart) / 1000;
+          $("hold-display").textContent = `${Math.max(0, step.hold - held).toFixed(1)}s`;
+          if (held < step.hold) { S.hintOn = false; return; }
+        }
+        // Step complete
+        S.holdStart = 0;
+        S.step++;
+        S.hintOn = false;
+        S.lastActionTime = now;
+        const line = $("feedback-line");
+        if (window.RehabBio) window.RehabBio.playBeep(880, 0.06, 0.3);
+        if (S.step >= S.ex.steps.length) completeRep();
+        else {
+          speakStep(S.ex, S.step);
+          renderSteps(S.ex, S.step);
+          line.textContent = "";
+        }
+      } else {
+        // Not achieved yet
+        if (window.RehabBio) window.RehabBio.stopRomTone();
+        S.holdStart = 0;
+        if (!S.stuckAt) S.stuckAt = now;
+        if (now - S.stuckAt > 2200 && !S.hintOn) {
+          S.hintOn = true;
+          $("hint-line").textContent = `💡 Try: ${step.label}`;
+          if (window.RehabBio) window.RehabBio.speak(`Try: ${step.label}`);
         }
       }
-      if (step.hold > 0) {
-        if (!S.holdStart) S.holdStart = now;
-        const held = (now - S.holdStart) / 1000;
-        $("hold-display").textContent = `${Math.max(0, step.hold - held).toFixed(1)}s`;
-        if (held < step.hold) { S.hintOn = false; return; }
-      }
-      // Step complete
-      S.holdStart = 0;
-      S.step++;
-      S.hintOn = false;
-      S.lastActionTime = now;
-      const line = $("feedback-line");
-      if (window.RehabBio) window.RehabBio.playBeep(880, 0.06, 0.3);
-      if (S.step >= S.ex.steps.length) completeRep();
-      else {
-        speakStep(S.ex, S.step);
-        renderSteps(S.ex, S.step);
-        line.textContent = "";
-      }
-    } else {
-      // Not achieved yet
-      if (window.RehabBio) window.RehabBio.stopRomTone();
-      S.holdStart = 0;
-      if (!S.stuckAt) S.stuckAt = now;
-      if (now - S.stuckAt > 2200 && !S.hintOn) {
-        S.hintOn = true;
-        $("hint-line").textContent = `💡 Try: ${step.label}`;
-        if (window.RehabBio) window.RehabBio.speak(`Try: ${step.label}`);
-      }
+    } catch (err) {
+      console.warn("[Therapy] handleWorkoutFrame handled error:", err);
     }
   }
 
@@ -574,8 +655,14 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function onFrame(res) {
-    if (S.phase === "workout") { handleWorkoutFrame(res); drawOverlay(res); }
-    else oCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+    try {
+      if (S.phase === "workout") {
+        handleWorkoutFrame(res);
+      }
+      drawOverlay(res);
+    } catch (err) {
+      console.warn("[Therapy] onFrame handled error:", err);
+    }
   }
 
   // ---------- Start / controls ---------------------------------------------
