@@ -655,9 +655,16 @@ document.addEventListener("DOMContentLoaded", () => {
     showScreen("done");
   }
 
-  $("btn-start").addEventListener("click", async () => {
-    const queue = currentSelection();
-    if (!queue.length) { showToast("⚠️ Select at least one exercise", "error"); return; }
+  async function launchWorkout(isInitial = false) {
+    let queue = currentSelection();
+    if (!queue.length) {
+      const exs = (window.EXERCISE_LIBRARY && (window.EXERCISE_LIBRARY[profile] || window.EXERCISE_LIBRARY["Hemiparesis"])) || [];
+      if (exs.length) queue = [exs[0]];
+    }
+    if (!queue.length) {
+      if (!isInitial) showToast("⚠️ Select at least one exercise", "error");
+      return;
+    }
     S.queue = queue;
     S.qi = 0;
     S.repsTarget = Math.max(1, parseInt($("cfg-reps").value) || 10);
@@ -683,7 +690,8 @@ document.addEventListener("DOMContentLoaded", () => {
     showScreen("workout");
 
     // Acquire webcam stream
-    if (!await startVision()) {
+    const ok = await startVision();
+    if (!ok && !isInitial) {
       S.phase = "config";
       showScreen("config");
       return;
@@ -695,7 +703,16 @@ document.addEventListener("DOMContentLoaded", () => {
       speakStep(S.ex, 0);
       showGuidancePopup(4);
     });
-  });
+  }
+
+  $("btn-start").addEventListener("click", () => launchWorkout(false));
+
+  if ($("cfg-btn")) {
+    $("cfg-btn").addEventListener("click", () => {
+      S.phase = "config";
+      showScreen("config");
+    });
+  }
 
   $("pause-btn").addEventListener("click", pauseWorkout);
   $("resume-btn").addEventListener("click", resumeWorkout);
@@ -794,4 +811,6 @@ document.addEventListener("DOMContentLoaded", () => {
     $(id).addEventListener("input", updateSummary);
   });
   renderConfig();
+  // Auto-launch workout so camera turns on immediately upon opening Exercise Drills
+  launchWorkout(true);
 });
