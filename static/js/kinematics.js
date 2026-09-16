@@ -219,3 +219,7 @@ const Kinematics = {
 
 // Freeze the object to prevent accidental mutation
 Object.freeze(Kinematics);
+
+if (typeof module !== "undefined" && module.exports) {
+  module.exports = Kinematics;
+}

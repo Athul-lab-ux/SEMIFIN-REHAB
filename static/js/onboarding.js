@@ -56,8 +56,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     const data = await res.json();
     if (data.status === "success" && data.profile) {
       const p = data.profile;
-      // If patient already completed onboarding, go directly to main app
-      if (p.onboarding_done) {
+      const isEditing = new URLSearchParams(window.location.search).get("edit") === "1";
+      // If patient already completed onboarding and not in edit mode, go directly to dashboard
+      if (p.onboarding_done && !isEditing) {
         window.location.href = "/dashboard";
         return;
       }

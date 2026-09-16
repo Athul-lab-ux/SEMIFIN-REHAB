@@ -388,13 +388,14 @@ def logout():
 @login_required
 def onboarding():
     """New-patient questionnaire: stroke type → how it happened."""
-    db = get_db()
-    row = db.execute(
-        "SELECT onboarding_done FROM patients WHERE patient_id = ?",
-        (session["patient_id"],),
-    ).fetchone()
-    if row and row["onboarding_done"]:
-        return redirect(url_for("dashboard"))
+    if request.args.get("edit") != "1":
+        db = get_db()
+        row = db.execute(
+            "SELECT onboarding_done FROM patients WHERE patient_id = ?",
+            (session["patient_id"],),
+        ).fetchone()
+        if row and row["onboarding_done"]:
+            return redirect(url_for("dashboard"))
     return render_template("onboarding.html")
 
 

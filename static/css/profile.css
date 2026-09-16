@@ -100,7 +100,7 @@
   padding: 5px 10px;
   border-radius: 999px;
   cursor: pointer;
-  box-shadow: 0 4px 10px rgba(255, 106, 0, 0.35);
+  box-shadow: 0 4px 10px rgba(16, 185, 129, 0.35);
   display: flex;
   align-items: center;
   gap: 4px;
@@ -110,7 +110,7 @@
 
 .avatar-upload-badge:hover {
   transform: scale(1.06);
-  background: #EA580C;
+  background: #059669;
 }
 
 .patient-display-name {
@@ -151,14 +151,14 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: #FFF3E8;
-  color: #C2410C;
+  background: #ECFDF5;
+  color: #065F46;
   font-size: 13px;
   font-weight: 800;
   padding: 6px 14px;
   border-radius: 999px;
   margin-bottom: 20px;
-  border: 1px solid rgba(255, 106, 0, 0.2);
+  border: 1px solid rgba(16, 185, 129, 0.3);
 }
 
 /* Quick Stats Bar */
@@ -298,7 +298,7 @@
   outline: none;
   border-color: var(--clin-orange);
   background: #FFF;
-  box-shadow: 0 0 0 3px rgba(255, 106, 0, 0.12);
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.16);
 }
 
 .form-field input:disabled {

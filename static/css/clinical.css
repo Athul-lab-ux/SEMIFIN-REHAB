@@ -244,7 +244,7 @@ button, .btn-link {
   max-width: 220px;
 }
 .tb-select:hover, .clin-select:hover { border-color: var(--clin-orange); }
-.tb-select:focus, .clin-select:focus { border-color: var(--clin-orange); box-shadow: 0 0 0 3px rgba(255,106,0,0.12); }
+.tb-select:focus, .clin-select:focus { border-color: var(--clin-orange); box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.16); }
 
 .tb-icon-btn {
   display: inline-flex;
@@ -624,7 +624,7 @@ html.hemi-right .hemi-cluster { right: 14px !important; left: auto !important; }
 
 .obo-chip.picked { background: var(--clin-theme-primary); border-color: var(--clin-theme-primary); color: #fff; }
 
-.obo-privacy { background: var(--clin-orange-tint); border-color: rgba(255,106,0,0.3); }
+.obo-privacy { background: var(--clin-orange-tint); border-color: rgba(16, 185, 129, 0.3); }
 
 .obo-actions .clin-btn-primary { background: linear-gradient(135deg, var(--clin-theme-primary), var(--clin-theme-secondary)); }
 

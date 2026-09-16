@@ -29,89 +29,89 @@
 
     <!-- STEP 0 · Personal details (optional) -->
     <section class="obo-card" id="step0">
-      <div class="step-badge">Optional · Personal Details</div>
-      <h1>👤 A few details about you</h1>
-      <p class="obo-sub">Add your name, date of birth, and phone number if you want us to personalize your care profile. These are optional.</p>
+      <div class="step-badge">👤 Step 1 of 3 · Personal Details</div>
+      <h1>Personal Care Information</h1>
+      <p class="obo-sub">Add your name, date of birth, and phone number to personalize your rehabilitation telemetry. All fields are optional.</p>
 
       <div class="obo-q">
-        <label class="obo-label" for="pat-name">Full Name</label>
+        <label class="obo-label" for="pat-name">👤 Full Name</label>
         <input type="text" id="pat-name" class="obo-input" placeholder="e.g. Athul" maxlength="60" autocomplete="name" />
       </div>
 
       <div class="obo-q">
-        <label class="obo-label" for="pat-dob">Date of Birth</label>
+        <label class="obo-label" for="pat-dob">📅 Date of Birth</label>
         <input type="date" id="pat-dob" class="obo-input" />
       </div>
 
       <div class="obo-q">
-        <label class="obo-label" for="pat-phone">Phone Number</label>
+        <label class="obo-label" for="pat-phone">📞 Phone Number</label>
         <input type="tel" id="pat-phone" class="obo-input" placeholder="e.g. +1 555-0199" maxlength="20" autocomplete="tel" />
       </div>
 
       <div class="obo-actions">
-        <button type="button" class="clin-btn clin-btn-ghost btn-skip" id="btn-skip0" data-to="1">Skip ➜</button>
-        <button type="button" class="clin-btn clin-btn-primary btn-next" id="btn-next0" data-to="1">Continue ➜</button>
+        <button type="button" class="clin-btn clin-btn-ghost btn-skip" id="btn-skip0" data-to="1">Skip for Now ➜</button>
+        <button type="button" class="clin-btn clin-btn-primary btn-next" id="btn-next0" data-to="1">Next: Stroke Assessment ➜</button>
       </div>
     </section>
 
     <!-- STEP 1 · Stroke type (required) -->
     <section class="obo-card" id="step1" style="display:none;">
-      <div class="step-badge">Step 1 of 2</div>
-      <h1>🧠 Which type of stroke are you facing?</h1>
-      <p class="obo-sub">Pick the category that best matches your condition — we'll tailor your exercises to it. You can change it anytime from the top bar.</p>
+      <div class="step-badge">🧠 Step 2 of 3 · Clinical Assessment</div>
+      <h1>Select Your Stroke Profile</h1>
+      <p class="obo-sub">Choose the condition that matches your clinical presentation to tailor kinematic drill targets and posture thresholds.</p>
       
       <div class="obo-options" id="stroke-options"><!-- injected --></div>
 
       <div class="obo-actions">
         <button type="button" class="clin-btn clin-btn-ghost btn-back" id="btn-back1" data-to="0">← Back</button>
-        <button type="button" class="clin-btn clin-btn-primary" id="btn-next1" disabled aria-disabled="true">Continue ➜</button>
+        <button type="button" class="clin-btn clin-btn-primary" id="btn-next1" disabled aria-disabled="true">Next: Condition Story ➜</button>
       </div>
     </section>
 
     <!-- STEP 2 · How it happened (optional story / voice) -->
     <section class="obo-card" id="step2" style="display:none;">
-      <div class="step-badge">Step 2 of 2</div>
-      <h1>💬 How did it happen? <span class="opt-tag">optional</span></h1>
-      <p class="obo-sub">Type it below — or tap the mic 🎙️ and just say it. This stays private to your care profile.</p>
+      <div class="step-badge">💬 Step 3 of 3 · Condition Story</div>
+      <h1>How Did It Happen? <span class="opt-tag">Optional</span></h1>
+      <p class="obo-sub">Type your recovery journey below or speak aloud using the microphone button 🎙️. This remains private to your care file.</p>
 
-      <label class="obo-label" for="onset-text">Your story <span class="opt-tag">optional</span></label>
+      <label class="obo-label" for="onset-text">📝 Your Story Notes</label>
       <div class="obo-voice-row">
         <textarea id="onset-text" rows="3" maxlength="500"
-          placeholder="e.g. I had a stroke about 4 months ago, and my right arm feels weak…"></textarea>
+          placeholder="e.g. I had a stroke about 4 months ago, and my right arm and wrist feel weak…"></textarea>
         <button type="button" id="voice-btn" class="vo-btn" aria-label="Speak instead of typing" title="Speak instead of typing">🎙️</button>
       </div>
       <p class="voice-status" id="voice-status"></p>
 
       <div class="obo-actions">
         <button type="button" class="clin-btn clin-btn-ghost btn-back" id="btn-back2" data-to="1">← Back</button>
-        <button type="button" class="clin-btn clin-btn-primary" id="btn-next2" data-to="3">Continue ➜</button>
+        <button type="button" class="clin-btn clin-btn-primary" id="btn-next2" data-to="3">Review Recovery Plan ➜</button>
       </div>
     </section>
 
     <!-- STEP FINISH · Finish screen that saves the profile and opens the main app -->
     <section class="obo-card" id="step-finish" style="display:none;">
-      <div class="step-badge step-badge-ready">All Set</div>
-      <h1>✅ Your recovery profile is ready</h1>
-      <p class="obo-sub">We saved your answers privately. Let's take you straight to your RehabOpt dashboard.</p>
+      <div class="step-badge step-badge-ready">🌿 Program Ready</div>
+      <h1>Your Recovery Plan Is Configured</h1>
+      <p class="obo-sub">Your personalized kinematic telemetry profile has been initialized. Click below to launch your main command center.</p>
 
       <div class="obo-summary-card">
         <div class="sum-row">
-          <span class="sum-label">Patient</span>
+          <span class="sum-label">👤 Patient Name</span>
           <span class="sum-val" id="sum-name">Patient</span>
         </div>
         <div class="sum-row">
-          <span class="sum-label">Stroke Profile</span>
+          <span class="sum-label">🧠 Stroke Profile</span>
           <span class="sum-val" id="sum-condition">Hemiparesis</span>
         </div>
       </div>
 
       <div class="obo-privacy">
-        🔒 All your answers are saved to <b>your private patient record only</b> — never shared with or visible to any other user.
+        🔒 All your clinical data is encrypted and saved to <b>your private patient record only</b> — completely isolated and secure.
       </div>
 
       <div class="obo-actions">
         <button type="button" class="clin-btn clin-btn-ghost btn-back" id="btn-back-finish" data-to="2">← Back</button>
-        <button type="button" id="btn-open-app" class="clin-btn clin-btn-primary">Open My App ➜</button>
+        <button type="button" id="btn-open-app" class="clin-btn clin-btn-primary">🚀 Open Main Dashboard ➜</button>
       </div>
     </section>
   </main>

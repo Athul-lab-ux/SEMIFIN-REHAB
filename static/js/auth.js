@@ -151,18 +151,14 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       if (data.status === "success") {
-        showToast(`🎉 Account Created! Your Patient ID is ${data.patient_id}`, "success");
+        showToast(`🎉 Welcome ${data.patient_name || data.patient_id}! Setting up your recovery steps…`, "success");
         localStorage.setItem("last_identifier", data.patient_id);
         localStorage.setItem("last_patient_id", data.patient_id);
         if (data.patient_name) localStorage.setItem("patient_name", data.patient_name);
 
-        // Pre-fill Sign-In field and switch tab smoothly
-        document.getElementById("si-patient-id").value = data.patient_id;
-        document.getElementById("si-password").value = pw;
         setTimeout(() => {
-          signInTab.click();
-          showToast(`ℹ️ You can now sign in using '${data.patient_id}' or '${email}'`, "info");
-        }, 1200);
+          window.location.href = "/onboarding";
+        }, 650);
       } else {
         showToast(`❌ ${data.message || "Registration failed"}`, "error");
       }
@@ -175,13 +171,16 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // --- Quick Demo Account ---
+  // --- Quick Demo Account (1-Click Instant Sign-In) ---
   const demoBtn = document.getElementById("demo-btn");
   if (demoBtn) {
     demoBtn.addEventListener("click", () => {
       document.getElementById("si-patient-id").value = "SP-000000001";
       document.getElementById("si-password").value = "PatientDemo@123";
-      showToast("⚡ Demo credentials filled (SP-000000001)", "info");
+      showToast("⚡ Logging into Demo Patient account…", "info");
+      setTimeout(() => {
+        signInForm.requestSubmit();
+      }, 300);
     });
   }
 
