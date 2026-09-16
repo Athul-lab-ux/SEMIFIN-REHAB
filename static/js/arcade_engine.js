@@ -1052,6 +1052,18 @@ document.addEventListener("DOMContentLoaded", async () => {
     document.getElementById("btn-pause").style.display = "none";
     document.getElementById("btn-resume").style.display = "none";
     document.getElementById("btn-stop").style.display = "none";
+
+    // Turn off camera hardware LED when session stops
+    if (engine.visionStarted) {
+      VisionLoader.stop();
+      engine.visionStarted = false;
+      const btnCamToggle = document.getElementById("btn-cam-toggle");
+      if (btnCamToggle) {
+        btnCamToggle.textContent = "📷 Camera: OFF";
+        btnCamToggle.classList.add("danger");
+      }
+    }
+
     updateHUD();
     if (message) showToast(message, "error");
   }
@@ -1094,6 +1106,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (ok) {
       engine.visionStarted = true;
       VisionLoader.watch();
+      const btnCamToggle = document.getElementById("btn-cam-toggle");
+      if (btnCamToggle) {
+        btnCamToggle.textContent = "📷 Camera: ON";
+        btnCamToggle.classList.remove("danger");
+      }
       showToast("✅ Camera active — enjoy your session!", "success");
     } else {
       showToast("ℹ️ Camera stream initializing — you can also use touch/mouse!", "info");

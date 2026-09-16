@@ -143,8 +143,18 @@ class RehabCamera {
       this.animationId = null;
     }
     if (this.stream) {
-      this.stream.getTracks().forEach((track) => track.stop());
+      try {
+        this.stream.getTracks().forEach((track) => track.stop());
+      } catch (e) {}
       this.stream = null;
+    }
+    if (this.video) {
+      if (this.video.srcObject) {
+        try {
+          this.video.srcObject.getTracks().forEach((t) => t.stop());
+        } catch (e) {}
+        this.video.srcObject = null;
+      }
     }
   }
 

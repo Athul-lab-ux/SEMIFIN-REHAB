@@ -484,9 +484,12 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (btnCam) {
     btnCam.addEventListener("click", async () => {
       if (cameraActive) {
+        if (adlCamera) adlCamera.stop();
         const v = document.getElementById("video");
         if (v && v.srcObject) {
-          v.srcObject.getTracks().forEach((t) => t.stop());
+          try {
+            v.srcObject.getTracks().forEach((t) => t.stop());
+          } catch (e) {}
           v.srcObject = null;
         }
         cameraActive = false;
@@ -690,6 +693,23 @@ document.addEventListener("DOMContentLoaded", async () => {
     repsCompleted = 0;
     resetTaskVariables();
 
+    // Turn off camera hardware LED when session stops
+    if (cameraActive) {
+      if (adlCamera) adlCamera.stop();
+      const v = document.getElementById("video");
+      if (v && v.srcObject) {
+        try {
+          v.srcObject.getTracks().forEach((t) => t.stop());
+        } catch (e) {}
+        v.srcObject = null;
+      }
+      cameraActive = false;
+      if (btnCam) {
+        btnCam.textContent = "📷 Camera: OFF";
+        btnCam.classList.add("danger");
+      }
+    }
+
     document.getElementById("task-menu").classList.remove("hidden");
     document.getElementById("adl-paused-overlay").classList.remove("show");
     document.getElementById("adl-countdown-overlay").classList.remove("show");
@@ -713,6 +733,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   document.querySelectorAll(".task-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
       const selectedTask = btn.dataset.task;
+      if (!cameraActive) {
+        initCamera();
+      }
       document.getElementById("task-menu").classList.add("hidden");
       taskEl.textContent = btn.textContent.trim().split("\n")[0];
       if (stepEl) stepEl.textContent = "Step 1: Neutral Rest";

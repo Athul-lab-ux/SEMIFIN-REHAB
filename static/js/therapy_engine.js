@@ -639,6 +639,11 @@ document.addEventListener("DOMContentLoaded", () => {
   function stopWorkout() {
     hideGuidancePopup();
     stopVision();
+    const camToggleBtn = $("cam-toggle-btn");
+    if (camToggleBtn) {
+      camToggleBtn.textContent = "📷 Camera: OFF";
+      camToggleBtn.classList.add("danger");
+    }
     if (window.RehabBio) window.RehabBio.stopRomTone();
     $("therapy-paused-overlay").classList.remove("show");
     $("therapy-countdown-overlay").classList.remove("show");
@@ -691,7 +696,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Acquire webcam stream
     const ok = await startVision();
-    if (!ok && !isInitial) {
+    if (ok) {
+      const camToggleBtn = $("cam-toggle-btn");
+      if (camToggleBtn) {
+        camToggleBtn.textContent = "📷 Camera: ON";
+        camToggleBtn.classList.remove("danger");
+      }
+    } else if (!isInitial) {
       S.phase = "config";
       showScreen("config");
       return;

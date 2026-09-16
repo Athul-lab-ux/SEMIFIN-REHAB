@@ -59,6 +59,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const bsrVal = document.getElementById("bsr-val");
   const btnCam = document.getElementById("canvas-cam-btn");
   const btnMirror = document.getElementById("canvas-mirror-btn");
+  let canvasCamera = null;
   let cameraActive = true;
   let isMirrored = localStorage.getItem("rehab_mirror_mode") !== "inverted"; // default natural (left = left)
 
@@ -264,7 +265,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   // --- Session Controls ---
-  function startDrawingSession() {
+  async function startDrawingSession() {
+    if (!cameraActive) {
+      await initCamera();
+    }
     runCanvasCountdown("STARTING IN", 5, () => {
       sessionActive = true;
       sessionPaused = false;
@@ -312,6 +316,23 @@ document.addEventListener("DOMContentLoaded", async () => {
     btnResume.style.display = "none";
     btnStop.style.display = "none";
 
+    // Turn off camera hardware LED when session stops
+    if (cameraActive) {
+      if (canvasCamera) canvasCamera.stop();
+      const v = document.getElementById("video");
+      if (v && v.srcObject) {
+        try {
+          v.srcObject.getTracks().forEach((t) => t.stop());
+        } catch (e) {}
+        v.srcObject = null;
+      }
+      cameraActive = false;
+      if (btnCam) {
+        btnCam.textContent = "📷 Camera: OFF";
+        btnCam.classList.add("danger");
+      }
+    }
+
     try {
       await fetch("/api/telemetry", {
         method: "POST",
@@ -344,9 +365,12 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (btnCam) {
     btnCam.addEventListener("click", async () => {
       if (cameraActive) {
+        if (canvasCamera) canvasCamera.stop();
         const v = document.getElementById("video");
         if (v && v.srcObject) {
-          v.srcObject.getTracks().forEach((t) => t.stop());
+          try {
+            v.srcObject.getTracks().forEach((t) => t.stop());
+          } catch (e) {}
           v.srcObject = null;
         }
         cameraActive = false;
@@ -441,11 +465,18 @@ document.addEventListener("DOMContentLoaded", async () => {
   hands.onResults(onHandResults);
 
   async function initCamera() {
-    const cam = new RehabCamera("video", async (videoEl) => {
+    canvasCamera = new RehabCamera("video", async (videoEl) => {
       await hands.send({ image: videoEl });
     });
-    const ok = await cam.initialize();
-    if (ok) showToast("✅ Camera active — raise your hand to begin!", "success");
+    const ok = await canvasCamera.initialize();
+    if (ok) {
+      cameraActive = true;
+      if (btnCam) {
+        btnCam.textContent = "📷 Camera: ON";
+        btnCam.classList.remove("danger");
+      }
+      showToast("✅ Camera active — raise your hand to begin!", "success");
+    }
   }
 
   // --- Hand Frame Processing ---
