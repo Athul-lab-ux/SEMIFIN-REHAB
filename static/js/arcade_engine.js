@@ -1295,10 +1295,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     oCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
     const W = overlayCanvas.width, H = overlayCanvas.height;
 
-    // Draw arm skeleton
+    // Draw arm skeleton (OpenCV Spec: Green bones #00C853, Yellow joints #FFEB3B)
     if (engine.arm && engine.arm.sh && engine.arm.el && engine.arm.wr) {
       const { sh, el, wr } = engine.arm;
-      oCtx.strokeStyle = "rgba(56, 189, 248, 0.85)";
+      oCtx.strokeStyle = "rgba(0, 200, 83, 0.9)";
       oCtx.lineWidth = 4;
       oCtx.lineCap = "round";
       oCtx.beginPath();
@@ -1306,17 +1306,22 @@ document.addEventListener("DOMContentLoaded", async () => {
       oCtx.lineTo(el.x * W, el.y * H);
       oCtx.lineTo(wr.x * W, wr.y * H);
       oCtx.stroke();
-      [[sh, "#F97316"], [el, "#10B981"], [wr, "#38BDF8"]].forEach(([p, c]) => {
-        oCtx.fillStyle = c;
-        oCtx.beginPath(); oCtx.arc(p.x * W, p.y * H, 6, 0, Math.PI * 2); ctxFill(oCtx);
+      [sh, el, wr].forEach((p) => {
+        oCtx.fillStyle = "#FFEB3B";
+        oCtx.beginPath();
+        oCtx.arc(p.x * W, p.y * H, 6.5, 0, Math.PI * 2);
+        oCtx.fill();
+        oCtx.strokeStyle = "rgba(0, 0, 0, 0.35)";
+        oCtx.lineWidth = 1.5;
+        oCtx.stroke();
       });
     }
 
-    // Draw full 21 hand landmarks & connecting skeleton bones!
+    // Draw full 21 hand landmarks & connecting skeleton bones! (OpenCV Spec: Cyan bones, Red wrist, White joints)
     const hand = (res && res.hand) || (engine.lastRes && engine.lastRes.hand);
     if (hand && hand[0]) {
-      // 1. Hand skeleton bones
-      oCtx.strokeStyle = engine.open ? "rgba(16, 185, 129, 0.85)" : "rgba(56, 189, 248, 0.85)";
+      // 1. Hand skeleton bones: OpenCV Cyan (#00E5FF)
+      oCtx.strokeStyle = "rgba(0, 229, 255, 0.85)";
       oCtx.lineWidth = 2.5;
       oCtx.lineCap = "round";
       oCtx.lineJoin = "round";
@@ -1330,19 +1335,40 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
       }
 
-      // 2. Hand joint nodes
+      // 2. Hand joint nodes (Red Wrist 0, White Joints 1-20)
       for (let i = 0; i < 21; i++) {
         const p = hand[i];
         if (!p) continue;
-        const isTip = i === 4 || i === 8 || i === 12 || i === 16 || i === 20;
-        const radius = i === 8 ? 6.5 : isTip ? 4.5 : 3.5;
-        oCtx.beginPath();
-        oCtx.arc(p.x * W, p.y * H, radius, 0, Math.PI * 2);
-        oCtx.fillStyle = i === 8 ? "#38BDF8" : isTip ? "#34D399" : "#FFFFFF";
-        oCtx.fill();
-        oCtx.strokeStyle = "rgba(0, 0, 0, 0.4)";
-        oCtx.lineWidth = 1;
-        oCtx.stroke();
+        const px = p.x * W, py = p.y * H;
+        if (i === 0) {
+          // Landmark 0: Red wrist (COLOR_HAND_WRIST = #EF4444)
+          oCtx.beginPath();
+          oCtx.arc(px, py, 5.5, 0, Math.PI * 2);
+          oCtx.fillStyle = "#EF4444";
+          oCtx.fill();
+          oCtx.strokeStyle = "#FFFFFF";
+          oCtx.lineWidth = 1.5;
+          oCtx.stroke();
+        } else if (i === 8) {
+          // Landmark 8: Index tip reticle
+          oCtx.beginPath();
+          oCtx.arc(px, py, 6.5, 0, Math.PI * 2);
+          oCtx.fillStyle = "#00E5FF";
+          oCtx.fill();
+          oCtx.strokeStyle = "#FFFFFF";
+          oCtx.lineWidth = 2;
+          oCtx.stroke();
+        } else {
+          // Landmarks 1-20: White joints (COLOR_HAND_JOINT = #FFFFFF)
+          const isTip = i === 4 || i === 12 || i === 16 || i === 20;
+          oCtx.beginPath();
+          oCtx.arc(px, py, isTip ? 4.2 : 3.5, 0, Math.PI * 2);
+          oCtx.fillStyle = "#FFFFFF";
+          oCtx.fill();
+          oCtx.strokeStyle = "rgba(0, 0, 0, 0.4)";
+          oCtx.lineWidth = 1;
+          oCtx.stroke();
+        }
       }
 
       // 3. Dynamic hammer attached to wrist & knuckle in Wrist Hammer game

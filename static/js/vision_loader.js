@@ -411,28 +411,7 @@ const VisionLoader = (() => {
         };
       }
 
-      // Optical fallback when hand model is not yet tracking
-      if (!results.hand) {
-        const wallNow = Date.now();
-        if (wallNow - lastModelDetectionTime > 1200) {
-          const centroid = computeOpticalMotion(videoElement);
-          if (centroid) {
-            // Mirror centroid for selfie view
-            const mx = mapX(centroid.x);
-            const my = centroid.y;
-            results.hand = {
-              0: { x: mx, y: my + 0.08, z: 0 },
-              4: { x: mx - 0.04, y: my, z: 0 },
-              5: { x: mx - 0.02, y: my - 0.04, z: 0 },
-              8: { x: mx, y: my - 0.08, z: 0 }, // index fingertip
-              12: { x: mx + 0.02, y: my - 0.08, z: 0 },
-              16: { x: mx + 0.04, y: my - 0.07, z: 0 },
-              17: { x: mx + 0.05, y: my - 0.03, z: 0 },
-              20: { x: mx + 0.06, y: my - 0.05, z: 0 },
-            };
-          }
-        }
-      }
+      // If hand is not yet detected, results.hand remains null (no phantom landmarks on face)
 
       // 3. Single Arm Tracking Chain (One clean arm + matched hand)
       if (results.pose) {

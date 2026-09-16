@@ -62,11 +62,12 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   const ADL_HAND_CONNECTIONS = [
-    [0, 5], [5, 6], [6, 7], [7, 8],
-    [5, 9], [9, 10], [10, 11], [11, 12],
-    [9, 13], [13, 14], [14, 15], [15, 16],
-    [13, 17], [17, 18], [18, 19], [19, 20],
-    [0, 17],
+    [0, 1], [1, 2], [2, 3], [3, 4],       // Thumb
+    [0, 5], [5, 6], [6, 7], [7, 8],       // Index
+    [0, 9], [9, 10], [10, 11], [11, 12],  // Middle
+    [0, 13], [13, 14], [14, 15], [15, 16],// Ring
+    [0, 17], [17, 18], [18, 19], [19, 20],// Pinky
+    [5, 9], [9, 13], [13, 17],            // Palm knuckle base
   ];
 
   // Task Specific Motor States
@@ -553,29 +554,73 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   function drawHandSkeleton(lm) {
+    if (!lm || lm.length < 21) return;
     handCtx.clearRect(0, 0, handCanvas.width, handCanvas.height);
     const w = handCanvas.width, h = handCanvas.height;
-    handCtx.strokeStyle = "rgba(56, 189, 248, 0.4)";
-    handCtx.lineWidth = 2;
+
+    // 1. Cyan Bones (#00E5FF)
+    handCtx.strokeStyle = "rgba(0, 229, 255, 0.85)";
+    handCtx.lineWidth = 2.5;
+    handCtx.lineCap = "round";
+    handCtx.lineJoin = "round";
     ADL_HAND_CONNECTIONS.forEach(([a, b]) => {
-      handCtx.beginPath();
-      handCtx.moveTo(lm[a].x * w, lm[a].y * h);
-      handCtx.lineTo(lm[b].x * w, lm[b].y * h);
-      handCtx.stroke();
+      if (lm[a] && lm[b]) {
+        handCtx.beginPath();
+        handCtx.moveTo(lm[a].x * w, lm[a].y * h);
+        handCtx.lineTo(lm[b].x * w, lm[b].y * h);
+        handCtx.stroke();
+      }
     });
 
-    // Joints in light blue `#38BDF8`
-    lm.forEach((p, idx) => {
-      handCtx.beginPath();
-      handCtx.arc(p.x * w, p.y * h, idx === 8 ? 6 : 3, 0, Math.PI * 2);
-      handCtx.fillStyle = idx === 8 ? "#FBBF24" : "#38BDF8";
-      handCtx.fill();
-    });
+    // 2. All 21 Joint Nodes (Red Wrist 0, White Joints 1-20, Golden Index Tip 8)
+    for (let i = 0; i < 21; i++) {
+      const p = lm[i];
+      if (!p) continue;
+      const px = p.x * w, py = p.y * h;
+
+      if (i === 0) {
+        // Red wrist (COLOR_HAND_WRIST = #EF4444)
+        handCtx.beginPath();
+        handCtx.arc(px, py, 5.5, 0, Math.PI * 2);
+        handCtx.fillStyle = "#EF4444";
+        handCtx.fill();
+        handCtx.strokeStyle = "#FFFFFF";
+        handCtx.lineWidth = 1.5;
+        handCtx.stroke();
+      } else if (i === 8) {
+        // Index tip targeting node
+        handCtx.beginPath();
+        handCtx.arc(px, py, 6.5, 0, Math.PI * 2);
+        handCtx.fillStyle = "#FBBF24";
+        handCtx.fill();
+        handCtx.strokeStyle = "#FFFFFF";
+        handCtx.lineWidth = 2;
+        handCtx.stroke();
+
+        // Targeting ring
+        handCtx.beginPath();
+        handCtx.arc(px, py, 13, 0, Math.PI * 2);
+        handCtx.strokeStyle = "rgba(251, 191, 36, 0.85)";
+        handCtx.lineWidth = 1.5;
+        handCtx.stroke();
+      } else {
+        // White joints (COLOR_HAND_JOINT = #FFFFFF)
+        const isTip = i === 4 || i === 12 || i === 16 || i === 20;
+        handCtx.beginPath();
+        handCtx.arc(px, py, isTip ? 4.0 : 3.2, 0, Math.PI * 2);
+        handCtx.fillStyle = "#FFFFFF";
+        handCtx.fill();
+        handCtx.strokeStyle = "rgba(0, 0, 0, 0.4)";
+        handCtx.lineWidth = 1;
+        handCtx.stroke();
+      }
+    }
   }
 
   // --- Pure Deterministic 6-Step Gate Evaluation ---
   function evaluateStepProgression() {
-    if (adlPaused || currentTask === "menu" || !wristData) return;
+    try {
+      if (adlPaused || currentTask === "menu" || !wristData) return;
     const cx = 0.5, cy = 0.46;
     const distToTarget = Math.hypot(handPos.x - cx, handPos.y - cy);
     const now = Date.now();
@@ -631,7 +676,10 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
         break;
     }
+  } catch (err) {
+    console.warn("[ADL] evaluateStepProgression caught error:", err);
   }
+}
 
   // --- Session Controls & 4s Countdown ---
   let adlCountdownTimer = null;

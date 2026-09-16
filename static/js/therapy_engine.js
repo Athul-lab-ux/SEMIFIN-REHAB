@@ -79,36 +79,36 @@ document.addEventListener("DOMContentLoaded", () => {
       oCtx.lineCap = "round";
       oCtx.lineJoin = "round";
 
-      // 1. Arm skeleton (Shoulder -> Elbow -> Wrist)
+      // 1. Arm skeleton (OpenCV Spec: Green bones #00C853, Yellow joints #FFEB3B)
       const c = res.chain || (res.pose && (
         (res.pose[12] && res.pose[14] && res.pose[16] && { sh: res.pose[12], el: res.pose[14], wr: res.pose[16] }) ||
         (res.pose[11] && res.pose[13] && res.pose[15] && { sh: res.pose[11], el: res.pose[13], wr: res.pose[15] })
       ));
 
       if (c && c.sh && c.el && c.wr && (c.sh.x !== 0 || c.sh.y !== 0)) {
-        oCtx.strokeStyle = "rgba(56, 189, 248, 0.9)";
-        oCtx.lineWidth = 4.5;
+        oCtx.strokeStyle = "rgba(0, 200, 83, 0.9)";
+        oCtx.lineWidth = 4.0;
         oCtx.beginPath();
         oCtx.moveTo(X(c.sh), Y(c.sh));
         oCtx.lineTo(X(c.el), Y(c.el));
         oCtx.lineTo(X(c.wr), Y(c.wr));
         oCtx.stroke();
 
-        [[c.sh, "rgba(100, 116, 139, 0.9)"], [c.el, "#10B981"], [c.wr, "#38BDF8"]].forEach(([p, col]) => {
+        [c.sh, c.el, c.wr].forEach((p) => {
           oCtx.beginPath();
           oCtx.arc(X(p), Y(p), 6.5, 0, Math.PI * 2);
-          oCtx.fillStyle = col;
+          oCtx.fillStyle = "#FFEB3B";
           oCtx.fill();
-          oCtx.strokeStyle = "rgba(255, 255, 255, 0.9)";
-          oCtx.lineWidth = 2;
+          oCtx.strokeStyle = "rgba(0, 0, 0, 0.35)";
+          oCtx.lineWidth = 1.5;
           oCtx.stroke();
         });
       }
 
-      // 2. Full 21 Hand Landmarks & Connecting Bones
+      // 2. Full 21 Hand Landmarks & Connecting Bones (OpenCV Spec: Cyan bones, Red wrist, White joints)
       if (res.hand && res.hand[0]) {
-        // Draw hand bones
-        oCtx.strokeStyle = "rgba(16, 185, 129, 0.85)";
+        // Draw hand bones: OpenCV Cyan (#00E5FF)
+        oCtx.strokeStyle = "rgba(0, 229, 255, 0.85)";
         oCtx.lineWidth = 2.5;
         for (const [i, j] of HAND_CONNECTIONS) {
           const p1 = res.hand[i], p2 = res.hand[j];
@@ -124,23 +124,44 @@ document.addEventListener("DOMContentLoaded", () => {
         for (let i = 0; i < 21; i++) {
           const p = res.hand[i];
           if (!p) continue;
-          const isTip = i === 4 || i === 8 || i === 12 || i === 16 || i === 20;
-          const radius = i === 8 ? 6 : isTip ? 4.5 : 3.5;
-          oCtx.beginPath();
-          oCtx.arc(X(p), Y(p), radius, 0, Math.PI * 2);
-          oCtx.fillStyle = i === 8 ? "#38BDF8" : isTip ? "#34D399" : "#FFFFFF";
-          oCtx.fill();
-          oCtx.strokeStyle = "rgba(0, 0, 0, 0.4)";
-          oCtx.lineWidth = 1;
-          oCtx.stroke();
+          const px = X(p), py = Y(p);
+          if (i === 0) {
+            // Landmark 0: Red wrist (COLOR_HAND_WRIST = #EF4444)
+            oCtx.beginPath();
+            oCtx.arc(px, py, 5.5, 0, Math.PI * 2);
+            oCtx.fillStyle = "#EF4444";
+            oCtx.fill();
+            oCtx.strokeStyle = "#FFFFFF";
+            oCtx.lineWidth = 1.5;
+            oCtx.stroke();
+          } else if (i === 8) {
+            // Landmark 8: Index tip reticle
+            oCtx.beginPath();
+            oCtx.arc(px, py, 6.5, 0, Math.PI * 2);
+            oCtx.fillStyle = "#00E5FF";
+            oCtx.fill();
+            oCtx.strokeStyle = "#FFFFFF";
+            oCtx.lineWidth = 2;
+            oCtx.stroke();
+          } else {
+            // Landmarks 1-20: White joints (COLOR_HAND_JOINT = #FFFFFF)
+            const isTip = i === 4 || i === 12 || i === 16 || i === 20;
+            oCtx.beginPath();
+            oCtx.arc(px, py, isTip ? 4.2 : 3.5, 0, Math.PI * 2);
+            oCtx.fillStyle = "#FFFFFF";
+            oCtx.fill();
+            oCtx.strokeStyle = "rgba(0, 0, 0, 0.4)";
+            oCtx.lineWidth = 1;
+            oCtx.stroke();
+          }
         }
 
         // Index fingertip targeting halo
         if (res.hand[8]) {
           oCtx.beginPath();
           oCtx.arc(X(res.hand[8]), Y(res.hand[8]), 14, 0, Math.PI * 2);
-          oCtx.strokeStyle = "rgba(56, 189, 248, 0.9)";
-          oCtx.lineWidth = 2.5;
+          oCtx.strokeStyle = "rgba(0, 229, 255, 0.85)";
+          oCtx.lineWidth = 2;
           oCtx.stroke();
         }
       }
