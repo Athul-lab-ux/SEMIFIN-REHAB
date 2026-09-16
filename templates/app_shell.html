@@ -45,10 +45,8 @@
 
   {% include '_ai_widget.html' %}
 
-  <!-- Core MediaPipe Vision Libraries (Pre-cached and non-blocking for instant camera access) -->
-  <script defer src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
-  <script defer src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
-  <script defer src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+  <!-- MediaPipe Vision Libraries (Only loaded on active vision session pages) -->
+  {% block vision_scripts %}{% endblock %}
 
   {% block scripts %}{% endblock %}
 </body>

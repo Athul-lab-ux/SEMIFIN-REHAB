@@ -37,6 +37,16 @@ const VisionLoader = (() => {
   let lastVideoWidth = 640;
   let lastVideoHeight = 480;
 
+  // Inference throttling & zero-allocation landmark caches
+  let lastPoseInferenceTime = 0;
+  let lastHandsInferenceTime = 0;
+  let cachedPoseAll = null;
+  let cachedPose = null;
+  let cachedLegs = null;
+  let cachedHandAll = null;
+  let cachedHand = null;
+  let cachedHandSide = null;
+
   // Optical motion tracker fallback canvas
   let optCanvas = null;
   let optCtx = null;
@@ -102,6 +112,19 @@ const VisionLoader = (() => {
             if (res.poseLandmarks && res.poseLandmarks.length > 0) {
               lastPoseLandmarks = res.poseLandmarks;
               lastModelDetectionTime = Date.now();
+              const src = res.poseLandmarks;
+              cachedPoseAll = src.map((lm) => ({ x: mapX(lm.x), y: lm.y, z: lm.z || 0 }));
+              cachedPose = {};
+              for (let i = 0; i < src.length; i++) {
+                cachedPose[i] = { x: mapX(src[i].x), y: src[i].y, z: src[i].z || 0 };
+              }
+              if (cachedPose[23] && cachedPose[25] && cachedPose[27] &&
+                  cachedPose[24] && cachedPose[26] && cachedPose[28]) {
+                cachedLegs = {
+                  left: { hip: cachedPose[23], knee: cachedPose[25], ankle: cachedPose[27] },
+                  right: { hip: cachedPose[24], knee: cachedPose[26], ankle: cachedPose[28] },
+                };
+              }
             }
           });
         } catch (err) {
@@ -125,6 +148,15 @@ const VisionLoader = (() => {
             if (res.multiHandLandmarks && res.multiHandLandmarks.length > 0) {
               lastHandLandmarks = res.multiHandLandmarks[0];
               lastModelDetectionTime = Date.now();
+              const src = res.multiHandLandmarks[0];
+              cachedHandAll = src.map((lm) => ({ x: mapX(lm.x), y: lm.y, z: lm.z || 0 }));
+              cachedHand = {};
+              for (let i = 0; i < src.length; i++) {
+                cachedHand[i] = { x: mapX(src[i].x), y: src[i].y, z: src[i].z || 0 };
+              }
+              if (cachedHand[17] && cachedHand[5]) {
+                cachedHandSide = cachedHand[17].x < cachedHand[5].x ? "right" : "left";
+              }
             }
           });
         } catch (err) {
@@ -338,74 +370,51 @@ const VisionLoader = (() => {
         lastVideoHeight = videoElement.videoHeight;
       }
 
-      // Asynchronously send frames to neural models without blocking main thread
-      if (poseModel && !isProcessingPose) {
+      // Asynchronously send frames to neural models with 30 FPS pacing
+      const now = performance.now();
+      if (poseModel && !isProcessingPose && (now - lastPoseInferenceTime >= 32)) {
         isProcessingPose = true;
+        lastPoseInferenceTime = now;
         poseModel.send({ image: videoElement })
           .catch((e) => console.warn("[VisionLoader] pose frame skip:", e))
           .finally(() => { isProcessingPose = false; });
       }
 
-      if (handsModel && !isProcessingHands) {
+      if (handsModel && !isProcessingHands && (now - lastHandsInferenceTime >= 32)) {
         isProcessingHands = true;
+        lastHandsInferenceTime = now;
         handsModel.send({ image: videoElement })
           .catch((e) => console.warn("[VisionLoader] hand frame skip:", e))
           .finally(() => { isProcessingHands = false; });
       }
 
-      // Construct results bundle
+      // Construct results bundle reusing pre-mapped caches (zero per-frame heap allocation)
       const results = {
-        pose: null,
-        poseAll: null,
-        hand: null,
-        handAll: null,
-        hand_side: null,
+        pose: cachedPose,
+        poseAll: cachedPoseAll,
+        hand: cachedHand,
+        handAll: cachedHandAll,
+        hand_side: cachedHandSide,
         chain: null,
-        legs: null,
+        legs: cachedLegs,
         legChain: null,
       };
 
-      // 1. Mirror and map Pose Landmarks
-      if (lastPoseLandmarks && lastPoseLandmarks.length > 0) {
-        const src = lastPoseLandmarks;
-        results.poseAll = src.map((lm) => ({ x: mapX(lm.x), y: lm.y, z: lm.z || 0 }));
-        results.pose = {};
-        for (let i = 0; i < src.length; i++) {
-          results.pose[i] = { x: mapX(src[i].x), y: src[i].y, z: src[i].z || 0 };
-        }
-        // Leg joints: 23/24 hips, 25/26 knees, 27/28 ankles
-        if (results.pose[23] && results.pose[25] && results.pose[27] &&
-            results.pose[24] && results.pose[26] && results.pose[28]) {
-          results.legs = {
-            left: { hip: results.pose[23], knee: results.pose[25], ankle: results.pose[27] },
-            right: { hip: results.pose[24], knee: results.pose[26], ankle: results.pose[28] },
-          };
-          // Leg chain
-          const side = (results.hand && results.hand[0] && results.hand[0].x > 0.5) ? "right" : "left";
-          results.legChain = {
-            side,
-            hip: results.legs[side].hip,
-            knee: results.legs[side].knee,
-            ankle: results.legs[side].ankle,
-          };
-        }
+      // Leg chain
+      if (results.legs) {
+        const side = (results.hand && results.hand[0] && results.hand[0].x > 0.5) ? "right" : "left";
+        results.legChain = {
+          side,
+          hip: results.legs[side].hip,
+          knee: results.legs[side].knee,
+          ankle: results.legs[side].ankle,
+        };
       }
 
-      // 2. Mirror and map Hand Landmarks
-      if (lastHandLandmarks && lastHandLandmarks.length > 0) {
-        const src = lastHandLandmarks;
-        results.handAll = src.map((lm) => ({ x: mapX(lm.x), y: lm.y, z: lm.z || 0 }));
-        results.hand = {};
-        for (let i = 0; i < src.length; i++) {
-          results.hand[i] = { x: mapX(src[i].x), y: src[i].y, z: src[i].z || 0 };
-        }
-        if (results.hand[17] && results.hand[5]) {
-          results.hand_side = results.hand[17].x < results.hand[5].x ? "right" : "left";
-        }
-      } else {
-        // Optical fallback when hand model is not yet tracking
-        const now = Date.now();
-        if (now - lastModelDetectionTime > 1200) {
+      // Optical fallback when hand model is not yet tracking
+      if (!results.hand) {
+        const wallNow = Date.now();
+        if (wallNow - lastModelDetectionTime > 1200) {
           const centroid = computeOpticalMotion(videoElement);
           if (centroid) {
             // Mirror centroid for selfie view

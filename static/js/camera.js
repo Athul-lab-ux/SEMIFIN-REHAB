@@ -124,14 +124,20 @@ class RehabCamera {
 
   startLoop() {
     this.isProcessing = true;
+    let lastFrameTime = 0;
     const loop = async () => {
       if (!this.isProcessing) return;
-      try {
-        if (this.video && this.video.readyState >= 2 && this.onFrame) {
-          await this.onFrame(this.video);
+      const now = performance.now();
+      // Pace camera inference to ~30 FPS (32ms) to prevent CPU/battery drain
+      if (now - lastFrameTime >= 32) {
+        lastFrameTime = now;
+        try {
+          if (this.video && this.video.readyState >= 2 && this.onFrame) {
+            await this.onFrame(this.video);
+          }
+        } catch (err) {
+          console.warn("[RehabCamera] onFrame error:", err);
         }
-      } catch (err) {
-        console.warn("[RehabCamera] onFrame error:", err);
       }
       this.animationId = requestAnimationFrame(loop);
     };
