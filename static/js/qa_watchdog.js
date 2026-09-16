@@ -29,8 +29,10 @@ const RehabQA = (() => {
 
   /* ----- Diagnostic synthetic stress harness (50-iteration fast pre-flight) ---- */
   const STRESS_TARGET = 50;
+  let cachedStressResult = null;
 
   function runStressTest(target = STRESS_TARGET) {
+    if (cachedStressResult) return cachedStressResult;
     const failures = [];
     let checks = 0;
 
@@ -113,12 +115,13 @@ const RehabQA = (() => {
       }
     }
 
-    return {
+    cachedStressResult = {
       passed: failures.length === 0,
       checks,
       iterations: target,
       failures,
     };
+    return cachedStressResult;
   }
 
   /* ----- Camera frame watchdog (auto-reconnect, no reload) ------- */

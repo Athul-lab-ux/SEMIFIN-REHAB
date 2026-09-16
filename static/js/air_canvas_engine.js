@@ -62,6 +62,16 @@ document.addEventListener("DOMContentLoaded", async () => {
   let canvasCamera = null;
   let cameraActive = true;
   let isMirrored = localStorage.getItem("rehab_mirror_mode") !== "inverted"; // default natural (left = left)
+  let panBufferCanvas = null;
+
+  const HAND_CONNECTIONS = [
+    [0, 1], [1, 2], [2, 3], [3, 4],
+    [0, 5], [5, 6], [6, 7], [7, 8],
+    [5, 9], [9, 10], [10, 11], [11, 12],
+    [9, 13], [13, 14], [14, 15], [15, 16],
+    [13, 17], [17, 18], [18, 19], [19, 20],
+    [0, 17],
+  ];
 
   function updateMirrorUI() {
     const v = document.getElementById("video");
@@ -458,7 +468,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   });
   hands.setOptions({
     maxNumHands: 1,
-    modelComplexity: 1,
+    modelComplexity: 0,
     minDetectionConfidence: 0.7,
     minTrackingConfidence: 0.5,
   });
@@ -551,13 +561,19 @@ document.addEventListener("DOMContentLoaded", async () => {
         const dx = px - panLastPoint.x;
         const dy = py - panLastPoint.y;
         if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) {
-          const tmp = document.createElement("canvas");
-          tmp.width = drawCanvas.width;
-          tmp.height = drawCanvas.height;
-          tmp.getContext("2d").drawImage(drawCanvas, 0, 0);
+          if (!panBufferCanvas) {
+            panBufferCanvas = document.createElement("canvas");
+          }
+          if (panBufferCanvas.width !== drawCanvas.width || panBufferCanvas.height !== drawCanvas.height) {
+            panBufferCanvas.width = drawCanvas.width;
+            panBufferCanvas.height = drawCanvas.height;
+          }
+          const bufCtx = panBufferCanvas.getContext("2d");
+          bufCtx.clearRect(0, 0, panBufferCanvas.width, panBufferCanvas.height);
+          bufCtx.drawImage(drawCanvas, 0, 0);
           drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
           drawTemplate();
-          drawCtx.drawImage(tmp, dx, dy);
+          drawCtx.drawImage(panBufferCanvas, dx, dy);
         }
       }
       panLastPoint = { x: px, y: py };
@@ -651,19 +667,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     const w = handCanvas.width;
     const h = handCanvas.height;
 
-    const connections = [
-      [0, 1], [1, 2], [2, 3], [3, 4],
-      [0, 5], [5, 6], [6, 7], [7, 8],
-      [5, 9], [9, 10], [10, 11], [11, 12],
-      [9, 13], [13, 14], [14, 15], [15, 16],
-      [13, 17], [17, 18], [18, 19], [19, 20],
-      [0, 17],
-    ];
-
     handCtx.strokeStyle = color;
     handCtx.lineWidth = 2.5;
     handCtx.globalAlpha = 0.6;
-    connections.forEach(([a, b]) => {
+    HAND_CONNECTIONS.forEach(([a, b]) => {
       handCtx.beginPath();
       handCtx.moveTo(lm[a].x * w, lm[a].y * h);
       handCtx.lineTo(lm[b].x * w, lm[b].y * h);

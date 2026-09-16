@@ -51,16 +51,18 @@ class RehabCamera {
         audio: false,
         video: {
           facingMode: "user",
-          frameRate: { ideal: 30 },
+          width: { ideal: 640, max: 1280 },
+          height: { ideal: 480, max: 720 },
+          frameRate: { ideal: 30, max: 30 },
         },
       },
       // 3. Fallback without facingMode (needed on Windows/USB webcams)
       {
         audio: false,
         video: {
-          width: { ideal: 640 },
-          height: { ideal: 480 },
-          frameRate: { ideal: 30 },
+          width: { ideal: 640, max: 1280 },
+          height: { ideal: 480, max: 720 },
+          frameRate: { ideal: 30, max: 30 },
         },
       },
       // 4. Resilient fallback to any available video stream

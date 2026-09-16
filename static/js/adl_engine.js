@@ -61,6 +61,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
+  const ADL_HAND_CONNECTIONS = [
+    [0, 5], [5, 6], [6, 7], [7, 8],
+    [5, 9], [9, 10], [10, 11], [11, 12],
+    [9, 13], [13, 14], [14, 15], [15, 16],
+    [13, 17], [17, 18], [18, 19], [19, 20],
+    [0, 17],
+  ];
+
   // Task Specific Motor States
   let keyRotation = 0;
   const keyTarget = 90;
@@ -463,7 +471,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const hands = new Hands({
     locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`,
   });
-  hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.7, minTrackingConfidence: 0.5 });
+  hands.setOptions({ maxNumHands: 1, modelComplexity: 0, minDetectionConfidence: 0.7, minTrackingConfidence: 0.5 });
   hands.onResults(onHandResults);
 
   async function initCamera() {
@@ -544,16 +552,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   function drawHandSkeleton(lm) {
     handCtx.clearRect(0, 0, handCanvas.width, handCanvas.height);
     const w = handCanvas.width, h = handCanvas.height;
-    const connections = [
-      [0,5],[5,6],[6,7],[7,8],
-      [5,9],[9,10],[10,11],[11,12],
-      [9,13],[13,14],[14,15],[15,16],
-      [13,17],[17,18],[18,19],[19,20],
-      [0,17],
-    ];
     handCtx.strokeStyle = "rgba(56, 189, 248, 0.4)";
     handCtx.lineWidth = 2;
-    connections.forEach(([a,b]) => {
+    ADL_HAND_CONNECTIONS.forEach(([a, b]) => {
       handCtx.beginPath();
       handCtx.moveTo(lm[a].x * w, lm[a].y * h);
       handCtx.lineTo(lm[b].x * w, lm[b].y * h);

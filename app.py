@@ -62,6 +62,8 @@ def add_security_headers(response):
     response.headers["Permissions-Policy"] = "camera=(self)"
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "SAMEORIGIN"
+    if request.path.startswith("/static/"):
+        response.headers["Cache-Control"] = "public, max-age=86400"
     return response
 
 
@@ -128,6 +130,20 @@ CREATE TABLE IF NOT EXISTS telemetry_logs (
     FOREIGN KEY (patient_id) REFERENCES patients(patient_id)
 );
 
+CREATE TABLE IF NOT EXISTS clinical_reports (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    patient_id TEXT NOT NULL,
+    report_type TEXT DEFAULT 'SOAP',
+    content TEXT NOT NULL,
+    soap_subjective TEXT,
+    soap_objective TEXT,
+    soap_assessment TEXT,
+    soap_plan TEXT,
+    status TEXT DEFAULT 'DRAFT',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (patient_id) REFERENCES patients(patient_id)
+);
+
 CREATE TABLE IF NOT EXISTS chat_logs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     patient_id TEXT NOT NULL,
@@ -141,6 +157,15 @@ CREATE TABLE IF NOT EXISTS chat_logs (
 # ---------------------------------------------------------------------------
 # Database Helpers
 # ---------------------------------------------------------------------------
+_schema_initialized = False
+
+def init_db_schema_once(db):
+    global _schema_initialized
+    if not _schema_initialized:
+        db.executescript(SCHEMA_SQL)
+        ensure_schema_columns(db)
+        _schema_initialized = True
+
 def get_db():
     if "db" not in g:
         os.makedirs(os.path.dirname(os.path.abspath(DATABASE)), exist_ok=True)
@@ -155,15 +180,15 @@ def get_db():
         else:
             try:
                 g.db.execute("PRAGMA journal_mode=WAL")
+                g.db.execute("PRAGMA synchronous=NORMAL")
             except Exception:
                 pass
         try:
             g.db.execute("PRAGMA foreign_keys=ON")
         except Exception:
             pass
-        # Ensure schema tables exist (idempotent, fast)
-        g.db.executescript(SCHEMA_SQL)
-        ensure_schema_columns(g.db)
+        # Ensure schema tables exist (run once per process lifecycle)
+        init_db_schema_once(g.db)
         if need_seed:
             try:
                 demo_hash = generate_password_hash("PatientDemo@123", method="scrypt")

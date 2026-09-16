@@ -92,7 +92,7 @@ const VisionLoader = (() => {
             locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`,
           });
           poseModel.setOptions({
-            modelComplexity: 1,
+            modelComplexity: 0,
             smoothLandmarks: true,
             enableSegmentation: false,
             minDetectionConfidence: 0.5,
@@ -117,7 +117,7 @@ const VisionLoader = (() => {
           });
           handsModel.setOptions({
             maxNumHands: 1,
-            modelComplexity: 1,
+            modelComplexity: 0,
             minDetectionConfidence: 0.5,
             minTrackingConfidence: 0.5,
           });
@@ -229,15 +229,17 @@ const VisionLoader = (() => {
           audio: false,
           video: {
             facingMode: "user",
-            frameRate: { ideal: 30 },
+            width: { ideal: 640, max: 1280 },
+            height: { ideal: 480, max: 720 },
+            frameRate: { ideal: 30, max: 30 },
           },
         },
         {
           audio: false,
           video: {
-            width: { ideal: 640 },
-            height: { ideal: 480 },
-            frameRate: { ideal: 30 },
+            width: { ideal: 640, max: 1280 },
+            height: { ideal: 480, max: 720 },
+            frameRate: { ideal: 30, max: 30 },
           },
         },
         {
