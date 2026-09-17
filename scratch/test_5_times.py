@@ -108,6 +108,29 @@ class TestRehabOptSystem(unittest.TestCase):
             # Check Green / Cyan bones (#00FF00 or #00E5FF or (0, 229, 255))
             self.assertTrue('#00FF00' in content or '#00E5FF' in content or '0, 229, 255' in content, f"{js_file} missing hand bone color")
 
+    def test_arcade_layout_uncluttered(self):
+        # Verify arcade.html has clean horizontal toolbar and zero formula clutter / side panels
+        path = os.path.join(os.path.dirname(__file__), '..', 'templates', 'arcade.html')
+        with open(path, 'r', encoding='utf-8') as f:
+            content = f.read()
+
+        self.assertIn('game-toolbar', content)
+        self.assertIn('video-frame', content)
+        self.assertNotIn('kpi-panel', content)
+        self.assertNotIn('game-shelf', content)
+
+    def test_adl_key_and_pin_features(self):
+        # Verify adl_engine.js has 3-finger Z-axis key rotation and randomized PIN
+        path = os.path.join(os.path.dirname(__file__), '..', 'static', 'js', 'adl_engine.js')
+        with open(path, 'r', encoding='utf-8') as f:
+            content = f.read()
+
+        self.assertIn('generateRandomPin', content)
+        self.assertIn('randomPin', content)
+        self.assertIn('is3FingerGrip', content)
+        self.assertIn('middleTip', content)
+        self.assertIn('DEADBOLT CYLINDER · Z-AXIS', content)
+
     def test_telemetry_post(self):
         with self.client.session_transaction() as sess:
             sess['patient_id'] = 'SP-000000001'

@@ -73,16 +73,32 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Task Specific Motor States
   let keyRotation = 0;
   const keyTarget = 90;
+  let keyInitialAngle = null;
   let switchOn = false;
   let lastThrustY = 0.5;
   let thermostatTemp = 18;
   const tempMin = 18, tempMax = 24;
   let lastThermostatAngle = null;
-  const PIN = [1, 2, 3, 4];
+
+  // Randomized 4-digit PIN generator for cognitive-motor index finger tapping
+  function generateRandomPin() {
+    const digits = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+    const seq = [];
+    while (seq.length < 4) {
+      const pick = digits[Math.floor(Math.random() * digits.length)];
+      if (seq.length === 0 || pick !== seq[seq.length - 1]) {
+        seq.push(pick);
+      }
+    }
+    return seq;
+  }
+
+  let randomPin = generateRandomPin();
+  let lastAnnouncedDigit = null;
   let pinProgress = 0;
   let dwellStart = 0;
   let dwellTarget = -1;
-  const DWELL_MS = 800;
+  const DWELL_MS = 600;
   const padPositions = [
     { x: 0.38, y: 0.28 }, { x: 0.50, y: 0.28 }, { x: 0.62, y: 0.28 },
     { x: 0.38, y: 0.45 }, { x: 0.50, y: 0.45 }, { x: 0.62, y: 0.45 },
@@ -116,11 +132,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     key: {
       name: "🔑 90° Door Key Turn",
       steps: [
-        { name: "Neutral Rest", desc: "Rest hand at ready position" },
-        { name: "Forward Reach", desc: "Move hand toward keyhole" },
-        { name: "Pincer Contact", desc: "Pinch thumb & index on key" },
-        { name: "90° Supination", desc: "Rotate forearm outward 90°" },
-        { name: "Unlock Sustain", desc: "Hold turned key for 1 sec" },
+        { name: "Neutral Rest", desc: "Rest hand poised at ready position" },
+        { name: "Forward Reach", desc: "Move hand toward deadbolt lock" },
+        { name: "3-Finger Grip", desc: "Pinch Thumb, Index & Middle on key" },
+        { name: "90° Z-Axis Turn", desc: "Rotate 3 fingers 90° clockwise" },
+        { name: "Unlock Sustain", desc: "Hold unlocked key for 1 sec" },
         { name: "Home Return", desc: "Retract hand to neutral base" },
       ],
     },
@@ -150,10 +166,10 @@ document.addEventListener("DOMContentLoaded", async () => {
       name: "🔢 Touchless PIN Pad",
       steps: [
         { name: "Neutral Rest", desc: "Hand poised in front" },
-        { name: "Enter Digit 1", desc: "Hover index fingertip on 1" },
-        { name: "Enter Digit 2", desc: "Hover index fingertip on 2" },
-        { name: "Enter Digit 3", desc: "Hover index fingertip on 3" },
-        { name: "Enter Digit 4", desc: "Hover index fingertip on 4" },
+        { name: "Enter Digit 1", desc: "Tap random digit with index finger" },
+        { name: "Enter Digit 2", desc: "Tap random digit with index finger" },
+        { name: "Enter Digit 3", desc: "Tap random digit with index finger" },
+        { name: "Enter Digit 4", desc: "Tap random digit with index finger" },
         { name: "Code Confirmed", desc: "Retract hand to complete rep" },
       ],
     },
@@ -317,7 +333,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     if (stepEl && taskInfo.steps[currentStepIndex]) {
-      stepEl.textContent = `Step ${currentStepIndex + 1}: ${taskInfo.steps[currentStepIndex].name}`;
+      if (currentTask === "pin" && currentStepIndex >= 1 && currentStepIndex <= 4) {
+        const targetDigit = randomPin[currentStepIndex - 1];
+        stepEl.textContent = `Step ${currentStepIndex + 1}: Tap Digit [ ${targetDigit} ] (Index Finger)`;
+      } else {
+        stepEl.textContent = `Step ${currentStepIndex + 1}: ${taskInfo.steps[currentStepIndex].name}`;
+      }
     }
   }
 
@@ -365,8 +386,11 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   function resetTaskVariables() {
     keyRotation = 0;
+    keyInitialAngle = null;
     switchOn = false;
     thermostatTemp = 18;
+    randomPin = generateRandomPin();
+    lastAnnouncedDigit = null;
     pinProgress = 0;
     dwellTarget = -1;
     faucetAngle = 0;
@@ -379,9 +403,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   const ADL_GUIDES = {
     key: {
       title: "🔑 90° Door Key Turn",
-      what: "Rotate the deadbolt key 90° clockwise to unlock the door.",
-      how: "Turn forearm like turning a key in a lock. Follow the 6 visual steps at the bottom of the screen.",
-      tip: "Retrains active forearm pronation & supination (knuckle coronal vector).",
+      what: "Rotate deadbolt key 90° clockwise along Z-axis into lock to unlock.",
+      how: "Pinch Thumb, Index & Middle fingers together on the key, and rotate them 90° clockwise into the lock.",
+      tip: "Key points into screen along Z-axis. Uses 3-finger chuck pinch and active forearm supination.",
     },
     light: {
       title: "💡 Rocker Light Switch",
@@ -397,9 +421,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     },
     pin: {
       title: "🔢 Touchless PIN Pad",
-      what: "Enter security code: 1 → 2 → 3 → 4.",
-      how: "Hover index fingertip steadily over digit 1, 2, 3, then 4 until the dwell ring completes.",
-      tip: "Retrains tremor dampening and steady isometric hover target control.",
+      what: "Tap the 4 randomly announced numbers in order.",
+      how: "Listen to each random number and reach to tap it directly using your index fingertip.",
+      tip: "Retrains cognitive-motor sequence targeting and index finger precision.",
     },
     faucet: {
       title: "🚰 Water Faucet Twist",
@@ -529,21 +553,53 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     const indexTip = lm[8];
     const thumbTip = lm[4];
+    const middleTip = lm[12];
     const wrist = lm[0];
     const indexMCP = lm[5];
     const pinkyMCP = lm[17];
 
     handPos = { x: indexTip.x, y: indexTip.y };
 
-    // Pincer distance
+    // Pincer distance (Thumb to Index)
     const pincerDist = Math.hypot(thumbTip.x - indexTip.x, thumbTip.y - indexTip.y);
+
+    // 3-finger key grip tightness (Thumb 4, Index 8, Middle 12 held together)
+    const dTI = Math.hypot(thumbTip.x - indexTip.x, thumbTip.y - indexTip.y);
+    const dIM = Math.hypot(indexTip.x - middleTip.x, indexTip.y - middleTip.y);
+    const dTM = Math.hypot(thumbTip.x - middleTip.x, thumbTip.y - middleTip.y);
+    const max3FingerSpan = Math.max(dTI, dIM, dTM);
+    const is3FingerGrip = max3FingerSpan < 0.16;
+
+    // 3-finger key grip centroid
+    const threeFingerCentroid = {
+      x: (thumbTip.x + indexTip.x + middleTip.x) / 3,
+      y: (thumbTip.y + indexTip.y + middleTip.y) / 3,
+    };
+
+    // Coronal rotation angle of 3 fingers around Z-axis (Thumb to midpoint of Index & Middle)
+    const midIMx = (indexTip.x + middleTip.x) / 2;
+    const midIMy = (indexTip.y + middleTip.y) / 2;
+    const fingerAngle = Math.atan2(midIMy - thumbTip.y, midIMx - thumbTip.x) * (180 / Math.PI);
 
     // Knuckle coronal vector (wrist supination/rotation)
     const knuckleDx = indexMCP.x - pinkyMCP.x;
     const knuckleDy = indexMCP.y - pinkyMCP.y;
     const knuckleAngle = Math.atan2(knuckleDy, knuckleDx) * (180 / Math.PI);
 
-    wristData = { indexTip, thumbTip, wrist, indexMCP, pinkyMCP, pincerDist, knuckleAngle };
+    wristData = {
+      indexTip,
+      thumbTip,
+      middleTip,
+      wrist,
+      indexMCP,
+      pinkyMCP,
+      pincerDist,
+      is3FingerGrip,
+      max3FingerSpan,
+      threeFingerCentroid,
+      fingerAngle,
+      knuckleAngle,
+    };
 
     if (currentTask !== "menu") {
       evaluateStepProgression();
@@ -811,63 +867,236 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
-  // 1. 🔑 Key Task
+  // 1. 🔑 Key Task (Realistic 3-Finger Z-Axis Key Turn)
   function drawKeyTask(hx, hy) {
     const cx = gameCanvas.width * 0.5, cy = gameCanvas.height * 0.46;
+    const w = gameCanvas.width, h = gameCanvas.height;
 
-    // Outer deadbolt plate (translucent dark metal)
-    gCtx.fillStyle = "rgba(20, 24, 34, 0.78)";
+    // 1. Outer deadbolt escutcheon plate (brushed titanium/slate)
+    gCtx.save();
+    gCtx.fillStyle = "rgba(15, 23, 42, 0.88)";
     gCtx.strokeStyle = "#38BDF8";
+    gCtx.lineWidth = 2.5;
+    gCtx.beginPath();
+    gCtx.roundRect(cx - 110, cy - 80, 220, 160, 16);
+    gCtx.fill();
+    gCtx.stroke();
+
+    // Plate screws
+    const screwOffsets = [[-95, -65], [95, -65], [-95, 65], [95, 65]];
+    screwOffsets.forEach(([sx, sy]) => {
+      gCtx.beginPath();
+      gCtx.arc(cx + sx, cy + sy, 5, 0, Math.PI * 2);
+      gCtx.fillStyle = "#475569";
+      gCtx.fill();
+      gCtx.strokeStyle = "#94A3B8";
+      gCtx.lineWidth = 1;
+      gCtx.stroke();
+    });
+
+    // Deadbolt plate header
+    gCtx.font = "bold 11px Inter, sans-serif";
+    gCtx.fillStyle = "#94A3B8";
+    gCtx.textAlign = "center";
+    gCtx.fillText("DEADBOLT CYLINDER · Z-AXIS", cx, cy - 58);
+
+    // Sliding deadbolt latch indicator
+    const boltExtended = keyRotation < 85;
+    gCtx.fillStyle = boltExtended ? "rgba(239, 68, 68, 0.35)" : "rgba(16, 185, 129, 0.35)";
+    gCtx.strokeStyle = boltExtended ? "#EF4444" : "#10B981";
     gCtx.lineWidth = 2;
     gCtx.beginPath();
-    gCtx.roundRect(cx - 70, cy - 50, 140, 100, 12);
+    const boltShift = (keyRotation / keyTarget) * 20;
+    gCtx.roundRect(cx + 45 + boltShift, cy - 14, 50, 28, 4);
     gCtx.fill();
     gCtx.stroke();
+    gCtx.font = "bold 10px monospace";
+    gCtx.fillStyle = boltExtended ? "#FCA5A5" : "#6EE7B7";
+    gCtx.fillText(boltExtended ? "LOCKED" : "UNLOCKED", cx + 70 + boltShift, cy + 4);
 
-    // Key cylinder
+    // 2. Lock Cylinder (Facing into screen along Z-axis)
+    const rimGrad = gCtx.createRadialGradient(cx, cy, 25, cx, cy, 54);
+    rimGrad.addColorStop(0, "#1E293B");
+    rimGrad.addColorStop(0.7, "#334155");
+    rimGrad.addColorStop(1, "#0F172A");
     gCtx.beginPath();
-    gCtx.arc(cx, cy, 26, 0, Math.PI * 2);
-    gCtx.fillStyle = "rgba(10, 13, 20, 0.9)";
+    gCtx.arc(cx, cy, 54, 0, Math.PI * 2);
+    gCtx.fillStyle = rimGrad;
     gCtx.fill();
     gCtx.strokeStyle = "#FBBF24";
-    gCtx.lineWidth = 2.5;
+    gCtx.lineWidth = 3;
     gCtx.stroke();
 
-    // Knuckle rotation computation (Vector math)
-    if (wristData && currentStepIndex >= 3) {
-      if (wristData.knuckleAngle !== undefined) {
-        // Map angle changes to 0 - 90 deg
-        keyRotation = Math.max(keyRotation, Math.min(keyTarget, Math.abs(wristData.knuckleAngle) * 1.1));
+    // 3. Hand 3-Finger Tracking & Z-Axis Rotation Math
+    let isPinching = false;
+    let thumbP = null, indexP = null, middleP = null;
+
+    if (wristData) {
+      thumbP = wristData.thumbTip ? { x: wristData.thumbTip.x * w, y: wristData.thumbTip.y * h } : null;
+      indexP = wristData.indexTip ? { x: wristData.indexTip.x * w, y: wristData.indexTip.y * h } : null;
+      middleP = wristData.middleTip ? { x: wristData.middleTip.x * w, y: wristData.middleTip.y * h } : null;
+
+      if (thumbP && indexP && middleP) {
+        const dTI = Math.hypot(thumbP.x - indexP.x, thumbP.y - indexP.y);
+        const dIM = Math.hypot(indexP.x - middleP.x, indexP.y - middleP.y);
+        const dTM = Math.hypot(thumbP.x - middleP.x, thumbP.y - middleP.y);
+        const maxDist = Math.max(dTI, dIM, dTM);
+
+        isPinching = maxDist < (w * 0.16);
+
+        // Angle of 3-finger key grip around Z-axis
+        const midIMx = (indexP.x + middleP.x) / 2;
+        const midIMy = (indexP.y + middleP.y) / 2;
+        const angle = Math.atan2(midIMy - thumbP.y, midIMx - thumbP.x) * (180 / Math.PI);
+        const knuckleAngle = wristData.knuckleAngle || 0;
+
+        if (currentStepIndex >= 3) {
+          if (keyInitialAngle === null) {
+            keyInitialAngle = angle;
+          }
+          let delta = angle - keyInitialAngle;
+          while (delta < -180) delta += 360;
+          while (delta > 180) delta -= 360;
+
+          // Clockwise rotation tracking combined with knuckle supination
+          const effectiveTurn = Math.max(delta, Math.abs(knuckleAngle) * 0.95);
+          if (effectiveTurn > 0) {
+            keyRotation = Math.max(keyRotation, Math.min(keyTarget, effectiveTurn));
+          }
+        }
       }
     }
 
-    // Key body
+    // 4. Rotating Inner Cylinder Plug (Facing screen along Z-axis)
     gCtx.save();
     gCtx.translate(cx, cy);
     gCtx.rotate((keyRotation * Math.PI) / 180);
 
-    gCtx.fillStyle = "#FBBF24";
-    gCtx.fillRect(-5, -45, 10, 50);
-
+    // Inner brass cylinder core (plug)
+    const plugGrad = gCtx.createRadialGradient(0, 0, 8, 0, 0, 36);
+    plugGrad.addColorStop(0, "#FEF3C7");
+    plugGrad.addColorStop(0.5, "#F59E0B");
+    plugGrad.addColorStop(1, "#B45309");
     gCtx.beginPath();
-    gCtx.arc(0, -48, 14, 0, Math.PI * 2);
-    gCtx.fillStyle = "#F59E0B";
+    gCtx.arc(0, 0, 36, 0, Math.PI * 2);
+    gCtx.fillStyle = plugGrad;
     gCtx.fill();
-    gCtx.strokeStyle = "#FBBF24";
+    gCtx.strokeStyle = "#FDE68A";
     gCtx.lineWidth = 2;
     gCtx.stroke();
 
-    gCtx.fillStyle = "#FBBF24";
-    gCtx.fillRect(5, -22, 10, 4);
-    gCtx.fillRect(5, -14, 7, 4);
+    // 3D Depth Rings along Z-Axis (facing straight into the keyhole)
+    gCtx.beginPath();
+    gCtx.arc(0, 0, 24, 0, Math.PI * 2);
+    gCtx.strokeStyle = "rgba(0, 0, 0, 0.4)";
+    gCtx.lineWidth = 2;
+    gCtx.stroke();
+
+    gCtx.beginPath();
+    gCtx.arc(0, 0, 14, 0, Math.PI * 2);
+    gCtx.strokeStyle = "rgba(0, 0, 0, 0.55)";
+    gCtx.lineWidth = 1.5;
+    gCtx.stroke();
+
+    // Keyway slot (perpendicular into screen along Z-axis)
+    gCtx.fillStyle = "#070D18";
+    gCtx.beginPath();
+    gCtx.roundRect(-4, -18, 8, 36, 3);
+    gCtx.fill();
+    gCtx.strokeStyle = "#1E293B";
+    gCtx.lineWidth = 1;
+    gCtx.stroke();
+
+    // Key bow (head) held facing the user, perpendicular along Z-axis
+    gCtx.fillStyle = "#F59E0B";
+    gCtx.strokeStyle = "#FDE68A";
+    gCtx.lineWidth = 2.5;
+    gCtx.beginPath();
+    gCtx.roundRect(-16, -6, 32, 12, 5);
+    gCtx.fill();
+    gCtx.stroke();
+
+    // Key grip teeth & ridges along perpendicular axis
+    gCtx.fillStyle = "#B45309";
+    gCtx.fillRect(-12, -4, 4, 8);
+    gCtx.fillRect(-4, -4, 4, 8);
+    gCtx.fillRect(4, -4, 4, 8);
+
     gCtx.restore();
 
-    // 90° Arc Guide
+    // 5. 90° Clockwise Rotation Guide Arc
     gCtx.beginPath();
-    gCtx.arc(cx, cy, 55, -Math.PI / 2, -Math.PI / 2 + (keyRotation / keyTarget) * (Math.PI / 2));
+    const startArc = -Math.PI / 2;
+    const endArc = startArc + (keyRotation / keyTarget) * (Math.PI / 2);
+    gCtx.arc(cx, cy, 76, startArc, endArc);
     gCtx.strokeStyle = keyRotation >= keyTarget ? "#10B981" : "#F59E0B";
-    gCtx.lineWidth = 5;
+    gCtx.lineWidth = 6;
+    gCtx.lineCap = "round";
     gCtx.stroke();
+
+    // Readout label
+    gCtx.font = "bold 13px Inter, sans-serif";
+    gCtx.fillStyle = keyRotation >= keyTarget ? "#10B981" : "#FBBF24";
+    gCtx.textAlign = "center";
+    gCtx.fillText(
+      keyRotation >= keyTarget ? "✅ 90° UNLOCKED!" : `↻ ROTATE CLOCKWISE: ${Math.round(keyRotation)}° / 90°`,
+      cx,
+      cy + 104
+    );
+
+    // 6. Visual 3-Finger Detection & Grip Indicators (Thumb 4, Index 8, Middle 12)
+    if (thumbP && indexP && middleP) {
+      const fingers = [
+        { p: thumbP, name: "Thumb (4)" },
+        { p: indexP, name: "Index (8)" },
+        { p: middleP, name: "Middle (12)" },
+      ];
+
+      fingers.forEach(({ p }) => {
+        gCtx.beginPath();
+        gCtx.arc(p.x, p.y, 14, 0, Math.PI * 2);
+        gCtx.strokeStyle = isPinching ? "#10B981" : "#F59E0B";
+        gCtx.lineWidth = 2.5;
+        gCtx.stroke();
+
+        gCtx.beginPath();
+        gCtx.arc(p.x, p.y, 4, 0, Math.PI * 2);
+        gCtx.fillStyle = isPinching ? "#10B981" : "#F59E0B";
+        gCtx.fill();
+      });
+
+      // Connector laser lines between Thumb, Index & Middle
+      gCtx.beginPath();
+      gCtx.moveTo(thumbP.x, thumbP.y);
+      gCtx.lineTo(indexP.x, indexP.y);
+      gCtx.lineTo(middleP.x, middleP.y);
+      gCtx.closePath();
+      gCtx.strokeStyle = isPinching ? "rgba(16, 185, 129, 0.6)" : "rgba(245, 158, 11, 0.35)";
+      gCtx.lineWidth = 1.5;
+      gCtx.stroke();
+
+      // Laser guide line from 3-finger centroid to lock cylinder
+      const fcx = (thumbP.x + indexP.x + middleP.x) / 3;
+      const fcy = (thumbP.y + indexP.y + middleP.y) / 3;
+      gCtx.beginPath();
+      gCtx.moveTo(fcx, fcy);
+      gCtx.lineTo(cx, cy);
+      gCtx.strokeStyle = isPinching ? "rgba(16, 185, 129, 0.4)" : "rgba(56, 189, 248, 0.25)";
+      gCtx.setLineDash([4, 4]);
+      gCtx.stroke();
+      gCtx.setLineDash([]);
+
+      // Grip Status Badge
+      gCtx.font = "bold 11px Inter, sans-serif";
+      gCtx.fillStyle = isPinching ? "#10B981" : "#F59E0B";
+      gCtx.textAlign = "center";
+      gCtx.fillText(
+        isPinching ? "👌 3-FINGER KEY GRIP ENGAGED" : "👉 Pinch Thumb, Index & Middle together",
+        fcx,
+        fcy - 24
+      );
+    }
+    gCtx.restore();
   }
 
   // 2. 💡 Light Switch Task
@@ -957,39 +1186,81 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
-  // 4. 🔢 Touchless PIN Pad Task
+  // 4. 🔢 Touchless PIN Pad Task (Randomized Numbers Clicked via Index Finger)
   function drawPinTask(hx, hy) {
     const w = gameCanvas.width, h = gameCanvas.height;
+    const currentTargetDigit = (currentStepIndex >= 1 && currentStepIndex <= 4)
+      ? randomPin[currentStepIndex - 1]
+      : null;
 
-    // PIN Display banner
-    gCtx.fillStyle = "rgba(7, 13, 24, 0.88)";
-    gCtx.beginPath();
-    gCtx.roundRect(w * 0.35, h * 0.12, w * 0.3, 38, 8);
-    gCtx.fill();
+    // Speak prompt whenever a new target digit becomes active
+    if (currentTargetDigit !== null && lastAnnouncedDigit !== currentTargetDigit) {
+      lastAnnouncedDigit = currentTargetDigit;
+      if (window.RehabBio) {
+        window.RehabBio.speak(`Tap digit ${currentTargetDigit} with your index finger`);
+      }
+      showToast(`👉 Tap digit ${currentTargetDigit} using your index finger`, "info");
+    }
+
+    // Top Prompt Banner
+    gCtx.fillStyle = "rgba(7, 13, 24, 0.92)";
     gCtx.strokeStyle = "#38BDF8";
+    gCtx.lineWidth = 2;
+    gCtx.beginPath();
+    gCtx.roundRect(w * 0.22, h * 0.08, w * 0.56, 56, 12);
+    gCtx.fill();
     gCtx.stroke();
 
-    gCtx.font = "bold 18px monospace";
+    // Display Active Target Prompt
+    gCtx.font = "bold 15px Inter, sans-serif";
     gCtx.fillStyle = "#FBBF24";
     gCtx.textAlign = "center";
-    const stars = "● ".repeat(pinProgress) + "○ ".repeat(4 - pinProgress);
-    gCtx.fillText(`CODE: ${stars}`, w * 0.5, h * 0.12 + 25);
+    if (currentTargetDigit !== null) {
+      gCtx.fillText(`👉 TAP DIGIT: [ ${currentTargetDigit} ] WITH INDEX FINGER`, w * 0.5, h * 0.08 + 24);
+    } else {
+      gCtx.fillText("✅ CODE CONFIRMED! RETRACT HAND", w * 0.5, h * 0.08 + 24);
+    }
+
+    // PIN Progress Display
+    let pinCodeDisplay = "PIN: ";
+    for (let k = 0; k < 4; k++) {
+      if (k < pinProgress) {
+        pinCodeDisplay += `[ ${randomPin[k]} ] `;
+      } else {
+        pinCodeDisplay += `[ _ ] `;
+      }
+    }
+    gCtx.font = "bold 13px monospace";
+    gCtx.fillStyle = "#E2E8F0";
+    gCtx.fillText(pinCodeDisplay, w * 0.5, h * 0.08 + 46);
     gCtx.textAlign = "start";
 
+    // Draw keypad buttons
     padPositions.forEach((pos, i) => {
       const px = pos.x * w, py = pos.y * h;
-      const isCompleted = i < pinProgress;
-      const isTarget = currentStepIndex >= 1 && currentStepIndex <= 4 && padLabels[i] === String(PIN[currentStepIndex - 1]);
+      const label = padLabels[i];
+      const isTarget = currentTargetDigit !== null && label === String(currentTargetDigit);
       const isDwelling = dwellTarget === i;
 
+      // Outer pulsing glow for target digit
+      if (isTarget) {
+        gCtx.beginPath();
+        gCtx.arc(px, py, 34, 0, Math.PI * 2);
+        gCtx.strokeStyle = "rgba(245, 158, 11, 0.45)";
+        gCtx.lineWidth = 4;
+        gCtx.stroke();
+      }
+
+      // Key button body
       gCtx.beginPath();
       gCtx.arc(px, py, 26, 0, Math.PI * 2);
-      gCtx.fillStyle = isCompleted ? "rgba(16, 185, 129, 0.8)" : isTarget ? "rgba(245, 158, 11, 0.25)" : "rgba(15, 20, 32, 0.8)";
+      gCtx.fillStyle = isTarget ? "rgba(245, 158, 11, 0.35)" : "rgba(15, 20, 32, 0.85)";
       gCtx.fill();
-      gCtx.strokeStyle = isCompleted ? "#10B981" : isTarget ? "#F59E0B" : "#38BDF8";
+      gCtx.strokeStyle = isTarget ? "#F59E0B" : "#38BDF8";
       gCtx.lineWidth = isTarget ? 3 : 1.5;
       gCtx.stroke();
 
+      // Dwell progress ring
       if (isDwelling) {
         const elapsed = Date.now() - dwellStart;
         const prog = Math.min(1, elapsed / DWELL_MS);
@@ -1000,32 +1271,53 @@ document.addEventListener("DOMContentLoaded", async () => {
         gCtx.stroke();
       }
 
-      gCtx.font = "bold 15px monospace";
-      gCtx.fillStyle = isCompleted ? "#070D18" : "#E2E8F0";
+      // Digit label
+      gCtx.font = "bold 17px monospace";
+      gCtx.fillStyle = isTarget ? "#FFFFFF" : "#E2E8F0";
       gCtx.textAlign = "center";
-      gCtx.fillText(padLabels[i], px, py + 5);
+      gCtx.fillText(label, px, py + 6);
     });
     gCtx.textAlign = "start";
 
-    // Dwell check
-    if (wristData && wristData.indexTip && currentStepIndex >= 1 && currentStepIndex <= 4) {
-      const targetDigit = String(PIN[currentStepIndex - 1]);
-      const targetIdx = padLabels.indexOf(targetDigit);
-      const target = padPositions[targetIdx];
-      const dist = Math.hypot(handPos.x - target.x, handPos.y - target.y);
+    // Index Fingertip Interaction Detection
+    if (wristData && wristData.indexTip) {
+      const itx = wristData.indexTip.x * w, ity = wristData.indexTip.y * h;
 
-      if (dist < 0.08) {
-        if (dwellTarget !== targetIdx) {
-          dwellTarget = targetIdx;
-          dwellStart = Date.now();
-        } else if (Date.now() - dwellStart >= DWELL_MS) {
-          pinProgress++;
-          dwellTarget = -1;
-          showToast(`🔢 Digit ${targetDigit} accepted`, "info");
-          advanceStep();
+      // Index finger reticle
+      gCtx.beginPath();
+      gCtx.arc(itx, ity, 12, 0, Math.PI * 2);
+      gCtx.strokeStyle = "#10B981";
+      gCtx.lineWidth = 2.5;
+      gCtx.stroke();
+
+      gCtx.font = "bold 10px Inter, sans-serif";
+      gCtx.fillStyle = "#10B981";
+      gCtx.textAlign = "center";
+      gCtx.fillText("👆 INDEX", itx, ity - 16);
+      gCtx.textAlign = "start";
+
+      // Check hit on target digit with index finger
+      if (currentTargetDigit !== null) {
+        const targetIdx = padLabels.indexOf(String(currentTargetDigit));
+        const targetPos = padPositions[targetIdx];
+        const dist = Math.hypot(wristData.indexTip.x - targetPos.x, wristData.indexTip.y - targetPos.y);
+
+        if (dist < 0.08) {
+          if (dwellTarget !== targetIdx) {
+            dwellTarget = targetIdx;
+            dwellStart = Date.now();
+          } else if (Date.now() - dwellStart >= DWELL_MS) {
+            pinProgress++;
+            dwellTarget = -1;
+            if (window.RehabBio) {
+              window.RehabBio.playBeep(880, 0.08, 0.3);
+            }
+            showToast(`✅ Digit ${currentTargetDigit} accepted!`, "success");
+            advanceStep();
+          }
+        } else {
+          if (dwellTarget === targetIdx) dwellTarget = -1;
         }
-      } else {
-        if (dwellTarget === targetIdx) dwellTarget = -1;
       }
     }
   }

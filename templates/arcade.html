@@ -3,32 +3,46 @@
   <link rel="stylesheet" href="/static/css/arcade.css" />
 {% endblock %}
 {% block content %}
-  <div class="arcade-head">
-    <div>
-      <h1>🎮 Games</h1>
-      <p class="ah-sub">Hand &amp; arm-driven motor games · each trains a specific post-stroke movement</p>
+  <div class="arcade-container">
+    <!-- Top Bar: Title & Controls Dock (Matching Drawing Session immersion) -->
+    <div class="arcade-top-bar">
+      <div class="atb-left">
+        <a href="/dashboard" class="back-btn">← Back</a>
+        <h2>🎮 Motor Games Arena</h2>
+      </div>
+
+      <div class="arcade-controls">
+        <button id="btn-cam-toggle" class="c-ctrl-btn" title="Toggle camera on/off">📷 Camera: ON</button>
+        <button id="btn-mirror-toggle" class="c-ctrl-btn" title="Toggle mirror mode">🪞 Mirror: Natural</button>
+        <button id="btn-start" class="c-ctrl-btn primary" title="Start selected game with 4s countdown">▶ Start Game (4s)</button>
+        <button id="btn-pause" class="c-ctrl-btn" title="Pause game" style="display:none;">⏸ Pause</button>
+        <button id="btn-resume" class="c-ctrl-btn primary" title="Resume game with 4s countdown" style="display:none;">▶ Resume (4s)</button>
+        <button id="btn-stop" class="c-ctrl-btn danger" title="Stop game" style="display:none;">⏹ Stop</button>
+        <div class="speed-pill" title="Game speed adjustment">
+          <button id="btn-slower" class="sp-btn" title="Slow the game down">🐢</button>
+          <span class="ctl-speed" id="speed-display">1.0x</span>
+          <button id="btn-faster" class="sp-btn" title="Speed the game up">🚀</button>
+        </div>
+      </div>
     </div>
-    <span class="clin-chip green">9 Therapeutic Games</span>
-  </div>
 
-  <div class="arcade-layout">
-    <!-- Game shelf -->
-    <aside class="game-shelf" aria-label="Game selection">
-      <div class="shelf-label">🕹️ Select a Game</div>
-      <div id="game-list" class="game-list"><!-- injected by engine --></div>
-      <div class="shelf-hint">Tip: sit at arm's length from the camera so your full arm and hand are visible.</div>
-    </aside>
+    <!-- Upside Game Selection Bar (Horizontal chips across the top, clean & spacious) -->
+    <div class="game-toolbar" id="game-list" role="tablist" aria-label="Game Selection">
+      <!-- Injected by arcade_engine.js: clean emoji + name chips, no formula clutter -->
+    </div>
 
-    <!-- Stage -->
-    <section class="stage-col">
+    <!-- Stage Area: Full-Width Spacious Dynamic Mirror Viewport -->
+    <div class="stage-area">
       <div class="video-frame">
         <video id="video" autoplay playsinline muted></video>
         <canvas id="game-canvas"></canvas>
         <canvas id="overlay-canvas"></canvas>
+
+        <!-- Initial Placeholder Prompt -->
         <div id="stage-placeholder" class="stage-placeholder">
           <div class="sp-icon">🕹️</div>
-          <p><strong>Pick a game</strong> from the left shelf to begin.</p>
-          <p class="sp-sub">Your webcam stream starts automatically — camera data never leaves your device. Moves match your hand directly.</p>
+          <h3>Pick a Game from the Top to Begin</h3>
+          <p class="sp-sub">Your live mirror moves directly with your hand. Select any game above to start your practice.</p>
         </div>
 
         <!-- 4s Countdown Overlay -->
@@ -36,7 +50,7 @@
           <div class="aco-box">
             <div class="aco-label" id="aco-label">GET READY</div>
             <div class="aco-num" id="aco-num">4</div>
-            <div class="aco-hint" id="aco-hint">Position your hand in front of the camera</div>
+            <div class="aco-hint" id="aco-hint">Position your hand in front of the mirror</div>
           </div>
         </div>
 
@@ -52,61 +66,22 @@
             </div>
           </div>
         </div>
-      </div>
 
-      <!-- HUD strip -->
-      <div class="hud-strip">
-        <div class="hud-chip"><span class="hud-lab">Score</span><span class="hud-val" id="score-display">0</span></div>
-        <div class="hud-chip"><span class="hud-lab">⏱️ Time</span><span class="hud-val" id="timer-display">00:00</span></div>
-        <div class="hud-chip"><span class="hud-lab">⚡ Combo</span><span class="hud-val" id="combo-display">—</span></div>
-        <div class="hud-chip"><span class="hud-lab">Lives</span><span class="hud-val" id="hearts-display">❤️❤️❤️</span></div>
-        <div class="hud-chip"><span class="hud-lab">Drive Metric</span><span class="hud-val" id="metric-display">—</span></div>
-      </div>
-
-      <!-- Live coaching line -->
-      <div class="guide-line" id="guide-line" role="status" aria-live="polite">
-        💬 Select a game to see how to play it.
-      </div>
-    </section>
-
-    <!-- KPI + controls panel -->
-    <aside class="kpi-panel" aria-label="Session telemetry">
-      <div class="kpi-card">
-        <div class="kpi-label">Active Game</div>
-        <div class="kpi-value" id="kpi-game">—</div>
-      </div>
-      <div class="kpi-card">
-        <div class="kpi-label">Trains</div>
-        <div class="kpi-value kpi-sm" id="kpi-trains">—</div>
-      </div>
-      <div class="kpi-card">
-        <div class="kpi-label">Therapy Goal</div>
-        <div class="kpi-value kpi-sm" id="kpi-formula">—</div>
-      </div>
-      <div class="kpi-card">
-        <div class="kpi-label">Hand State</div>
-        <div class="kpi-value" id="kpi-hand">—</div>
-      </div>
-
-      <div class="kpi-controls">
-        <button id="btn-cam-toggle" class="ctl-btn" title="Toggle camera on/off">📷 Camera: ON</button>
-        <button id="btn-mirror-toggle" class="ctl-btn" title="Toggle mirror mode">🪞 Mirror: Natural</button>
-        <button id="btn-start" class="ctl-btn primary" title="Start game with 4s countdown">▶ Start Game (4s)</button>
-        <button id="btn-pause" class="ctl-btn" title="Pause game" style="display:none;">⏸ Pause</button>
-        <button id="btn-resume" class="ctl-btn primary" title="Resume game with 4s countdown" style="display:none;">▶ Resume (4s)</button>
-        <button id="btn-stop" class="ctl-btn stop" title="Stop game" style="display:none;">⏹ Stop</button>
-        <div class="speed-row">
-          <button id="btn-slower" class="ctl-btn sm" title="Slow the game down">🐢 Slower</button>
-          <span class="ctl-speed" id="speed-display">1.0x</span>
-          <button id="btn-faster" class="ctl-btn sm" title="Speed the game up">🚀 Faster</button>
+        <!-- Floating In-Game HUD Pills (Sleek, transparent, non-obtrusive) -->
+        <div class="arcade-hud">
+          <div class="hud-pill"><span class="hud-lab">Score</span> <span class="hud-val" id="score-display">0</span></div>
+          <div class="hud-pill"><span class="hud-lab">⏱️ Time</span> <span class="hud-val" id="timer-display">00:00</span></div>
+          <div class="hud-pill"><span class="hud-lab">⚡ Combo</span> <span class="hud-val" id="combo-display">—</span></div>
+          <div class="hud-pill"><span class="hud-lab">Lives</span> <span class="hud-val" id="hearts-display">❤️❤️❤️</span></div>
+          <div class="hud-pill"><span class="hud-lab">Motion</span> <span class="hud-val" id="metric-display">—</span></div>
         </div>
       </div>
-      <div class="keys-hint">
-        <span><kbd>P</kbd> Pause</span>
-        <span><kbd>R</kbd> Resume</span>
-        <span><kbd>Q</kbd> Quit</span>
+
+      <!-- Live Coaching Guide Bar below the viewport -->
+      <div class="guide-line" id="guide-line" role="status" aria-live="polite">
+        💬 Select a game from the top bar to begin.
       </div>
-    </aside>
+    </div>
   </div>
 {% endblock %}
 

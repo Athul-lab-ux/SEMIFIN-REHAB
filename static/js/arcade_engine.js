@@ -968,22 +968,24 @@ document.addEventListener("DOMContentLoaded", async () => {
   };
 
   function setKPI(game) {
-    kpiGame.textContent = `${game.emoji} ${game.name}`;
-    kpiTrains.textContent = game.trains;
-    kpiFormula.textContent = game.formula;
-    guideLine.textContent = `💬 ${game.guide}`;
+    if (kpiGame) kpiGame.textContent = `${game.emoji} ${game.name}`;
+    if (kpiTrains) kpiTrains.textContent = game.trains;
+    if (kpiFormula) kpiFormula.textContent = game.formula;
+    if (guideLine) guideLine.textContent = `💬 ${game.guide}`;
     document.querySelectorAll(".game-btn").forEach((b) => b.classList.toggle("selected", b.dataset.game === engine.key));
-    heartsEl.parentElement.style.display = game.lives ? "" : "none";
+    if (heartsEl && heartsEl.parentElement) {
+      heartsEl.parentElement.style.display = game.lives ? "" : "none";
+    }
   }
 
-  // Populate shelf buttons
+  // Populate horizontal shelf buttons (Clean emoji + name chips, zero formula clutter)
   GAME_KEYS.forEach((id) => {
     const g = GAMES[id];
     const btn = document.createElement("button");
     btn.className = "game-btn";
     btn.dataset.game = id;
     btn.setAttribute("aria-label", `Play ${g.name}`);
-    btn.innerHTML = `<span class="g-icon">${g.emoji}</span><span class="g-name">${g.name}</span><span class="g-tag">${g.formula}</span>`;
+    btn.innerHTML = `<span class="g-icon">${g.emoji}</span><span class="g-name">${g.name}</span>`;
     btn.addEventListener("click", () => selectGame(id));
     gameListEl.appendChild(btn);
   });
@@ -1080,10 +1082,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     engine.game = null;
     engine.key = null;
     placeholder.style.display = "";
-    kpiGame.textContent = "—";
-    kpiTrains.textContent = "—";
-    kpiFormula.textContent = "—";
-    guideLine.textContent = "💬 Select a game to see how to play it.";
+    if (kpiGame) kpiGame.textContent = "—";
+    if (kpiTrains) kpiTrains.textContent = "—";
+    if (kpiFormula) kpiFormula.textContent = "—";
+    if (guideLine) guideLine.textContent = "💬 Select a game from the top bar to begin.";
     gCtx.clearRect(0, 0, gameCanvas.width, gameCanvas.height);
     oCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
     document.querySelectorAll(".game-btn").forEach((b) => b.classList.remove("selected"));
@@ -1470,7 +1472,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // Render hand and arm skeleton unconditionally on every frame whenever camera data is present
     drawOverlay(engine.lastRes || {});
-    if (engine.lastRes && engine.lastRes.hand) {
+    if (engine.lastRes && engine.lastRes.hand && kpiHand) {
       kpiHand.textContent = engine.open ? "🖐️ Open palm" : "✊ Fist / closed";
     }
   }
