@@ -79,34 +79,117 @@ document.addEventListener("DOMContentLoaded", () => {
       oCtx.lineCap = "round";
       oCtx.lineJoin = "round";
 
+      // Determine exercise anatomical focus
+      const ex = S.ex;
+      const isShoulderElbowEx = !!(ex && (
+        ex.key === "elbow_ext" ||
+        ex.key === "fwd_reach" ||
+        ex.key === "shoulder_raise" ||
+        ex.key === "slow_unfurl" ||
+        (ex.metric && (ex.metric.includes("ELBOW") || ex.metric.includes("ELEV") || ex.metric.includes("REACH"))) ||
+        (ex.name && (ex.name.toLowerCase().includes("elbow") || ex.name.toLowerCase().includes("shoulder") || ex.name.toLowerCase().includes("reach") || ex.name.toLowerCase().includes("unfurl")))
+      ));
+
+      const isHandWristEx = !!(ex && (
+        ex.key === "palm_open" ||
+        ex.key === "wrist_stretch" ||
+        ex.key === "apraxia_pinch" ||
+        ex.key === "apraxia_oco" ||
+        ex.key === "wrist_cockup" ||
+        ex.key === "wrist_sweep" ||
+        ex.key === "wrist_point" ||
+        ex.key === "wrist_openlift" ||
+        (ex.metric && (ex.metric.includes("PALM") || ex.metric.includes("PINCH") || ex.metric.includes("DEV") || ex.metric.includes("OPEN") || ex.metric.includes("POINT")))
+      ));
+
+      // Shoulder and elbow exercises show ONLY shoulder, elbow, and wrist arm landmarks & lines
+      const drawArm = !isHandWristEx;
+      const drawHand = !isShoulderElbowEx;
+
       // 1. Arm skeleton (OpenCV Spec: Green bones #00C853, Yellow joints #FFEB3B)
       const c = res.chain || (res.pose && (
         (res.pose[12] && res.pose[14] && res.pose[16] && { sh: res.pose[12], el: res.pose[14], wr: res.pose[16] }) ||
         (res.pose[11] && res.pose[13] && res.pose[15] && { sh: res.pose[11], el: res.pose[13], wr: res.pose[15] })
       ));
 
-      if (c && c.sh && c.el && c.wr && (c.sh.x !== 0 || c.sh.y !== 0)) {
-        oCtx.strokeStyle = "rgba(0, 200, 83, 0.9)";
-        oCtx.lineWidth = 4.0;
+      if (drawArm && c && c.sh && c.el && c.wr && (c.sh.x !== 0 || c.sh.y !== 0)) {
+        oCtx.strokeStyle = "rgba(0, 200, 83, 0.95)";
+        oCtx.lineWidth = 4.5;
         oCtx.beginPath();
         oCtx.moveTo(X(c.sh), Y(c.sh));
         oCtx.lineTo(X(c.el), Y(c.el));
         oCtx.lineTo(X(c.wr), Y(c.wr));
         oCtx.stroke();
 
-        [c.sh, c.el, c.wr].forEach((p) => {
+        const joints = [
+          { p: c.sh, label: "Shoulder" },
+          { p: c.el, label: "Elbow" },
+          { p: c.wr, label: "Wrist" },
+        ];
+
+        joints.forEach(({ p, label }) => {
+          const px = X(p), py = Y(p);
           oCtx.beginPath();
-          oCtx.arc(X(p), Y(p), 6.5, 0, Math.PI * 2);
+          oCtx.arc(px, py, 7, 0, Math.PI * 2);
           oCtx.fillStyle = "#FFEB3B";
           oCtx.fill();
-          oCtx.strokeStyle = "rgba(0, 0, 0, 0.35)";
-          oCtx.lineWidth = 1.5;
+          oCtx.strokeStyle = "rgba(0, 0, 0, 0.4)";
+          oCtx.lineWidth = 2;
           oCtx.stroke();
+
+          // Clinical joint tag
+          oCtx.font = "bold 11px Segoe UI, sans-serif";
+          const lw = oCtx.measureText(label).width;
+          oCtx.fillStyle = "rgba(15, 23, 42, 0.85)";
+          oCtx.fillRect(px + 10, py - 9, lw + 10, 18);
+          oCtx.strokeStyle = "rgba(255, 235, 59, 0.6)";
+          oCtx.lineWidth = 1;
+          oCtx.strokeRect(px + 10, py - 9, lw + 10, 18);
+          oCtx.fillStyle = "#FFFFFF";
+          oCtx.fillText(label, px + 15, py + 4);
         });
+
+        // Live Elbow Angle readout & arc
+        let deg = null;
+        if (window.Kinematics && typeof Kinematics.calculateJointAngle === "function") {
+          deg = Math.round(Kinematics.calculateJointAngle(c.sh, c.el, c.wr));
+        } else {
+          const v1x = c.sh.x - c.el.x, v1y = c.sh.y - c.el.y;
+          const v2x = c.wr.x - c.el.x, v2y = c.wr.y - c.el.y;
+          const dot = v1x * v2x + v1y * v2y;
+          const mag = Math.hypot(v1x, v1y) * Math.hypot(v2x, v2y);
+          if (mag > 0.0001) deg = Math.round(Math.acos(Math.max(-1, Math.min(1, dot / mag))) * (180 / Math.PI));
+        }
+
+        if (deg !== null && !isNaN(deg)) {
+          const elX = X(c.el), elY = Y(c.el);
+          const a1 = Math.atan2(c.sh.y - c.el.y, c.sh.x - c.el.x);
+          const a2 = Math.atan2(c.wr.y - c.el.y, c.wr.x - c.el.x);
+
+          oCtx.beginPath();
+          oCtx.arc(elX, elY, 28, a1, a2, false);
+          oCtx.strokeStyle = "rgba(255, 235, 59, 0.9)";
+          oCtx.lineWidth = 2.5;
+          oCtx.setLineDash([4, 4]);
+          oCtx.stroke();
+          oCtx.setLineDash([]);
+
+          const degStr = `θ = ${deg}°`;
+          oCtx.font = "bold 13px Segoe UI, sans-serif";
+          const tw = oCtx.measureText(degStr).width;
+          oCtx.fillStyle = "rgba(15, 23, 42, 0.9)";
+          oCtx.fillRect(elX - tw / 2 - 8, elY + 18, tw + 16, 22);
+          oCtx.strokeStyle = "#FFEB3B";
+          oCtx.lineWidth = 1.5;
+          oCtx.strokeRect(elX - tw / 2 - 8, elY + 18, tw + 16, 22);
+          oCtx.fillStyle = "#FFEB3B";
+          oCtx.fillText(degStr, elX - tw / 2, elY + 34);
+        }
       }
 
       // 2. Full 21 Hand Landmarks & Connecting Bones (OpenCV Spec: Cyan bones, Red wrist, White joints)
-      if (res.hand && res.hand[0]) {
+      // Hidden during shoulder/elbow exercises to keep focus strictly on the arm landmarks & lines
+      if (drawHand && res.hand && res.hand[0]) {
         // Draw hand bones: OpenCV Cyan (#00E5FF)
         oCtx.strokeStyle = "rgba(0, 229, 255, 0.85)";
         oCtx.lineWidth = 2.5;

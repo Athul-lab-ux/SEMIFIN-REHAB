@@ -498,8 +498,18 @@ document.addEventListener("DOMContentLoaded", async () => {
         this.strikeY = 0.45;
       },
       update(res, W, H) {
-        const wristUp = engine.vy < -0.5 || engine.dy < -0.015;
-        const wristDown = engine.vy > 0.5 || engine.dy > 0.015;
+        let wristCurlUp = false;
+        let wristCurlDown = false;
+        const hand = (res && res.hand) || (engine.lastRes && engine.lastRes.hand);
+        if (hand && hand[0] && (hand[9] || hand[5])) {
+          const knuckle = hand[9] || hand[5];
+          const dy = hand[0].y - knuckle.y;
+          if (dy > 0.07) wristCurlUp = true;
+          if (dy < -0.04) wristCurlDown = true;
+        }
+
+        const wristUp = engine.vy < -0.45 || engine.dy < -0.012 || wristCurlUp;
+        const wristDown = engine.vy > 0.45 || engine.dy > 0.012 || wristCurlDown;
         const isSwinging = wristUp || wristDown;
         const lineY = this.strikeY * H;
         const tip = engine.tip ? { x: engine.tip.x * W, y: engine.tip.y * H } : null;
@@ -1151,10 +1161,12 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // ---------------- Vision Callback -----------------------------------
   function computeFrame(res) {
-    engine.lastRes = res;
-    // Landmark tracking
+    // Landmark tracking (Prioritizes index fingertip Landmark 8, with Wrist Landmark 0 support)
     if (res.hand && res.hand[8]) {
       engine.tip = { x: res.hand[8].x, y: res.hand[8].y };
+      engine.tipFromCamera = true;
+    } else if (res.hand && res.hand[0]) {
+      engine.tip = { x: res.hand[0].x, y: res.hand[0].y };
       engine.tipFromCamera = true;
     }
 
