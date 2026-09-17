@@ -96,12 +96,331 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
-  // ---------------- 9 Game Definitions (7 Core + 2 Bubble) ----------------
+  // ---------------- 7 Core Therapeutic Games ----------------
   const GAMES = {
-    // 1. Flappy Reach
+    // 1. Fruit Slash
+    fruit: {
+      name: "Fruit Slash", emoji: "🍎", trains: "Index finger slicing & reaction speed",
+      guide: "Slice rising fruits with your index fingertip! Watch out: hitting a bomb 💣 means Game Over!",
+      lives: true,
+      init() {
+        this.fruits = [];
+        this.timer = 0;
+        this.trail = [];
+      },
+      update(res, W, H) {
+        const F = [
+          { emoji: "🍉", color: "#EF4444" },
+          { emoji: "🍊", color: "#F97316" },
+          { emoji: "🍓", color: "#F43F5E" },
+          { emoji: "🍍", color: "#FBBF24" },
+          { emoji: "🍎", color: "#DC2626" },
+        ];
+        if (++this.timer > Math.max(16, 38 / this.$speed)) {
+          this.timer = 0;
+          const isBomb = Math.random() < 0.18;
+          const sel = isBomb ? { emoji: "💣", color: "#475569" } : F[(Math.random() * F.length) | 0];
+          this.fruits.push({
+            x: rand(80, W - 80), y: H + 25,
+            vx: rand(-1.4, 1.4), vy: rand(6.5, 9.5) * this.$speed,
+            emoji: sel.emoji, color: sel.color,
+            bomb: isBomb, rot: 0, vrot: rand(-0.06, 0.06), gone: false,
+          });
+        }
+
+        const tip = engine.tip ? { x: engine.tip.x * W, y: engine.tip.y * H } : null;
+        if (tip) {
+          this.trail.unshift({ ...tip, life: 1.0 });
+          if (this.trail.length > 14) this.trail.pop();
+        }
+        this.trail.forEach((t) => { t.life -= 0.08; });
+        this.trail = this.trail.filter((t) => t.life > 0);
+
+        for (const f of this.fruits) {
+          f.x += f.vx;
+          f.y -= f.vy;
+          f.vy -= 0.18; // gravity arc
+          f.rot += f.vrot;
+
+          if (tip && Math.hypot(tip.x - f.x, tip.y - f.y) < 55) {
+            f.gone = true;
+            if (f.bomb) {
+              spawnParticles(f.x, f.y, "#EF4444", 32);
+              if (window.RehabBio) window.RehabBio.playCheatBuzz();
+              showToast("💥 BOMB DETONATED! GAME OVER!", "error");
+              setTimeout(() => stopGame("Game Over: Bomb Detonated"), 1200);
+              return;
+            } else {
+              this.$engine.addScore(10);
+              spawnParticles(f.x, f.y, f.color, 16);
+              addScorePopup(f.x, f.y, "+10 🍎 SLICE!", f.color);
+              if (window.RehabBio && typeof window.RehabBio.playBeep === "function") {
+                window.RehabBio.playBeep(980, 0.06, 0.25);
+              }
+            }
+          }
+        }
+        this.fruits = this.fruits.filter((f) => !f.gone && f.y < H + 60);
+      },
+      draw(ctx, W, H) {
+        if (this.trail.length > 1) {
+          ctx.beginPath();
+          ctx.moveTo(this.trail[0].x, this.trail[0].y);
+          for (let i = 1; i < this.trail.length; i++) {
+            ctx.lineTo(this.trail[i].x, this.trail[i].y);
+          }
+          ctx.strokeStyle = "rgba(56, 189, 248, 0.9)";
+          ctx.lineWidth = 6;
+          ctx.lineCap = "round";
+          ctx.stroke();
+        }
+
+        for (const f of this.fruits) {
+          ctx.save();
+          ctx.translate(f.x, f.y);
+          ctx.rotate(f.rot);
+          ctx.font = "42px Segoe UI Emoji, sans-serif";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText(f.emoji, 0, 0);
+          ctx.restore();
+        }
+      },
+    },
+
+    // 2. Wrist Hammer Smash
+    hammer: {
+      name: "Wrist Hammer", emoji: "🔨", trains: "Horizontal wrist UP / DOWN extension",
+      guide: "Hold forearm horizontally! Tilt wrist UP to smash high bubbles, tilt wrist DOWN to smash low bubbles!",
+      lives: true,
+      init() {
+        this.bubbles = [];
+        this.timer = 0;
+      },
+      update(res, W, H) {
+        const pitch = engine.wristPitch || 0;
+        const wristUp = pitch >= 13 || engine.vy < -0.45;
+        const wristDown = pitch <= -8 || engine.vy > 0.45;
+        const isSwinging = wristUp || wristDown;
+
+        if (++this.timer > Math.max(18, 42 / this.$speed) && this.bubbles.length < 8) {
+          this.timer = 0;
+          this.bubbles.push({
+            x: rand(0.15, 0.85) * W,
+            y: rand(0.2, 0.8) * H,
+            vy: rand(-0.5, 0.5),
+            r: 28,
+            hit: false,
+          });
+        }
+
+        const hand = (res && res.hand) || (engine.lastRes && engine.lastRes.hand);
+        const wrist = hand && hand[0] ? { x: hand[0].x * W, y: hand[0].y * H } : (engine.tip ? { x: engine.tip.x * W, y: engine.tip.y * H } : { x: W / 2, y: H / 2 });
+
+        for (const b of this.bubbles) {
+          b.y += b.vy;
+          const distToHand = Math.hypot(b.x - wrist.x, b.y - wrist.y);
+          const hitByUp = wristUp && (b.y < wrist.y || distToHand < 120);
+          const hitByDown = wristDown && (b.y > wrist.y || distToHand < 120);
+
+          if ((hitByUp || hitByDown || distToHand < b.r + 40) && !b.hit && isSwinging) {
+            b.hit = true;
+            this.$engine.addScore(10);
+            spawnParticles(b.x, b.y, "#F59E0B", 20);
+            addScorePopup(b.x, b.y - 15, wristUp ? "+10 🔨 UP SMASH!" : "+10 🔨 DOWN SMASH!", "#F59E0B");
+            if (window.RehabBio && typeof window.RehabBio.playBeep === "function") {
+              window.RehabBio.playBeep(940, 0.08, 0.3);
+            }
+          }
+        }
+        this.bubbles = this.bubbles.filter((b) => !b.hit);
+      },
+      draw(ctx, W, H) {
+        ctx.save();
+        ctx.strokeStyle = "rgba(245, 158, 11, 0.35)";
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([6, 6]);
+        ctx.beginPath();
+        ctx.moveTo(0, H * 0.5);
+        ctx.lineTo(W, H * 0.5);
+        ctx.stroke();
+
+        ctx.fillStyle = "rgba(245, 158, 11, 0.85)";
+        ctx.font = "bold 12px Segoe UI, sans-serif";
+        ctx.fillText("⬆️ WRIST UP SECTOR", 18, H * 0.5 - 12);
+        ctx.fillText("⬇️ WRIST DOWN SECTOR", 18, H * 0.5 + 24);
+        ctx.restore();
+
+        for (const b of this.bubbles) {
+          ctx.save();
+          ctx.fillStyle = "rgba(245, 158, 11, 0.4)";
+          ctx.beginPath();
+          ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = "#FDE68A";
+          ctx.lineWidth = 2.5;
+          ctx.stroke();
+          ctx.font = "20px Segoe UI Emoji, sans-serif";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText("🫧", b.x, b.y);
+          ctx.restore();
+        }
+
+        // Draw animated 🔨 Hammer symbol anchored at user's wrist/hand
+        const hand = (res && res.hand) || (engine.lastRes && engine.lastRes.hand);
+        const wrist = hand && hand[0] ? { x: hand[0].x * W, y: hand[0].y * H } : (engine.tip ? { x: engine.tip.x * W, y: engine.tip.y * H } : { x: W * 0.5, y: H * 0.5 });
+        const pitch = engine.wristPitch || 0;
+        const hammerAngle = -clamp(pitch, -45, 45) * (Math.PI / 180);
+
+        ctx.save();
+        ctx.translate(wrist.x, wrist.y);
+        ctx.rotate(hammerAngle);
+        ctx.font = "52px Segoe UI Emoji, sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.shadowColor = pitch >= 13 ? "rgba(16, 185, 129, 0.8)" : (pitch <= -8 ? "rgba(59, 130, 246, 0.8)" : "rgba(245, 158, 11, 0.4)");
+        ctx.shadowBlur = 14;
+        ctx.fillText("🔨", 24, -24);
+        ctx.restore();
+
+        // Directional Status Badge near wrist
+        ctx.save();
+        ctx.fillStyle = pitch >= 13 ? "#10B981" : (pitch <= -8 ? "#3B82F6" : "rgba(255, 255, 255, 0.7)");
+        ctx.font = "bold 13px Segoe UI, sans-serif";
+        ctx.textAlign = "center";
+        const stateText = pitch >= 13 ? "⬆️ UP SMASH!" : (pitch <= -8 ? "⬇️ DOWN SMASH!" : "↔️ HORIZONTAL READY");
+        ctx.fillText(stateText, wrist.x, wrist.y + 40);
+        ctx.restore();
+      },
+    },
+
+    // 3. Sky Pop
+    starcatch: {
+      name: "Sky Pop", emoji: "⭐", trains: "Target interception & pointing",
+      guide: "Things fall from top to bottom! Pop falling stars ⭐ and gems 💎 with your index finger!",
+      lives: true,
+      init() {
+        this.items = [];
+        this.timer = 0;
+      },
+      update(res, W, H) {
+        if (++this.timer > Math.max(16, 38 / this.$speed) && this.items.length < 8) {
+          this.timer = 0;
+          const isGem = Math.random() < 0.4;
+          this.items.push({
+            x: rand(0.1, 0.9) * W,
+            y: -25,
+            vy: rand(2.2, 4.2) * this.$speed,
+            emoji: isGem ? "💎" : "⭐",
+            color: isGem ? "#38BDF8" : "#FBBF24",
+            r: 26,
+            popped: false,
+          });
+        }
+
+        const tip = engine.tip ? { x: engine.tip.x * W, y: engine.tip.y * H } : null;
+
+        for (const it of this.items) {
+          it.y += it.vy;
+          if (tip && Math.hypot(tip.x - it.x, tip.y - it.y) < it.r + 28) {
+            it.popped = true;
+            this.$engine.addScore(10);
+            spawnParticles(it.x, it.y, it.color, 16);
+            addScorePopup(it.x, it.y - 15, `+10 ${it.emoji} POP!`, it.color);
+            if (window.RehabBio && typeof window.RehabBio.playBeep === "function") {
+              window.RehabBio.playBeep(1050, 0.06, 0.25);
+            }
+          }
+          if (it.y > H + 30 && !it.popped) {
+            it.popped = true;
+            this.$engine.loseLife();
+            showToast("Item reached bottom! −1 ❤️", "error");
+          }
+        }
+        this.items = this.items.filter((it) => !it.popped);
+      },
+      draw(ctx, W, H) {
+        for (const it of this.items) {
+          ctx.save();
+          ctx.font = "34px Segoe UI Emoji, sans-serif";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText(it.emoji, it.x, it.y);
+          ctx.restore();
+        }
+      },
+    },
+
+    // 4. Bubble Burst
+    bubblepop: {
+      name: "Bubble Burst", emoji: "🫧", trains: "Precision fingertip coordination",
+      guide: "Floating bubbles appear across the screen! Pop them quickly with your index fingertip!",
+      lives: false,
+      init() {
+        this.bubbles = [];
+        this.timer = 0;
+      },
+      update(res, W, H) {
+        if (++this.timer > Math.max(16, 36 / this.$speed) && this.bubbles.length < 9) {
+          this.timer = 0;
+          const colors = ["#38BDF8", "#F43F5E", "#10B981", "#FBBF24", "#A855F7"];
+          this.bubbles.push({
+            x: rand(0.12, 0.88) * W,
+            y: rand(0.15, 0.85) * H,
+            vx: rand(-0.6, 0.6),
+            vy: rand(-0.6, 0.6),
+            r: rand(24, 36),
+            color: colors[(Math.random() * colors.length) | 0],
+            life: 240,
+            popped: false,
+          });
+        }
+
+        const tip = engine.tip ? { x: engine.tip.x * W, y: engine.tip.y * H } : null;
+
+        for (const b of this.bubbles) {
+          b.x += b.vx;
+          b.y += b.vy;
+          b.life--;
+
+          if (tip && Math.hypot(tip.x - b.x, tip.y - b.y) < b.r + 20) {
+            b.popped = true;
+            this.$engine.addScore(10);
+            spawnParticles(b.x, b.y, b.color, 16);
+            addScorePopup(b.x, b.y - 15, "+10 🫧 POP!", b.color);
+            if (window.RehabBio && typeof window.RehabBio.playBeep === "function") {
+              window.RehabBio.playBeep(900, 0.05, 0.2);
+            }
+          }
+        }
+        this.bubbles = this.bubbles.filter((b) => !b.popped && b.life > 0);
+      },
+      draw(ctx, W, H) {
+        for (const b of this.bubbles) {
+          ctx.save();
+          ctx.fillStyle = b.color;
+          ctx.globalAlpha = 0.45;
+          ctx.beginPath();
+          ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.globalAlpha = 0.9;
+          ctx.strokeStyle = "#FFFFFF";
+          ctx.lineWidth = 2.5;
+          ctx.stroke();
+          ctx.fillStyle = "#FFFFFF";
+          ctx.beginPath();
+          ctx.arc(b.x - b.r * 0.35, b.y - b.r * 0.35, b.r * 0.25, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+      },
+    },
+
+    // 5. Aero Flappy Bird
     flappy: {
-      name: "Flappy Reach", emoji: "🐦", trains: "Upper-limb reach & elevation", formula: "[C4] Active Reach",
-      guide: "Show your index fingertip to fly the bird continuously! Glide past pillars to score +2 pts. 3 lives.",
+      name: "Flappy Bird", emoji: "🐦", trains: "Index finger elevation & vertical flight control",
+      guide: "Move your index finger UP to fly the bird UP, move finger DOWN to glide DOWN! Glide past pillars!",
       lives: true,
       init() {
         this.bird = { x: 130, y: 250, r: 18, frame: 0, hit: 0 };
@@ -113,13 +432,15 @@ document.addEventListener("DOMContentLoaded", async () => {
         b.frame++;
         if (b.hit > 0) b.hit--;
 
-        // Continuous flight directly tracking index fingertip position
-        const targetY = engine.tip ? clamp(engine.tip.y * H, 30, H - 30) : H / 2;
-        const targetX = engine.tip ? clamp(engine.tip.x * W, 80, W * 0.45) : 130;
-        b.y += (targetY - b.y) * 0.16;
-        b.x += (targetX - b.x) * 0.16;
+        if (engine.tip) {
+          const targetY = clamp(engine.tip.y * H, 35, H - 35);
+          b.y += (targetY - b.y) * 0.22;
+          const targetX = clamp(engine.tip.x * W, 80, W * 0.45);
+          b.x += (targetX - b.x) * 0.18;
+        } else {
+          b.y += Math.sin(b.frame * 0.05) * 1.5;
+        }
 
-        // Pillar obstacles moving right to left at medium speed
         if (++this.pillarTimer > Math.max(75, 115 / this.$speed)) {
           this.pillarTimer = 0;
           this.pillars.push({
@@ -132,13 +453,11 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         for (const p of this.pillars) {
           p.x -= 2.6 * this.$speed;
-          // Passing obstacle gives +2 points
           if (!p.scored && p.x + 55 < b.x) {
             p.scored = true;
             this.$engine.addScore(2);
             addScorePopup(b.x + 20, b.y - 20, "+2", "#10B981");
           }
-          // Collision with pillars (1 life lost per crash)
           if (!p.scored && b.hit === 0 && Math.abs(b.x - (p.x + 27)) < 18 + 27 && (b.y < p.gapY || b.y > p.gapY + p.gapH)) {
             b.hit = 45;
             this.$engine.loseLife();
@@ -147,7 +466,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
         this.pillars = this.pillars.filter((p) => p.x > -90);
 
-        // Boundary crash
         if (b.hit === 0 && (b.y > H - 15 || b.y < 15)) {
           b.hit = 45;
           this.$engine.loseLife();
@@ -155,7 +473,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
       },
       draw(ctx, W, H) {
-        // Render pillars
         for (const p of this.pillars) {
           const grad = ctx.createLinearGradient(p.x, 0, p.x + 55, 0);
           grad.addColorStop(0, "#15803D");
@@ -168,7 +485,6 @@ document.addEventListener("DOMContentLoaded", async () => {
           ctx.fillRect(p.x - 4, p.gapY - 18, 63, 18);
           ctx.fillRect(p.x - 4, p.gapY + p.gapH, 63, 18);
         }
-        // Animated Bird
         const b = this.bird;
         ctx.save();
         ctx.translate(b.x, b.y);
@@ -185,752 +501,182 @@ document.addEventListener("DOMContentLoaded", async () => {
       },
     },
 
-    // 2. Fruit Ballistic
-    fruit: {
-      name: "Fruit Ballistic", emoji: "🍉", trains: "Ballistic reach & open-palm speed", formula: "[S2] Blade Velocity & Jerk",
-      guide: "Slice rising fruits with your fingertip blade! 1-min timer. Avoid bombs 💣!",
-      lives: true,
-      init() {
-        this.fruits = [];
-        this.timer = 0;
-        this.trail = [];
-        this.timeLeft = 60;
-        this.lastSecond = Date.now();
-      },
-      update(res, W, H) {
-        // 1-min timer decrement
-        const now = Date.now();
-        if (now - this.lastSecond >= 1000) {
-          this.lastSecond = now;
-          this.timeLeft = Math.max(0, this.timeLeft - 1);
-          if (this.timeLeft <= 0) {
-            showToast("⏱️ 1-Minute Session Complete!", "success");
-            setTimeout(() => stopGame("Time's Up!"), 1200);
-            return;
-          }
-        }
-
-        const F = [
-          { emoji: "🍉", color: "#EF4444" },
-          { emoji: "🍊", color: "#F97316" },
-          { emoji: "🍓", color: "#F43F5E" },
-          { emoji: "🍍", color: "#FBBF24" },
-          { emoji: "🍎", color: "#DC2626" },
-        ];
-        if (++this.timer > Math.max(16, 42 - 8 * this.$speed)) {
-          this.timer = 0;
-          const isBomb = Math.random() < 0.16;
-          const sel = isBomb ? { emoji: "💣", color: "#475569" } : F[(Math.random() * F.length) | 0];
-          this.fruits.push({
-            x: rand(60, W - 60), y: H + 30,
-            vx: rand(-1.2, 1.2), vy: rand(5.5, 8.5) * this.$speed,
-            emoji: sel.emoji, color: sel.color,
-            bomb: isBomb, rot: 0, vrot: rand(-0.05, 0.05), gone: false,
-          });
-        }
-
-        const tip = engine.tip ? { x: engine.tip.x * W, y: engine.tip.y * H } : null;
-        if (tip) {
-          this.trail.unshift({ ...tip, life: 1.0 });
-          if (this.trail.length > 14) this.trail.pop();
-        }
-        this.trail.forEach((t) => { t.life -= 0.08; });
-        this.trail = this.trail.filter((t) => t.life > 0);
-
-        for (const f of this.fruits) {
-          f.x += f.vx;
-          f.y -= f.vy;
-          f.vy -= 0.16; // gravity arc
-          f.rot += f.vrot;
-
-          if (tip && distN(tip, f) < 64 && (engine.vel > 0.4 || !engine.tipFromCamera)) {
-            f.gone = true;
-            if (f.bomb) {
-              this.$engine.loseLife();
-              spawnParticles(f.x, f.y, "#EF4444", 24);
-              showToast("💣 Bomb Detonated! −1 ❤️", "error");
-            } else {
-              this.$engine.addScore(10);
-              spawnParticles(f.x, f.y, f.color, 14);
-              addScorePopup(f.x, f.y, "+10", f.color);
-            }
-          }
-        }
-        this.fruits = this.fruits.filter((f) => !f.gone && f.y < H + 60);
-      },
-      draw(ctx, W, H) {
-        // Blade slash trail
-        if (this.trail.length > 1) {
-          ctx.beginPath();
-          ctx.moveTo(this.trail[0].x, this.trail[0].y);
-          for (let i = 1; i < this.trail.length; i++) {
-            ctx.lineTo(this.trail[i].x, this.trail[i].y);
-          }
-          ctx.strokeStyle = "rgba(56, 189, 248, 0.9)";
-          ctx.lineWidth = 6;
-          ctx.lineCap = "round";
-          ctx.stroke();
-        }
-
-        // Flying fruits
-        for (const f of this.fruits) {
-          ctx.save();
-          ctx.translate(f.x, f.y);
-          ctx.rotate(f.rot);
-          ctx.font = "38px Segoe UI Emoji, sans-serif";
-          ctx.textAlign = "center";
-          ctx.textBaseline = "middle";
-          ctx.fillText(f.emoji, 0, 0);
-          ctx.restore();
-        }
-
-        // 1-min timer HUD badge
-        ctx.fillStyle = "rgba(11, 18, 32, 0.75)";
-        ctx.fillRect(W - 130, 16, 114, 34);
-        ctx.strokeStyle = "#38BDF8";
-        ctx.strokeRect(W - 130, 16, 114, 34);
-        ctx.fillStyle = "#fff";
-        ctx.font = "bold 14px Segoe UI, sans-serif";
-        ctx.textAlign = "center";
-        ctx.fillText(`⏱️ ${this.timeLeft}s left`, W - 73, 38);
-      },
-    },
-
-    // 3. Star Catch
-    starcatch: {
-      name: "Star Catch", emoji: "⭐", trains: "Lateral planar sweep & reach", formula: "[C2] L₂ Target Interception",
-      guide: "Slide collector basket with your fingertip to catch falling stars ⭐ and avoid bombs 💣!",
-      lives: true,
-      init() {
-        this.items = [];
-        this.timer = 0;
-        this.basketX = 0.5;
-      },
-      update(res, W, H) {
-        const targetX = engine.tip ? engine.tip.x : 0.5;
-        this.basketX += (targetX - this.basketX) * 0.22;
-
-        if (++this.timer > Math.max(18, 44 / this.$speed)) {
-          this.timer = 0;
-          const isBomb = Math.random() < 0.2;
-          this.items.push({
-            x: rand(0.1, 0.9), y: -0.05,
-            v: rand(0.005, 0.008) * this.$speed,
-            isBomb,
-          });
-        }
-
-        const bW = 0.18;
-        const bL = this.basketX - bW / 2;
-        const bR = this.basketX + bW / 2;
-
-        for (const it of this.items) {
-          it.y += it.v;
-          if (it.y >= 0.88 && it.y <= 0.94 && it.x >= bL && it.x <= bR) {
-            it.caught = true;
-            if (it.isBomb) {
-              this.$engine.loseLife();
-              spawnParticles(it.x * W, it.y * H, "#EF4444", 20);
-              showToast("💣 Caught a bomb! −1 ❤️", "error");
-            } else {
-              this.$engine.addScore(5);
-              spawnParticles(it.x * W, it.y * H, "#FBBF24", 14);
-              addScorePopup(it.x * W, it.y * H - 15, "+5 ⭐", "#FBBF24");
-            }
-          }
-        }
-        this.items = this.items.filter((it) => !it.caught && it.y < 1.05);
-      },
-      draw(ctx, W, H) {
-        // Collector Basket
-        const bx = this.basketX * W;
-        const by = 0.91 * H;
-        const bw = W * 0.18;
-        ctx.save();
-        ctx.fillStyle = "#38BDF8";
-        ctx.fillRect(bx - bw / 2, by, bw, 22);
-        ctx.fillStyle = "#0284C7";
-        ctx.fillRect(bx - bw / 2, by + 18, bw, 6);
-        ctx.strokeStyle = "#BAE6FD";
-        ctx.lineWidth = 2.5;
-        ctx.strokeRect(bx - bw / 2, by, bw, 22);
-        ctx.restore();
-
-        // Falling items
-        for (const it of this.items) {
-          ctx.font = "32px Segoe UI Emoji, sans-serif";
-          ctx.textAlign = "center";
-          ctx.fillText(it.isBomb ? "💣" : "⭐", it.x * W, it.y * H);
-        }
-      },
-    },
-
-    // 4. Fist Pop
-    fistpop: {
-      name: "Fist Pop", emoji: "✊", trains: "Spasticity release (fist to open palm)", formula: "[C3] σ Spatial Variance",
-      guide: "Clench a fist to charge energy, then open your hand or wrist to trigger a bursting shockwave!",
-      lives: true,
-      init() {
-        this.bubbles = [];
-        this.timer = 0;
-        this.charge = 0;
-        this.shockwave = null;
-        this.wasFist = false;
-      },
-      update(res, W, H) {
-        const isFist = (engine.disp < 0.16) || (!engine.open && engine.tipFromCamera);
-        const isOpen = (engine.disp > 0.18) || (engine.open);
-
-        if (isFist) {
-          this.charge = Math.min(1.0, this.charge + 0.08);
-          this.wasFist = true;
-        } else if (isOpen && (this.charge >= 0.25 || this.wasFist)) {
-          // Detonate responsive shockwave!
-          const cx = engine.tip ? engine.tip.x * W : W / 2;
-          const cy = engine.tip ? engine.tip.y * H : H / 2;
-          this.shockwave = { x: cx, y: cy, r: 20, maxR: W * 0.8, alpha: 1.0 };
-          this.charge = 0;
-          this.wasFist = false;
-
-          let poppedCount = 0;
-          for (const b of this.bubbles) {
-            b.popped = true;
-            poppedCount++;
-            this.$engine.addScore(10);
-            spawnParticles(b.x * W, b.y * H, "#38BDF8", 16);
-          }
-          if (poppedCount > 0) {
-            addScorePopup(cx, cy - 25, `+${poppedCount * 10} 💥 BURST!`, "#38BDF8");
-          }
-          if (window.RehabBio && typeof window.RehabBio.playBeep === "function") {
-            window.RehabBio.playBeep(880, 0.1, 0.35);
-          }
-        }
-
-        if (this.shockwave) {
-          this.shockwave.r += 26;
-          this.shockwave.alpha -= 0.045;
-          if (this.shockwave.alpha <= 0) this.shockwave = null;
-        }
-
-        // Descending bubbles
-        if (++this.timer > Math.max(22, 50 / this.$speed) && this.bubbles.length < 8) {
-          this.timer = 0;
-          this.bubbles.push({
-            x: rand(0.15, 0.85),
-            y: -0.05,
-            v: rand(0.002, 0.004) * this.$speed,
-            r: rand(22, 34),
-            popped: false,
-          });
-        }
-
-        const tip = engine.tip ? { x: engine.tip.x * W, y: engine.tip.y * H } : null;
-        for (const b of this.bubbles) {
-          b.y += b.v;
-          const bx = b.x * W, by = b.y * H;
-
-          // Also pop directly on hand / fingertip contact
-          if (tip && Math.hypot(tip.x - bx, tip.y - by) < b.r + 25 && !b.popped) {
-            b.popped = true;
-            this.$engine.addScore(10);
-            spawnParticles(bx, by, "#38BDF8", 14);
-            addScorePopup(bx, by - 15, "+10 💥", "#38BDF8");
-          }
-
-          if (b.y > 1.05 && !b.popped) {
-            b.popped = true;
-            this.$engine.loseLife();
-            showToast("Bubble reached the bottom! −1 ❤️", "error");
-          }
-        }
-        this.bubbles = this.bubbles.filter((b) => !b.popped);
-      },
-      draw(ctx, W, H) {
-        // Shockwave ring
-        if (this.shockwave) {
-          ctx.save();
-          ctx.strokeStyle = `rgba(56, 189, 248, ${Math.max(0, this.shockwave.alpha)})`;
-          ctx.lineWidth = 8;
-          ctx.beginPath();
-          ctx.arc(this.shockwave.x, this.shockwave.y, this.shockwave.r, 0, Math.PI * 2);
-          ctx.stroke();
-          ctx.restore();
-        }
-
-        // Hand charge indicator
-        if (engine.tip) {
-          const cx = engine.tip.x * W, cy = engine.tip.y * H;
-          ctx.save();
-          ctx.fillStyle = `rgba(245, 158, 11, ${0.2 + this.charge * 0.6})`;
-          ctx.beginPath();
-          ctx.arc(cx, cy, 25 + this.charge * 25, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.strokeStyle = "#F59E0B";
-          ctx.lineWidth = 2;
-          ctx.stroke();
-          ctx.restore();
-        }
-
-        // Descending bubbles
-        for (const b of this.bubbles) {
-          ctx.save();
-          ctx.fillStyle = "rgba(56, 189, 248, 0.35)";
-          ctx.beginPath();
-          ctx.arc(b.x * W, b.y * H, b.r, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.strokeStyle = "#BAE6FD";
-          ctx.lineWidth = 2.5;
-          ctx.stroke();
-          ctx.restore();
-        }
-      },
-    },
-
-    // 5. Wrist Hammer
-    hammer: {
-      name: "Wrist Hammer", emoji: "🔨", trains: "Fast downward wrist snap & upward curl", formula: "[C1/S1] Wrist Angle & Accel",
-      guide: "Bubbles rise from below! Curl your wrist up or snap down to smash bubbles with your virtual hammer!",
-      lives: true,
-      init() {
-        this.bubbles = [];
-        this.timer = 0;
-        this.wasDown = false;
-        this.wasUp = false;
-        this.strikeY = 0.45;
-      },
-      update(res, W, H) {
-        let wristCurlUp = false;
-        let wristCurlDown = false;
-        const hand = (res && res.hand) || (engine.lastRes && engine.lastRes.hand);
-        if (hand && hand[0] && (hand[9] || hand[5])) {
-          const knuckle = hand[9] || hand[5];
-          const dy = hand[0].y - knuckle.y;
-          if (dy > 0.07) wristCurlUp = true;
-          if (dy < -0.04) wristCurlDown = true;
-        }
-
-        const wristUp = engine.vy < -0.45 || engine.dy < -0.012 || wristCurlUp;
-        const wristDown = engine.vy > 0.45 || engine.dy > 0.012 || wristCurlDown;
-        const isSwinging = wristUp || wristDown;
-        const lineY = this.strikeY * H;
-        const tip = engine.tip ? { x: engine.tip.x * W, y: engine.tip.y * H } : null;
-
-        // Rising bubbles from bottom
-        if (++this.timer > Math.max(18, 45 / this.$speed) && this.bubbles.length < 7) {
-          this.timer = 0;
-          this.bubbles.push({
-            x: rand(0.18, 0.82),
-            y: 1.05,
-            v: rand(0.003, 0.006) * this.$speed,
-            r: 26,
-            hit: false,
-          });
-        }
-
-        for (const b of this.bubbles) {
-          b.y -= b.v;
-          const by = b.y * H;
-          const bx = b.x * W;
-
-          const nearStrike = Math.abs(by - lineY) < 55;
-          const nearHand = tip && Math.hypot(bx - tip.x, by - tip.y) < b.r + 50;
-
-          if (((nearStrike && isSwinging) || (nearHand && (isSwinging || !engine.tipFromCamera))) && !b.hit) {
-            b.hit = true;
-            this.$engine.addScore(10);
-            spawnParticles(bx, by, "#F59E0B", 20);
-            addScorePopup(bx, by - 15, wristUp ? "+10 🔨 CURL!" : "+10 🔨 SMASH!", "#F59E0B");
-            if (window.RehabBio && typeof window.RehabBio.playBeep === "function") {
-              window.RehabBio.playBeep(920, 0.08, 0.3);
-            }
-          }
-          if (b.y < -0.05) {
-            b.hit = true;
-            this.$engine.loseLife();
-            showToast("Missed bubble! −1 ❤️", "error");
-          }
-        }
-        this.bubbles = this.bubbles.filter((b) => !b.hit);
-        this.wasDown = wristDown;
-        this.wasUp = wristUp;
-      },
-      draw(ctx, W, H) {
-        // Strike line
-        const lineY = this.strikeY * H;
-        ctx.save();
-        ctx.strokeStyle = "rgba(245, 158, 11, 0.7)";
-        ctx.lineWidth = 3;
-        ctx.setLineDash([8, 8]);
-        ctx.beginPath();
-        ctx.moveTo(0, lineY);
-        ctx.lineTo(W, lineY);
-        ctx.stroke();
-        ctx.fillStyle = "#F59E0B";
-        ctx.font = "bold 12px Segoe UI, sans-serif";
-        ctx.fillText("⚡ HAMMER STRIKE LINE", 16, lineY - 8);
-        ctx.restore();
-
-        // Rising bubbles
-        for (const b of this.bubbles) {
-          ctx.save();
-          ctx.fillStyle = "rgba(245, 158, 11, 0.4)";
-          ctx.beginPath();
-          ctx.arc(b.x * W, b.y * H, b.r, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.strokeStyle = "#FDE68A";
-          ctx.lineWidth = 2.5;
-          ctx.stroke();
-          ctx.restore();
-        }
-      },
-    },
-
-    // 6. Elbow Crusher
-    crusher: {
-      name: "Elbow Crusher", emoji: "💪", trains: "Elbow flexion past 95° active ROM", formula: "[C1] Elbow Goniometry θ ≥ 95°",
-      guide: "Flex elbow past 95° to smash hydraulic crusher plates on crystals! Extend past 120° to reload.",
+    // 6. Cosmic Laser Blast
+    laserblast: {
+      name: "Laser Blast", emoji: "⚡", trains: "Target pointing & rapid reactions",
+      guide: "Cosmic targets light up! Point your index finger to shoot precision laser beams!",
       lives: true,
       init() {
         this.targets = [];
         this.timer = 0;
-        this.platePos = 0; // 0 = open, 1 = crushed
-        this.wasFlexed = false;
       },
       update(res, W, H) {
-        const isFlexed = engine.elbow <= 95 && engine.elbow > 15;
-        const isExtended = engine.elbow >= 120;
-
-        if (isFlexed && !this.wasFlexed) {
-          this.platePos = 1;
-          // Crush target in the bay
-          const inBay = this.targets.find((t) => Math.abs(t.x - 0.5) < 0.16);
-          if (inBay) {
-            inBay.crushed = true;
-            this.$engine.addScore(15);
-            spawnParticles(0.5 * W, inBay.y * H, "#E5484D", 22);
-            addScorePopup(0.5 * W, inBay.y * H - 20, "+15 💥 CRUSHED", "#E5484D");
-          }
-        }
-        if (isExtended) {
-          this.platePos = 0;
-        }
-        this.wasFlexed = isFlexed;
-
-        // Targets sliding horizontally into the crusher bay
-        if (++this.timer > Math.max(30, 65 / this.$speed) && this.targets.length < 4) {
+        if (++this.timer > Math.max(22, 45 / this.$speed) && this.targets.length < 5) {
           this.timer = 0;
           this.targets.push({
-            x: -0.05,
-            y: 0.5,
-            vx: 0.005 * this.$speed,
-            crushed: false,
+            x: rand(0.15, 0.85) * W,
+            y: rand(0.15, 0.8) * H,
+            r: 30,
+            pulse: 0,
+            timeOut: 200,
+            destroyed: false,
           });
         }
 
+        const tip = engine.tip ? { x: engine.tip.x * W, y: engine.tip.y * H } : null;
+
         for (const t of this.targets) {
-          t.x += t.vx;
-          if (t.x > 1.05) {
-            t.crushed = true;
+          t.pulse += 0.08;
+          t.timeOut--;
+
+          if (tip && Math.hypot(tip.x - t.x, tip.y - t.y) < t.r + 25) {
+            t.destroyed = true;
+            this.$engine.addScore(15);
+            spawnParticles(t.x, t.y, "#38BDF8", 22);
+            addScorePopup(t.x, t.y - 15, "+15 ⚡ BLAST!", "#38BDF8");
+            if (window.RehabBio && typeof window.RehabBio.playBeep === "function") {
+              window.RehabBio.playBeep(1200, 0.08, 0.35);
+            }
+          }
+          if (t.timeOut <= 0 && !t.destroyed) {
+            t.destroyed = true;
             this.$engine.loseLife();
-            showToast("Crystal slipped through! −1 ❤️", "error");
+            showToast("Target timed out! −1 ❤️", "error");
           }
         }
-        this.targets = this.targets.filter((t) => !t.crushed);
+        this.targets = this.targets.filter((t) => !t.destroyed);
       },
       draw(ctx, W, H) {
-        // Hydraulic Plates
-        const gap = this.platePos === 1 ? 25 : W * 0.22;
-        ctx.save();
-        // Left plate
-        ctx.fillStyle = "#334155";
-        ctx.fillRect(0, 0.35 * H, 0.5 * W - gap, 0.3 * H);
-        ctx.fillStyle = "#E5484D";
-        ctx.fillRect(0.5 * W - gap - 12, 0.35 * H, 12, 0.3 * H);
+        const tip = engine.tip ? { x: engine.tip.x * W, y: engine.tip.y * H } : null;
 
-        // Right plate
-        ctx.fillStyle = "#334155";
-        ctx.fillRect(0.5 * W + gap, 0.35 * H, W - (0.5 * W + gap), 0.3 * H);
-        ctx.fillStyle = "#E5484D";
-        ctx.fillRect(0.5 * W + gap, 0.35 * H, 12, 0.3 * H);
-        ctx.restore();
+        if (tip) {
+          ctx.save();
+          ctx.strokeStyle = "rgba(56, 189, 248, 0.75)";
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.arc(tip.x, tip.y, 22, 0, Math.PI * 2);
+          ctx.stroke();
 
-        // Target crystals
+          ctx.beginPath();
+          ctx.moveTo(tip.x - 30, tip.y); ctx.lineTo(tip.x + 30, tip.y);
+          ctx.moveTo(tip.x, tip.y - 30); ctx.lineTo(tip.x, tip.y + 30);
+          ctx.stroke();
+          ctx.restore();
+        }
+
         for (const t of this.targets) {
           ctx.save();
-          ctx.fillStyle = "#F59E0B";
-          ctx.beginPath();
-          ctx.arc(t.x * W, t.y * H, 22, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.strokeStyle = "#FFF";
+          ctx.strokeStyle = "#EF4444";
           ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.arc(t.x, t.y, t.r + Math.sin(t.pulse) * 4, 0, Math.PI * 2);
           ctx.stroke();
+          ctx.fillStyle = "rgba(239, 68, 68, 0.3)";
+          ctx.fill();
           ctx.font = "24px Segoe UI Emoji, sans-serif";
           ctx.textAlign = "center";
-          ctx.fillText("💎", t.x * W, t.y * H + 8);
+          ctx.textBaseline = "middle";
+          ctx.fillText("🎯", t.x, t.y);
           ctx.restore();
         }
       },
     },
 
-    // 7. Pinch Pop
-    pinch: {
-      name: "Pinch Pop", emoji: "🤏", trains: "Thumb–index pincer precision", formula: "[E2] Pincer Precision",
-      guide: "Hover over floating bubbles and pinch your thumb and index finger together to pop them!",
+    // 7. Paddle Pong Smash
+    paddlepong: {
+      name: "Paddle Pong", emoji: "🏓", trains: "Planar tracking & trajectory anticipation",
+      guide: "Control the neon paddle with your index finger. Bounce the ball to smash floating bubbles!",
       lives: true,
       init() {
-        this.bubbles = [];
-        this.timer = 0;
-        this.wasPinch = false;
+        this.paddleX = 0.5;
+        this.ball = { x: 0.5, y: 0.6, vx: 0.005, vy: -0.007, r: 12 };
+        this.bricks = [];
+        for (let r = 0; r < 3; r++) {
+          for (let c = 0; c < 6; c++) {
+            this.bricks.push({
+              x: 0.15 + c * 0.14,
+              y: 0.15 + r * 0.08,
+              w: 0.11,
+              h: 0.05,
+              alive: true,
+              color: ["#F43F5E", "#FBBF24", "#38BDF8"][r],
+            });
+          }
+        }
       },
       update(res, W, H) {
-        let pinch = false;
-        if (res.hand && res.hand[4] && res.hand[8]) {
-          pinch = distN(res.hand[4], res.hand[8]) < 0.052;
+        const targetX = engine.tip ? engine.tip.x : 0.5;
+        this.paddleX += (targetX - this.paddleX) * 0.25;
+
+        const b = this.ball;
+        b.x += b.vx * this.$speed;
+        b.y += b.vy * this.$speed;
+
+        if (b.x <= 0.05 || b.x >= 0.95) b.vx = -b.vx;
+        if (b.y <= 0.08) b.vy = -b.vy;
+
+        const pW = 0.22;
+        const pLeft = this.paddleX - pW / 2;
+        const pRight = this.paddleX + pW / 2;
+        if (b.y >= 0.86 && b.y <= 0.90 && b.x >= pLeft && b.x <= pRight && b.vy > 0) {
+          b.vy = -Math.abs(b.vy);
+          b.vx = ((b.x - this.paddleX) / (pW / 2)) * 0.008;
+          spawnParticles(b.x * W, b.y * H, "#10B981", 10);
         }
 
-        const tip = engine.tip ? { x: engine.tip.x * W, y: engine.tip.y * H } : null;
+        if (b.y > 1.02) {
+          this.$engine.loseLife();
+          showToast("Ball dropped! −1 ❤️", "error");
+          b.x = 0.5; b.y = 0.55; b.vx = 0.005; b.vy = -0.007;
+        }
 
-        if (pinch && !this.wasPinch && tip) {
-          for (const b of this.bubbles) {
-            const bx = b.x * W, by = b.y * H;
-            if (Math.hypot(tip.x - bx, tip.y - by) < b.r + 20) {
-              b.popped = true;
-              this.$engine.addScore(10);
-              spawnParticles(bx, by, "#8B5CF6", 18);
-              addScorePopup(bx, by - 15, "+10 🤏", "#8B5CF6");
-            }
+        for (const bk of this.bricks) {
+          if (!bk.alive) continue;
+          if (b.x >= bk.x - bk.w / 2 && b.x <= bk.x + bk.w / 2 &&
+              b.y >= bk.y - bk.h / 2 && b.y <= bk.y + bk.h / 2) {
+            bk.alive = false;
+            b.vy = -b.vy;
+            this.$engine.addScore(15);
+            spawnParticles(bk.x * W, bk.y * H, bk.color, 16);
+            addScorePopup(bk.x * W, bk.y * H, "+15 🏓 SMASH!", bk.color);
+            break;
           }
         }
-        this.wasPinch = pinch;
-
-        // Spawn floating bubbles
-        if (++this.timer > Math.max(20, 48 / this.$speed) && this.bubbles.length < 6) {
-          this.timer = 0;
-          this.bubbles.push({
-            x: rand(0.15, 0.85),
-            y: 1.05,
-            v: rand(0.003, 0.005) * this.$speed,
-            r: 26,
-            popped: false,
-          });
-        }
-        for (const b of this.bubbles) {
-          b.y -= b.v;
-          if (b.y < -0.05) {
-            b.popped = true;
-            this.$engine.loseLife();
-            showToast("Bubble escaped! −1 ❤️", "error");
-          }
-        }
-        this.bubbles = this.bubbles.filter((b) => !b.popped);
       },
       draw(ctx, W, H) {
-        for (const b of this.bubbles) {
-          ctx.save();
-          ctx.fillStyle = "rgba(139, 92, 246, 0.4)";
-          ctx.beginPath();
-          ctx.arc(b.x * W, b.y * H, b.r, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.strokeStyle = "#C4B5FD";
-          ctx.lineWidth = 3;
-          ctx.stroke();
-          ctx.restore();
-        }
-      },
-    },
-
-    // 8. Bubble Deflector
-    deflector: {
-      name: "Bubble Deflector", emoji: "🛡️", trains: "Hand tilt & deflector stability", formula: "[C5] Radial Deviation θ",
-      guide: "Tilt your hand to angle the energy shield. Deflect falling bubbles into left/right goal buckets!",
-      lives: true,
-      init() {
-        this.bubbles = [];
-        this.timer = 0;
-      },
-      update(res, W, H) {
-        const cx = engine.tip ? engine.tip.x * W : W / 2;
-        const cy = engine.tip ? engine.tip.y * H : H * 0.65;
-        const angle = (engine.dev || 0) * (Math.PI / 180);
-
-        // Falling bubbles
-        if (++this.timer > Math.max(22, 50 / this.$speed) && this.bubbles.length < 6) {
-          this.timer = 0;
-          this.bubbles.push({
-            x: rand(0.3, 0.7) * W,
-            y: -20,
-            vx: 0,
-            vy: rand(2.0, 3.5) * this.$speed,
-            r: 18,
-            scored: false,
-          });
-        }
-
-        const shieldLen = 140;
-        const sx1 = cx - Math.cos(angle) * (shieldLen / 2);
-        const sy1 = cy - Math.sin(angle) * (shieldLen / 2);
-        const sx2 = cx + Math.cos(angle) * (shieldLen / 2);
-        const sy2 = cy + Math.sin(angle) * (shieldLen / 2);
-
-        for (const b of this.bubbles) {
-          b.x += b.vx;
-          b.y += b.vy;
-
-          // Check deflection off shield
-          if (Math.hypot(b.x - cx, b.y - cy) < shieldLen / 2 && Math.abs(b.y - cy) < 26) {
-            b.vy = -Math.abs(b.vy) * 0.8;
-            b.vx = Math.sin(angle) * 4.5;
-            spawnParticles(b.x, b.y, "#38BDF8", 8);
-          }
-
-          // Left goal bucket (0 .. 120, H-80 .. H)
-          if (!b.scored && b.x < 130 && b.y > H - 90) {
-            b.scored = true;
-            this.$engine.addScore(15);
-            spawnParticles(b.x, b.y, "#10B981", 16);
-            addScorePopup(80, H - 110, "+15 GOAL! 🎯", "#10B981");
-          }
-          // Right goal bucket (W-130 .. W, H-80 .. H)
-          if (!b.scored && b.x > W - 130 && b.y > H - 90) {
-            b.scored = true;
-            this.$engine.addScore(15);
-            spawnParticles(b.x, b.y, "#10B981", 16);
-            addScorePopup(W - 80, H - 110, "+15 GOAL! 🎯", "#10B981");
-          }
-          if (b.y > H + 20 && !b.scored) {
-            b.scored = true;
-            this.$engine.loseLife();
-            showToast("Missed goal bucket! −1 ❤️", "error");
-          }
-        }
-        this.bubbles = this.bubbles.filter((b) => !b.scored);
-      },
-      draw(ctx, W, H) {
-        // Goal buckets
-        ctx.fillStyle = "rgba(16, 185, 129, 0.25)";
-        ctx.fillRect(10, H - 80, 110, 70);
-        ctx.strokeStyle = "#10B981";
-        ctx.lineWidth = 3;
-        ctx.strokeRect(10, H - 80, 110, 70);
+        const pw = W * 0.22;
+        const px = this.paddleX * W - pw / 2;
+        const py = H * 0.88;
+        ctx.save();
         ctx.fillStyle = "#10B981";
-        ctx.font = "bold 13px Segoe UI, sans-serif";
-        ctx.fillText("GOAL LEFT 🎯", 20, H - 40);
-
-        ctx.fillStyle = "rgba(16, 185, 129, 0.25)";
-        ctx.fillRect(W - 120, H - 80, 110, 70);
-        ctx.strokeRect(W - 120, H - 80, 110, 70);
-        ctx.fillText("GOAL RIGHT 🎯", W - 110, H - 40);
-
-        // Hand deflector shield
-        const cx = engine.tip ? engine.tip.x * W : W / 2;
-        const cy = engine.tip ? engine.tip.y * H : H * 0.65;
-        const angle = (engine.dev || 0) * (Math.PI / 180);
-        const shieldLen = 140;
-        ctx.save();
-        ctx.translate(cx, cy);
-        ctx.rotate(angle);
-        ctx.fillStyle = "rgba(56, 189, 248, 0.45)";
-        ctx.fillRect(-shieldLen / 2, -7, shieldLen, 14);
-        ctx.strokeStyle = "#38BDF8";
-        ctx.lineWidth = 3;
-        ctx.strokeRect(-shieldLen / 2, -7, shieldLen, 14);
-        ctx.restore();
-
-        // Falling bubbles
-        for (const b of this.bubbles) {
-          ctx.save();
-          ctx.fillStyle = "rgba(56, 189, 248, 0.4)";
-          ctx.beginPath();
-          ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.strokeStyle = "#FFF";
-          ctx.lineWidth = 2;
-          ctx.stroke();
-          ctx.restore();
-        }
-      },
-    },
-
-    // 9. Color Bubble Match
-    colormatch: {
-      name: "Color Bubble Match", emoji: "🔵", trains: "Cognitive-motor sequence targeting", formula: "[C2/E4] Target Distance & Cross-Track",
-      guide: "Pop the announced target color bubble in sequence! Popping the wrong color drops a life.",
-      lives: true,
-      init() {
-        this.colors = [
-          { name: "BLUE", code: "#38BDF8", emoji: "🔵" },
-          { name: "RED", code: "#EF4444", emoji: "🔴" },
-          { name: "GREEN", code: "#10B981", emoji: "🟢" },
-          { name: "YELLOW", code: "#FBBF24", emoji: "🟡" },
-        ];
-        this.colorIdx = 0;
-        this.bubbles = [];
-        this.timer = 0;
-      },
-      update(res, W, H) {
-        const targetColor = this.colors[this.colorIdx];
-        const tip = engine.tip ? { x: engine.tip.x * W, y: engine.tip.y * H } : null;
-
-        // Spawn bubbles of 4 colors
-        if (++this.timer > Math.max(18, 45 / this.$speed) && this.bubbles.length < 8) {
-          this.timer = 0;
-          const col = this.colors[(Math.random() * this.colors.length) | 0];
-          this.bubbles.push({
-            x: rand(0.12, 0.88) * W,
-            y: H + 25,
-            vy: rand(2.0, 3.8) * this.$speed,
-            r: 26,
-            color: col,
-            popped: false,
-          });
-        }
-
-        for (const b of this.bubbles) {
-          b.y -= b.vy;
-          if (tip && Math.hypot(tip.x - b.x, tip.y - b.y) < b.r + 20) {
-            b.popped = true;
-            if (b.color.name === targetColor.name) {
-              this.$engine.addScore(15);
-              spawnParticles(b.x, b.y, b.color.code, 18);
-              addScorePopup(b.x, b.y - 15, `+15 ${b.color.emoji}`, b.color.code);
-              // Advance to next target color
-              this.colorIdx = (this.colorIdx + 1) % this.colors.length;
-            } else {
-              this.$engine.loseLife();
-              spawnParticles(b.x, b.y, "#EF4444", 14);
-              showToast(`Wrong color! Wanted ${targetColor.name} −1 ❤️`, "error");
-            }
-          }
-        }
-        this.bubbles = this.bubbles.filter((b) => !b.popped && b.y > -40);
-      },
-      draw(ctx, W, H) {
-        const targetColor = this.colors[this.colorIdx];
-        // Target banner at top
-        ctx.save();
-        ctx.fillStyle = "rgba(11, 18, 32, 0.85)";
-        ctx.fillRect(W / 2 - 140, 16, 280, 42);
-        ctx.strokeStyle = targetColor.code;
+        ctx.beginPath();
+        ctx.roundRect(px, py, pw, 18, 6);
+        ctx.fill();
+        ctx.strokeStyle = "#6EE7B7";
         ctx.lineWidth = 2.5;
-        ctx.strokeRect(W / 2 - 140, 16, 280, 42);
-        ctx.fillStyle = targetColor.code;
-        ctx.font = "bold 16px Segoe UI, sans-serif";
-        ctx.textAlign = "center";
-        ctx.fillText(`TARGET: POP ${targetColor.name} ${targetColor.emoji}`, W / 2, 43);
+        ctx.stroke();
         ctx.restore();
 
-        // Bubbles
-        for (const b of this.bubbles) {
+        const b = this.ball;
+        ctx.save();
+        ctx.fillStyle = "#FFFFFF";
+        ctx.shadowColor = "#38BDF8";
+        ctx.shadowBlur = 12;
+        ctx.beginPath();
+        ctx.arc(b.x * W, b.y * H, b.r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+
+        for (const bk of this.bricks) {
+          if (!bk.alive) continue;
           ctx.save();
-          ctx.fillStyle = b.color.code;
-          ctx.globalAlpha = 0.55;
+          ctx.fillStyle = bk.color;
+          ctx.globalAlpha = 0.85;
           ctx.beginPath();
-          ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+          ctx.roundRect((bk.x - bk.w / 2) * W, (bk.y - bk.h / 2) * H, bk.w * W, bk.h * H, 5);
           ctx.fill();
-          ctx.globalAlpha = 1.0;
-          ctx.strokeStyle = "#FFF";
-          ctx.lineWidth = 2.5;
+          ctx.strokeStyle = "#FFFFFF";
+          ctx.lineWidth = 1.5;
           ctx.stroke();
           ctx.restore();
         }
@@ -954,6 +700,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     tip: null,
     tipFromCamera: false,
     dev: 0,
+    wristPitch: 0,
     elbow: 180,
     open: false,
     disp: 0,
@@ -970,7 +717,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   function setKPI(game) {
     if (kpiGame) kpiGame.textContent = `${game.emoji} ${game.name}`;
     if (kpiTrains) kpiTrains.textContent = game.trains;
-    if (kpiFormula) kpiFormula.textContent = game.formula;
     if (guideLine) guideLine.textContent = `💬 ${game.guide}`;
     document.querySelectorAll(".game-btn").forEach((b) => b.classList.toggle("selected", b.dataset.game === engine.key));
     if (heartsEl && heartsEl.parentElement) {
@@ -1200,6 +946,17 @@ document.addEventListener("DOMContentLoaded", async () => {
         { x: res.hand[0].x, y: res.hand[0].y },
         { x: res.hand[12].x, y: res.hand[12].y }
       );
+    }
+
+    // Horizontal Wrist Pitch (Exact 7M Posture: forearm horizontal across body, closed fist)
+    if (res.hand && res.hand[0] && (res.hand[9] || res.hand[12])) {
+      const wr = res.hand[0];
+      const kn = res.hand[9] || res.hand[12];
+      const dy = wr.y - kn.y;
+      const dx = Math.abs(kn.x - wr.x);
+      engine.wristPitch = (Math.atan2(dy, Math.max(0.03, dx)) * 180) / Math.PI;
+    } else {
+      engine.wristPitch = 0;
     }
 
     // Elbow angle (C1)
@@ -1462,12 +1219,14 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       // Live metrics readout
       metricEl.textContent =
-        engine.key === "fruit" ? `Palm ${engine.open ? "OPEN 🌱" : "Fist ✊"} · v=${engine.vel.toFixed(1)}` :
-        engine.key === "flappy" || engine.key === "flappyreach" ? `Wrist dev ${Math.round(engine.dev)}°` :
-        engine.key === "elbowcrush" ? `Elbow ${Math.round(engine.elbow)}°` :
-        engine.key === "pinchpop" || engine.key === "fistpop" ? `Dispersion ${engine.disp.toFixed(2)}` :
-        engine.key === "hammer" ? `Speed ${engine.vy.toFixed(1)}/s` :
-        `Disp ${engine.disp.toFixed(2)} · v ${engine.vel.toFixed(1)}`;
+        engine.key === "fruit" ? `Fingertip Blade · v=${engine.vel.toFixed(1)}` :
+        engine.key === "hammer" ? `Wrist ${Math.round(engine.wristPitch)}° ${engine.wristPitch >= 13 ? "UP ⬆️" : engine.wristPitch <= -8 ? "DOWN ⬇️" : "LEVEL ↔️"}` :
+        engine.key === "flappy" ? `Index Finger Flight` :
+        engine.key === "starcatch" ? `Sky Pop Tracking` :
+        engine.key === "bubblepop" ? `Bubble Target Pop` :
+        engine.key === "laserblast" ? `Laser Reticle Aim` :
+        engine.key === "paddlepong" ? `Paddle Reflex` :
+        `Motion Active`;
     }
 
     // Render hand and arm skeleton unconditionally on every frame whenever camera data is present
@@ -1502,19 +1261,12 @@ document.addEventListener("DOMContentLoaded", async () => {
   gameCanvas.addEventListener("pointerdown", () => {
     if (engine.game && engine.playing && !engine.paused) {
       if (engine.key === "flappy" && engine.game.bird) {
-        engine.game.bird.vy = -6.2;
+        engine.game.bird.y -= 35;
       }
       if (engine.key === "hammer") {
-        engine.vy = 2.5; engine.dy = 0.2;
-      }
-      if (engine.key === "fistpop") {
-        engine.open = false;
-        setTimeout(() => { engine.open = true; }, 300);
-      }
-      if (engine.key === "pinchpop" && engine.game.balls && engine.game.balls.length) {
-        const popped = engine.game.balls.pop();
-        addScore(10);
-        spawnParticles(popped.x * gameCanvas.width, popped.y * gameCanvas.height, "#8B5CF6", 16);
+        engine.wristPitch = 25;
+        setTimeout(() => { engine.wristPitch = -15; }, 200);
+        setTimeout(() => { engine.wristPitch = 0; }, 400);
       }
     }
   });

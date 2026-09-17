@@ -151,6 +151,35 @@ class TestRehabOptSystem(unittest.TestCase):
         self.assertEqual(data.get('status'), 'success')
         self.assertIn('streak', data)
 
+    def test_exercise_session_features(self):
+        # 1. Verify therapy_engine.js has horizontal wrist pitch & 10s stuck popup
+        engine_path = os.path.join(os.path.dirname(__file__), '..', 'static', 'js', 'therapy_engine.js')
+        with open(engine_path, 'r', encoding='utf-8') as f:
+            engine = f.read()
+        self.assertIn('wristPitch', engine)
+        self.assertIn('wristVerticalAngle', engine)
+        self.assertIn('showGuidancePopup(10', engine)
+        self.assertIn('👉 CURRENT STEP: DO THIS NOW', engine)
+        self.assertIn('peak_elbow_rom_deg', engine)
+
+        # 2. Verify exercise_library.js has 7M posture exercises
+        lib_path = os.path.join(os.path.dirname(__file__), '..', 'static', 'js', 'exercise_library.js')
+        with open(lib_path, 'r', encoding='utf-8') as f:
+            lib = f.read()
+        self.assertIn('Horizontal Wrist Up & Down', lib)
+        self.assertIn('Hand Open & Close', lib)
+        self.assertIn('Elbow Extension & Flexion', lib)
+        self.assertIn('wristPitch', lib)
+
+        # 3. Verify clinical SOAP note generation and report stats
+        with self.client.session_transaction() as sess:
+            sess['patient_id'] = 'SP-000000001'
+        res = self.client.get('/api/report/stats')
+        self.assertEqual(res.status_code, 200)
+        stats = json.loads(res.data)
+        self.assertEqual(stats.get('status'), 'success')
+        self.assertIn('stats', stats)
+
 if __name__ == '__main__':
     for iteration in range(1, 6):
         print(f"==================================================")

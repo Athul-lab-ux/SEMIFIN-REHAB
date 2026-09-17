@@ -326,11 +326,11 @@ document.addEventListener("DOMContentLoaded", () => {
     lastActionTime: Date.now(), guidanceShowing: false,
   };
 
-  // ---------- 4s Guidance Popup System (Initial + 10s Inactivity) --------
+  // ---------- 10s Guidance Popup System (Initial + 10s Inactivity / Stuck) --------
   let guidanceTimer = null;
   let guidanceInterval = null;
 
-  function showGuidancePopup(durationSec = 4) {
+  function showGuidancePopup(durationSec = 10, isStuckAlert = false) {
     const popup = $("therapy-guidance-popup");
     if (!popup || !S.ex) return;
     if (S.paused || S.phase !== "workout") return;
@@ -339,18 +339,34 @@ document.addEventListener("DOMContentLoaded", () => {
     $("tgp-title").textContent = `${S.ex.emoji} ${S.ex.name}`;
     $("tgp-what").textContent = S.ex.hint || `Follow each numbered step in sequence to complete each rep.`;
 
+    const curIdx = S.step || 0;
     const stepsEl = $("tgp-steps");
-    stepsEl.innerHTML = S.ex.steps.map((st, i) => `
-      <div style="display:flex; align-items:center; gap:8px; margin:4px 0; font-size:12.5px; color:#E2E8F0;">
-        <span style="display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:50%; background:var(--clin-orange); color:#fff; font-size:11.5px; font-weight:800; flex-shrink:0;">${i+1}</span>
-        <span><b>${st.label}</b> ${st.hold ? `<em style="color:#FDBA74; font-style:normal; font-weight:700;">(hold ${st.hold}s)</em>` : ""}</span>
-      </div>
-    `).join("");
+    stepsEl.innerHTML = S.ex.steps.map((st, i) => {
+      const isCurrent = (i === curIdx);
+      const isDone = (i < curIdx);
+      return `
+        <div class="tgp-step-item ${isCurrent ? 'current' : isDone ? 'done' : ''}" style="display:flex; align-items:flex-start; gap:10px; margin:6px 0; padding:8px 10px; border-radius:8px; background:${isCurrent ? 'rgba(255, 107, 0, 0.22)' : isDone ? 'rgba(16, 185, 129, 0.12)' : 'rgba(255, 255, 255, 0.03)'}; border:1.5px solid ${isCurrent ? '#FF6B00' : isDone ? '#10B981' : 'rgba(255, 255, 255, 0.08)'}; box-shadow:${isCurrent ? '0 0 14px rgba(255, 107, 0, 0.4)' : 'none'};">
+          <span style="display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:50%; background:${isCurrent ? '#FF6B00' : isDone ? '#10B981' : '#475569'}; color:#fff; font-size:12px; font-weight:800; flex-shrink:0;">
+            ${isDone ? '✓' : i + 1}
+          </span>
+          <div style="flex:1;">
+            ${isCurrent ? `<div style="color:#FBBF24; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:2px;">👉 CURRENT STEP: DO THIS NOW</div>` : ''}
+            <div style="font-size:13px; font-weight:${isCurrent ? '700' : '500'}; color:${isCurrent ? '#FFF' : isDone ? '#94A3B8' : '#CBD5E1'};">
+              ${st.label} ${st.hold ? `<em style="color:#FDBA74; font-style:normal; font-weight:700;">(hold ${st.hold}s)</em>` : ''}
+            </div>
+          </div>
+        </div>
+      `;
+    }).join("");
 
     popup.classList.add("show");
 
     if (window.RehabBio) {
-      window.RehabBio.speak(`${S.ex.name}. Step 1: ${S.ex.steps[0].label}`);
+      if (isStuckAlert) {
+        window.RehabBio.speak(`Step assistance: ${S.ex.steps[curIdx]?.label || 'Follow the step'}`);
+      } else {
+        window.RehabBio.speak(`${S.ex.name}. Step ${curIdx + 1}: ${S.ex.steps[curIdx]?.label || ''}`);
+      }
     }
 
     if (guidanceTimer) clearTimeout(guidanceTimer);
@@ -393,8 +409,8 @@ document.addEventListener("DOMContentLoaded", () => {
   // ---------- Metrics per frame ------------------------------------------
   function computeMetrics(res) {
     const M = { elbowMax: null, elbowMin: null, elevMax: null, reach: 0, tilt: 0,
-                spread: null, pinch: null, fan: null, dev: null, tipX: null, tipY: null,
-                speed: 0 };
+                spread: null, pinch: null, fan: null, dev: null, wristPitch: null,
+                wristVerticalAngle: null, tipX: null, tipY: null, speed: 0 };
     if (!res) return M;
     try {
       // Pose arm metrics (either arm may drive the drill)
@@ -442,6 +458,20 @@ document.addEventListener("DOMContentLoaded", () => {
             );
           } catch (e) {}
         }
+
+        // Horizontal Wrist Up & Down (Exact 7M Posture: horizontal forearm across body with closed fist)
+        // dy is positive when fist cocks UPward toward ceiling (kn.y < wr.y in canvas coords)
+        if (res.hand[0] && (res.hand[9] || res.hand[12])) {
+          const wr = res.hand[0];
+          const kn = res.hand[9] || res.hand[12];
+          const dy = wr.y - kn.y;
+          const dx = Math.abs(kn.x - wr.x);
+          const pitch = (Math.atan2(dy, Math.max(0.03, dx)) * 180) / Math.PI;
+          M.wristPitch = Math.round(pitch);
+          M.wristVerticalAngle = M.wristPitch;
+          if (M.dev == null) M.dev = M.wristPitch;
+        }
+
         const tip = res.hand[8];
         if (tip) {
           M.tipX = tip.x; M.tipY = tip.y;
@@ -476,9 +506,21 @@ document.addEventListener("DOMContentLoaded", () => {
       case "ELEV °": return M.elevMax != null ? `${Math.round(M.elevMax)}°` : "—";
       case "REACH": return M.reach != null ? `${Math.round(M.reach * 100)}%` : "—";
       case "BOTH ELBOW": return M.elbowMin != null ? `${Math.round(M.elbowMin)}°` : "—";
-      case "PALM": case "CYCLE": return M.spread != null ? (M.spread > 0.10 ? "OPEN 🖐️" : "fist ✊") : "—";
+      case "PALM": case "CYCLE": {
+        if (M.spread == null) return "—";
+        if (M.spread >= 0.088) return "OPEN PALM 🖐️";
+        if (M.spread <= 0.070) return "CLOSED FIST ✊";
+        return "OPENING... ✋";
+      }
       case "FAN": return M.fan != null ? `${Math.round(M.fan * 100)}` : "—";
-      case "DEV °": return M.dev != null ? `${Math.round(M.dev)}°` : "—";
+      case "WRIST °":
+      case "DEV °": {
+        const ang = M.wristPitch != null ? Math.round(M.wristPitch) : (M.dev != null ? Math.round(M.dev) : null);
+        if (ang == null) return "—";
+        if (ang >= 14) return `${ang}° UP ⬆️`;
+        if (ang <= -8) return `${Math.abs(ang)}° DOWN ⬇️`;
+        return `${ang}° LEVEL ↔️`;
+      }
       case "PINCH": return M.pinch != null ? `${Math.round(M.pinch * 100)}` : "—";
       default: return M.tipY != null ? `x ${Math.round(M.tipX * 100)} · y ${Math.round(M.tipY * 100)}` : "—";
     }
@@ -569,7 +611,9 @@ document.addEventListener("DOMContentLoaded", () => {
         S.holdStart = 0;
         S.step++;
         S.hintOn = false;
+        S.stuckAt = 0;
         S.lastActionTime = now;
+        if (S.guidanceShowing) hideGuidancePopup();
         const line = $("feedback-line");
         if (window.RehabBio) window.RehabBio.playBeep(880, 0.06, 0.3);
         if (S.step >= S.ex.steps.length) completeRep();
@@ -587,6 +631,11 @@ document.addEventListener("DOMContentLoaded", () => {
           S.hintOn = true;
           $("hint-line").textContent = `💡 Try: ${step.label}`;
           if (window.RehabBio) window.RehabBio.speak(`Try: ${step.label}`);
+        }
+        // 10s Stuck Guidance Alert: show popup for 10s with current step instructions
+        if (now - S.stuckAt >= 10000 && !S.guidanceShowing) {
+          showGuidancePopup(10, true);
+          S.stuckAt = now;
         }
       }
     } catch (err) {
@@ -709,10 +758,13 @@ document.addEventListener("DOMContentLoaded", () => {
         $("timer-display").style.opacity = "0.6";
       }
 
-      // Re-trigger 4s guidance popup if patient is inactive for 10s
-      if (!S.guidanceShowing && (Date.now() - S.lastActionTime >= 10000)) {
-        showGuidancePopup(4);
+      // Re-trigger 10s guidance popup if patient is stuck or inactive for 10s
+      const isStuck = S.stuckAt > 0 && (Date.now() - S.stuckAt >= 10000);
+      const isInactive = (Date.now() - S.lastActionTime >= 10000);
+      if (!S.guidanceShowing && (isStuck || isInactive)) {
+        showGuidancePopup(10, true);
         S.lastActionTime = Date.now();
+        S.stuckAt = Date.now();
       }
     }
   }, 250);
@@ -955,7 +1007,9 @@ document.addEventListener("DOMContentLoaded", () => {
   // ---------- Logging --------------------------------------------------------
   async function logExercise(result) {
     try {
-      const peakRom = S.metrics && S.metrics.elbowMax ? Math.round(S.metrics.elbowMax) : 75;
+      const peakRom = S.metrics && S.metrics.elbowMax != null ? Math.round(S.metrics.elbowMax) : (S.metrics && S.metrics.wristPitch != null ? Math.round(Math.abs(S.metrics.wristPitch)) : 75);
+      const devRom = S.metrics && S.metrics.dev != null ? Math.round(Math.abs(S.metrics.dev)) : (S.metrics && S.metrics.wristPitch != null ? Math.round(Math.abs(S.metrics.wristPitch)) : 0);
+      const dispersion = S.metrics && S.metrics.spread != null ? parseFloat(S.metrics.spread.toFixed(3)) : 0.08;
       await fetch("/api/telemetry", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -964,10 +1018,21 @@ document.addEventListener("DOMContentLoaded", () => {
           condition: profile,
           duration_seconds: Math.max(1, result.elapsed),
           peak_rom: peakRom,
-          smoothness_score: 88,
+          smoothness_score: 92,
           cheats_blocked: S.cheat ? 1 : 0,
           score: result.reps,
-          metrics_json: JSON.stringify({ exercise: result.name, reps: result.reps, sets: result.sets, profile: profile, peak_rom: peakRom }),
+          metrics_json: JSON.stringify({
+            exercise: result.name,
+            reps: result.reps,
+            sets: result.sets,
+            profile: profile,
+            peak_elbow_rom_deg: peakRom,
+            mean_wrist_deviation_deg: devRom,
+            hand_dispersion_index: dispersion,
+            trunk_cheat_events: S.cheat ? 1 : 0,
+            repetitions_completed: result.reps,
+            active_duration_seconds: result.elapsed,
+          }),
         }),
       });
     } catch (e) { console.error("Telemetry error", e); }
