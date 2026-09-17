@@ -9,6 +9,10 @@ class RehabCamera {
     this.stream = null;
     this.isProcessing = false;
     this.animationId = null;
+
+    // Auto-teardown camera tracks on page transitions to prevent webcam hardware locks
+    window.addEventListener("beforeunload", () => this.stop());
+    window.addEventListener("pagehide", () => this.stop());
   }
 
   async initialize(preferredDeviceId) {

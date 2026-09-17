@@ -474,6 +474,14 @@ const VisionLoader = (() => {
     }
   });
 
+  // --- Page transition teardown to prevent camera locks -----------------
+  window.addEventListener("beforeunload", () => {
+    try { if (isRunning) stop(); } catch (e) {}
+  });
+  window.addEventListener("pagehide", () => {
+    try { if (isRunning) stop(); } catch (e) {}
+  });
+
   return {
     start,
     stop,

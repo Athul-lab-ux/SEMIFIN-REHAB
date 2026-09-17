@@ -170,7 +170,7 @@ def get_db():
     if "db" not in g:
         os.makedirs(os.path.dirname(os.path.abspath(DATABASE)), exist_ok=True)
         need_seed = not os.path.exists(DATABASE) or os.path.getsize(DATABASE) == 0
-        g.db = sqlite3.connect(DATABASE)
+        g.db = sqlite3.connect(DATABASE, timeout=30.0)
         g.db.row_factory = sqlite3.Row
         if os.environ.get("VERCEL"):
             try:
@@ -250,7 +250,7 @@ def ensure_schema_columns(db):
 def init_db():
     """Initialize the database and seed demo account."""
     os.makedirs(os.path.dirname(os.path.abspath(DATABASE)), exist_ok=True)
-    db = sqlite3.connect(DATABASE)
+    db = sqlite3.connect(DATABASE, timeout=30.0)
     db.row_factory = sqlite3.Row
     if os.environ.get("VERCEL"):
         try:
@@ -1343,6 +1343,20 @@ def ai_chat():
         "model_used": "rehabopt-clinical-ai",
         "remaining": DAILY_CHAT_LIMIT - used - 1,
     })
+
+
+@app.errorhandler(404)
+def handle_404(e):
+    if request.path.startswith("/api/"):
+        return jsonify({"error": "Resource not found", "status": 404}), 404
+    return redirect(url_for("dashboard"))
+
+
+@app.errorhandler(500)
+def handle_500(e):
+    if request.path.startswith("/api/"):
+        return jsonify({"error": "Internal server error", "status": 500}), 500
+    return redirect(url_for("dashboard"))
 
 
 # ---------------------------------------------------------------------------

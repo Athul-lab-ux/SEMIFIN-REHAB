@@ -75,10 +75,12 @@ document.addEventListener("DOMContentLoaded", async () => {
   const popups = [];
 
   function addScorePopup(x, y, text, color = "#10B981") {
+    if (popups.length > 15) popups.shift();
     popups.push({ x, y, text, color, alpha: 1.0, vy: -1.6 });
   }
 
   function spawnParticles(x, y, color, count = 12) {
+    if (particles.length > 80) return;
     for (let i = 0; i < count; i++) {
       const angle = Math.random() * Math.PI * 2;
       const spd = rand(1.5, 4.5);
