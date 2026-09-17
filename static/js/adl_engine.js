@@ -558,8 +558,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     handCtx.clearRect(0, 0, handCanvas.width, handCanvas.height);
     const w = handCanvas.width, h = handCanvas.height;
 
-    // 1. Cyan Bones (#00E5FF)
-    handCtx.strokeStyle = "rgba(0, 229, 255, 0.85)";
+    // 1. Bright Green Bones (#00FF00)
+    handCtx.strokeStyle = "#00FF00";
     handCtx.lineWidth = 2.5;
     handCtx.lineCap = "round";
     handCtx.lineJoin = "round";
@@ -572,46 +572,26 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
     });
 
-    // 2. All 21 Joint Nodes (Red Wrist 0, White Joints 1-20, Golden Index Tip 8)
+    // 2. All 21 Red Dots (#FF0000)
     for (let i = 0; i < 21; i++) {
       const p = lm[i];
       if (!p) continue;
       const px = p.x * w, py = p.y * h;
 
-      if (i === 0) {
-        // Red wrist (COLOR_HAND_WRIST = #EF4444)
-        handCtx.beginPath();
-        handCtx.arc(px, py, 5.5, 0, Math.PI * 2);
-        handCtx.fillStyle = "#EF4444";
-        handCtx.fill();
-        handCtx.strokeStyle = "#FFFFFF";
-        handCtx.lineWidth = 1.5;
-        handCtx.stroke();
-      } else if (i === 8) {
-        // Index tip targeting node
-        handCtx.beginPath();
-        handCtx.arc(px, py, 6.5, 0, Math.PI * 2);
-        handCtx.fillStyle = "#FBBF24";
-        handCtx.fill();
-        handCtx.strokeStyle = "#FFFFFF";
-        handCtx.lineWidth = 2;
-        handCtx.stroke();
+      handCtx.beginPath();
+      handCtx.arc(px, py, 4.5, 0, Math.PI * 2);
+      handCtx.fillStyle = "#FF0000";
+      handCtx.fill();
+      handCtx.strokeStyle = "#FFFFFF";
+      handCtx.lineWidth = 1;
+      handCtx.stroke();
 
-        // Targeting ring
+      if (i === 8) {
+        // Index tip targeting ring
         handCtx.beginPath();
-        handCtx.arc(px, py, 13, 0, Math.PI * 2);
-        handCtx.strokeStyle = "rgba(251, 191, 36, 0.85)";
-        handCtx.lineWidth = 1.5;
-        handCtx.stroke();
-      } else {
-        // White joints (COLOR_HAND_JOINT = #FFFFFF)
-        const isTip = i === 4 || i === 12 || i === 16 || i === 20;
-        handCtx.beginPath();
-        handCtx.arc(px, py, isTip ? 4.0 : 3.2, 0, Math.PI * 2);
-        handCtx.fillStyle = "#FFFFFF";
-        handCtx.fill();
-        handCtx.strokeStyle = "rgba(0, 0, 0, 0.4)";
-        handCtx.lineWidth = 1;
+        handCtx.arc(px, py, 11, 0, Math.PI * 2);
+        handCtx.strokeStyle = "#00FF00";
+        handCtx.lineWidth = 2;
         handCtx.stroke();
       }
     }

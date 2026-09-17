@@ -730,18 +730,18 @@ document.addEventListener("DOMContentLoaded", async () => {
     drawHandSkeleton(lm, "#64748B");
   }
 
-  // --- Hand Skeleton Visualizer (OpenCV MediaPipe Spec: Cyan bones, Red wrist, White joints) ---
+  // --- Hand Skeleton Visualizer (Exact 6M Reference: Bright Green bones #00FF00, Red dots #FF0000) ---
   function drawHandSkeleton(lm, color) {
     handCtx.clearRect(0, 0, handCanvas.width, handCanvas.height);
     const w = handCanvas.width;
     const h = handCanvas.height;
 
-    // 1. Bones: Cyan (#00E5FF) or action color
-    handCtx.strokeStyle = color === "#64748B" ? "rgba(0, 229, 255, 0.5)" : (color || "#00E5FF");
+    // 1. Bones: Bright Green (#00FF00)
+    handCtx.strokeStyle = "#00FF00";
     handCtx.lineWidth = 2.5;
     handCtx.lineCap = "round";
     handCtx.lineJoin = "round";
-    handCtx.globalAlpha = 0.85;
+    handCtx.globalAlpha = 0.95;
     HAND_CONNECTIONS.forEach(([a, b]) => {
       if (lm[a] && lm[b]) {
         handCtx.beginPath();
@@ -752,47 +752,27 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
     handCtx.globalAlpha = 1.0;
 
-    // 2. All 21 Joint Landmarks
+    // 2. All 21 Joint Landmarks: RED DOTS (#FF0000)
     for (let i = 0; i < 21; i++) {
       const p = lm[i];
       if (!p) continue;
       const px = p.x * w;
       const py = p.y * h;
 
-      if (i === 0) {
-        // Landmark 0: Red Wrist (COLOR_HAND_WRIST = #EF4444)
-        handCtx.beginPath();
-        handCtx.arc(px, py, 5.5, 0, Math.PI * 2);
-        handCtx.fillStyle = "#EF4444";
-        handCtx.fill();
-        handCtx.strokeStyle = "#FFFFFF";
-        handCtx.lineWidth = 1.5;
-        handCtx.stroke();
-      } else if (i === 8) {
-        // Landmark 8: Index fingertip stylus marker & targeting ring
-        handCtx.beginPath();
-        handCtx.arc(px, py, isEraser ? 12 : 7, 0, Math.PI * 2);
-        handCtx.fillStyle = color;
-        handCtx.fill();
-        handCtx.strokeStyle = "#FFFFFF";
-        handCtx.lineWidth = 2;
-        handCtx.stroke();
+      handCtx.beginPath();
+      handCtx.arc(px, py, 4.5, 0, Math.PI * 2);
+      handCtx.fillStyle = "#FF0000";
+      handCtx.fill();
+      handCtx.strokeStyle = "#FFFFFF";
+      handCtx.lineWidth = 1;
+      handCtx.stroke();
 
-        // Outer neon targeting ring
+      if (i === 8) {
+        // Landmark 8: Index fingertip stylus ring
         handCtx.beginPath();
-        handCtx.arc(px, py, isEraser ? 18 : 13, 0, Math.PI * 2);
-        handCtx.strokeStyle = color;
-        handCtx.lineWidth = 1.5;
-        handCtx.stroke();
-      } else {
-        // Landmarks 1-20: White Joints (COLOR_HAND_JOINT = #FFFFFF)
-        const isTip = i === 4 || i === 12 || i === 16 || i === 20;
-        handCtx.beginPath();
-        handCtx.arc(px, py, isTip ? 4.0 : 3.2, 0, Math.PI * 2);
-        handCtx.fillStyle = "#FFFFFF";
-        handCtx.fill();
-        handCtx.strokeStyle = "rgba(0, 0, 0, 0.4)";
-        handCtx.lineWidth = 1;
+        handCtx.arc(px, py, isEraser ? 16 : 10, 0, Math.PI * 2);
+        handCtx.strokeStyle = color || "#00FF00";
+        handCtx.lineWidth = 2;
         handCtx.stroke();
       }
     }

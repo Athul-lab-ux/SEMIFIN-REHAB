@@ -1331,11 +1331,11 @@ document.addEventListener("DOMContentLoaded", async () => {
       });
     }
 
-    // Draw full 21 hand landmarks & connecting skeleton bones! (OpenCV Spec: Cyan bones, Red wrist, White joints)
+    // Draw full 21 hand landmarks & connecting skeleton bones! (Exact 6M Reference: Bright Green bones #00FF00, Red dots #FF0000)
     const hand = (res && res.hand) || (engine.lastRes && engine.lastRes.hand);
     if (hand && hand[0]) {
-      // 1. Hand skeleton bones: OpenCV Cyan (#00E5FF)
-      oCtx.strokeStyle = "rgba(0, 229, 255, 0.85)";
+      // 1. Hand skeleton bones: Bright Green (#00FF00)
+      oCtx.strokeStyle = "#00FF00";
       oCtx.lineWidth = 2.5;
       oCtx.lineCap = "round";
       oCtx.lineJoin = "round";
@@ -1349,40 +1349,27 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
       }
 
-      // 2. Hand joint nodes (Red Wrist 0, White Joints 1-20)
+      // 2. Hand joint nodes: ALL 21 RED DOTS (#FF0000)
       for (let i = 0; i < 21; i++) {
         const p = hand[i];
         if (!p) continue;
         const px = p.x * W, py = p.y * H;
-        if (i === 0) {
-          // Landmark 0: Red wrist (COLOR_HAND_WRIST = #EF4444)
-          oCtx.beginPath();
-          oCtx.arc(px, py, 5.5, 0, Math.PI * 2);
-          oCtx.fillStyle = "#EF4444";
-          oCtx.fill();
-          oCtx.strokeStyle = "#FFFFFF";
-          oCtx.lineWidth = 1.5;
-          oCtx.stroke();
-        } else if (i === 8) {
-          // Landmark 8: Index tip reticle
-          oCtx.beginPath();
-          oCtx.arc(px, py, 6.5, 0, Math.PI * 2);
-          oCtx.fillStyle = "#00E5FF";
-          oCtx.fill();
-          oCtx.strokeStyle = "#FFFFFF";
-          oCtx.lineWidth = 2;
-          oCtx.stroke();
-        } else {
-          // Landmarks 1-20: White joints (COLOR_HAND_JOINT = #FFFFFF)
-          const isTip = i === 4 || i === 12 || i === 16 || i === 20;
-          oCtx.beginPath();
-          oCtx.arc(px, py, isTip ? 4.2 : 3.5, 0, Math.PI * 2);
-          oCtx.fillStyle = "#FFFFFF";
-          oCtx.fill();
-          oCtx.strokeStyle = "rgba(0, 0, 0, 0.4)";
-          oCtx.lineWidth = 1;
-          oCtx.stroke();
-        }
+        oCtx.beginPath();
+        oCtx.arc(px, py, 4.5, 0, Math.PI * 2);
+        oCtx.fillStyle = "#FF0000";
+        oCtx.fill();
+        oCtx.strokeStyle = "#FFFFFF";
+        oCtx.lineWidth = 1;
+        oCtx.stroke();
+      }
+
+      // Index tip reticle indicator
+      if (hand[8]) {
+        oCtx.beginPath();
+        oCtx.arc(hand[8].x * W, hand[8].y * H, 10, 0, Math.PI * 2);
+        oCtx.strokeStyle = "rgba(0, 255, 0, 0.85)";
+        oCtx.lineWidth = 1.5;
+        oCtx.stroke();
       }
 
       // 3. Dynamic hammer attached to wrist & knuckle in Wrist Hammer game

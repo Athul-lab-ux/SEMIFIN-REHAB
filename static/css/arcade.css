@@ -116,12 +116,13 @@
   height: 100%;
 }
 .video-frame video { object-fit: cover; transform: scaleX(-1); } /* Dynamic live mirror view matching user hand motion */
-#game-canvas, #overlay-canvas { z-index: 2; pointer-events: none; }
+#game-canvas { z-index: 2; pointer-events: none; }
+#overlay-canvas { z-index: 4; pointer-events: none; }
 
 .stage-placeholder {
   position: absolute;
   inset: 0;
-  z-index: 3;
+  z-index: 2;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -130,8 +131,9 @@
   padding: 24px;
   color: #E2E8F0;
   background:
-    radial-gradient(600px 300px at 50% 20%, rgba(16, 185, 129, 0.15), transparent 60%),
-    #0B1220;
+    radial-gradient(600px 300px at 50% 20%, rgba(16, 185, 129, 0.2), transparent 60%),
+    rgba(11, 18, 32, 0.55);
+  backdrop-filter: blur(4px);
 }
 .sp-icon { font-size: 52px; margin-bottom: 10px; }
 .stage-placeholder p { font-size: 15px; margin: 4px 0; overflow-wrap: break-word; }

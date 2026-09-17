@@ -102,17 +102,13 @@ document.addEventListener("DOMContentLoaded", () => {
         (ex.metric && (ex.metric.includes("PALM") || ex.metric.includes("PINCH") || ex.metric.includes("DEV") || ex.metric.includes("OPEN") || ex.metric.includes("POINT")))
       ));
 
-      // Shoulder and elbow exercises show ONLY shoulder, elbow, and wrist arm landmarks & lines
-      const drawArm = !isHandWristEx;
-      const drawHand = !isShoulderElbowEx;
-
       // 1. Arm skeleton (OpenCV Spec: Green bones #00C853, Yellow joints #FFEB3B)
       const c = res.chain || (res.pose && (
         (res.pose[12] && res.pose[14] && res.pose[16] && { sh: res.pose[12], el: res.pose[14], wr: res.pose[16] }) ||
         (res.pose[11] && res.pose[13] && res.pose[15] && { sh: res.pose[11], el: res.pose[13], wr: res.pose[15] })
       ));
 
-      if (drawArm && c && c.sh && c.el && c.wr && (c.sh.x !== 0 || c.sh.y !== 0)) {
+      if (c && c.sh && c.el && c.wr && (c.sh.x !== 0 || c.sh.y !== 0)) {
         oCtx.strokeStyle = "rgba(0, 200, 83, 0.95)";
         oCtx.lineWidth = 4.5;
         oCtx.beginPath();
@@ -187,12 +183,14 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       }
 
-      // 2. Full 21 Hand Landmarks & Connecting Bones (OpenCV Spec: Cyan bones, Red wrist, White joints)
-      // Hidden during shoulder/elbow exercises to keep focus strictly on the arm landmarks & lines
-      if (drawHand && res.hand && res.hand[0]) {
-        // Draw hand bones: OpenCV Cyan (#00E5FF)
-        oCtx.strokeStyle = "rgba(0, 229, 255, 0.85)";
+      // 2. Full 21 Hand Landmarks & Connecting Bones (Exact 6M Reference: Bright Green bones #00FF00, Red dots #FF0000)
+      // Rendered unconditionally whenever hand is detected in camera
+      if (res.hand && res.hand[0]) {
+        // Draw hand bones: Bright Green (#00FF00)
+        oCtx.strokeStyle = "#00FF00";
         oCtx.lineWidth = 2.5;
+        oCtx.lineCap = "round";
+        oCtx.lineJoin = "round";
         for (const [i, j] of HAND_CONNECTIONS) {
           const p1 = res.hand[i], p2 = res.hand[j];
           if (p1 && p2) {
@@ -203,47 +201,25 @@ document.addEventListener("DOMContentLoaded", () => {
           }
         }
 
-        // Draw 21 hand joint nodes
+        // Draw ALL 21 RED DOTS (#FF0000) on all joints (0 to 20)
         for (let i = 0; i < 21; i++) {
           const p = res.hand[i];
           if (!p) continue;
           const px = X(p), py = Y(p);
-          if (i === 0) {
-            // Landmark 0: Red wrist (COLOR_HAND_WRIST = #EF4444)
-            oCtx.beginPath();
-            oCtx.arc(px, py, 5.5, 0, Math.PI * 2);
-            oCtx.fillStyle = "#EF4444";
-            oCtx.fill();
-            oCtx.strokeStyle = "#FFFFFF";
-            oCtx.lineWidth = 1.5;
-            oCtx.stroke();
-          } else if (i === 8) {
-            // Landmark 8: Index tip reticle
-            oCtx.beginPath();
-            oCtx.arc(px, py, 6.5, 0, Math.PI * 2);
-            oCtx.fillStyle = "#00E5FF";
-            oCtx.fill();
-            oCtx.strokeStyle = "#FFFFFF";
-            oCtx.lineWidth = 2;
-            oCtx.stroke();
-          } else {
-            // Landmarks 1-20: White joints (COLOR_HAND_JOINT = #FFFFFF)
-            const isTip = i === 4 || i === 12 || i === 16 || i === 20;
-            oCtx.beginPath();
-            oCtx.arc(px, py, isTip ? 4.2 : 3.5, 0, Math.PI * 2);
-            oCtx.fillStyle = "#FFFFFF";
-            oCtx.fill();
-            oCtx.strokeStyle = "rgba(0, 0, 0, 0.4)";
-            oCtx.lineWidth = 1;
-            oCtx.stroke();
-          }
+          oCtx.beginPath();
+          oCtx.arc(px, py, 4.5, 0, Math.PI * 2);
+          oCtx.fillStyle = "#FF0000";
+          oCtx.fill();
+          oCtx.strokeStyle = "#FFFFFF";
+          oCtx.lineWidth = 1;
+          oCtx.stroke();
         }
 
-        // Index fingertip targeting halo
+        // Index fingertip targeting halo (Landmark 8)
         if (res.hand[8]) {
           oCtx.beginPath();
-          oCtx.arc(X(res.hand[8]), Y(res.hand[8]), 14, 0, Math.PI * 2);
-          oCtx.strokeStyle = "rgba(0, 229, 255, 0.85)";
+          oCtx.arc(X(res.hand[8]), Y(res.hand[8]), 12, 0, Math.PI * 2);
+          oCtx.strokeStyle = "rgba(0, 255, 0, 0.85)";
           oCtx.lineWidth = 2;
           oCtx.stroke();
         }

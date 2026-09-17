@@ -72,14 +72,7 @@ const VisionLoader = (() => {
     isModelInitStarted = true;
 
     try {
-      // 1. Check if classic MediaPipe Pose & Hands are present or load them
-      if (typeof window.Pose === "undefined") {
-        try {
-          await loadScript("https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js");
-        } catch (e) {
-          console.warn("[VisionLoader] Could not load @mediapipe/pose from CDN:", e);
-        }
-      }
+      // 1. Check if classic MediaPipe Hands & Pose are present or load them
       if (typeof window.Hands === "undefined") {
         try {
           await loadScript("https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js");
@@ -87,8 +80,50 @@ const VisionLoader = (() => {
           console.warn("[VisionLoader] Could not load @mediapipe/hands from CDN:", e);
         }
       }
+      if (typeof window.Pose === "undefined") {
+        try {
+          await loadScript("https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js");
+        } catch (e) {
+          console.warn("[VisionLoader] Could not load @mediapipe/pose from CDN:", e);
+        }
+      }
 
-      // Initialize Pose if available
+      // 2. Initialize Hands FIRST with highest priority (vital for all motor games and rehab)
+      if (typeof window.Hands !== "undefined" && !handsModel) {
+        try {
+          handsModel = new window.Hands({
+            locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`,
+          });
+          handsModel.setOptions({
+            maxNumHands: 1,
+            modelComplexity: 0,
+            minDetectionConfidence: 0.5,
+            minTrackingConfidence: 0.5,
+          });
+          handsModel.onResults((res) => {
+            if (res.multiHandLandmarks && res.multiHandLandmarks.length > 0) {
+              lastHandLandmarks = res.multiHandLandmarks[0];
+              lastModelDetectionTime = Date.now();
+              const src = res.multiHandLandmarks[0];
+              cachedHandAll = src.map((lm) => ({ x: mapX(lm.x), y: lm.y, z: lm.z || 0 }));
+              cachedHand = {};
+              for (let i = 0; i < src.length; i++) {
+                cachedHand[i] = { x: mapX(src[i].x), y: src[i].y, z: src[i].z || 0 };
+              }
+              if (cachedHand[17] && cachedHand[5]) {
+                cachedHandSide = cachedHand[17].x < cachedHand[5].x ? "right" : "left";
+              }
+            } else {
+              cachedHand = null;
+              cachedHandAll = null;
+            }
+          });
+        } catch (err) {
+          console.warn("[VisionLoader] Classic Hands init warning:", err);
+        }
+      }
+
+      // 3. Initialize Pose if available
       if (typeof window.Pose !== "undefined" && !poseModel) {
         try {
           poseModel = new window.Pose({
@@ -122,38 +157,6 @@ const VisionLoader = (() => {
           });
         } catch (err) {
           console.warn("[VisionLoader] Classic Pose init warning:", err);
-        }
-      }
-
-      // Initialize Hands if available
-      if (typeof window.Hands !== "undefined" && !handsModel) {
-        try {
-          handsModel = new window.Hands({
-            locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`,
-          });
-          handsModel.setOptions({
-            maxNumHands: 1,
-            modelComplexity: 0,
-            minDetectionConfidence: 0.5,
-            minTrackingConfidence: 0.5,
-          });
-          handsModel.onResults((res) => {
-            if (res.multiHandLandmarks && res.multiHandLandmarks.length > 0) {
-              lastHandLandmarks = res.multiHandLandmarks[0];
-              lastModelDetectionTime = Date.now();
-              const src = res.multiHandLandmarks[0];
-              cachedHandAll = src.map((lm) => ({ x: mapX(lm.x), y: lm.y, z: lm.z || 0 }));
-              cachedHand = {};
-              for (let i = 0; i < src.length; i++) {
-                cachedHand[i] = { x: mapX(src[i].x), y: src[i].y, z: src[i].z || 0 };
-              }
-              if (cachedHand[17] && cachedHand[5]) {
-                cachedHandSide = cachedHand[17].x < cachedHand[5].x ? "right" : "left";
-              }
-            }
-          });
-        } catch (err) {
-          console.warn("[VisionLoader] Classic Hands init warning:", err);
         }
       }
 
@@ -313,22 +316,30 @@ const VisionLoader = (() => {
         lastVideoHeight = videoElement.videoHeight;
       }
 
-      // Asynchronously send frames to neural models with 30 FPS pacing
+      // Asynchronously send frames to neural models with sequential priority (hands first, then pose)
       const now = performance.now();
-      if (poseModel && !isProcessingPose && (now - lastPoseInferenceTime >= 32)) {
-        isProcessingPose = true;
-        lastPoseInferenceTime = now;
-        poseModel.send({ image: videoElement })
-          .catch((e) => console.warn("[VisionLoader] pose frame skip:", e))
-          .finally(() => { isProcessingPose = false; });
-      }
-
-      if (handsModel && !isProcessingHands && (now - lastHandsInferenceTime >= 32)) {
+      if (handsModel && !isProcessingHands && (now - lastHandsInferenceTime >= 30)) {
         isProcessingHands = true;
         lastHandsInferenceTime = now;
         handsModel.send({ image: videoElement })
-          .catch((e) => console.warn("[VisionLoader] hand frame skip:", e))
-          .finally(() => { isProcessingHands = false; });
+          .catch(() => {})
+          .finally(() => {
+            isProcessingHands = false;
+            // Interleave pose sequentially after hands to prevent WebGL texture collision
+            if (poseModel && !isProcessingPose && (performance.now() - lastPoseInferenceTime >= 35)) {
+              isProcessingPose = true;
+              lastPoseInferenceTime = performance.now();
+              poseModel.send({ image: videoElement })
+                .catch(() => {})
+                .finally(() => { isProcessingPose = false; });
+            }
+          });
+      } else if (poseModel && !isProcessingPose && !handsModel && (now - lastPoseInferenceTime >= 35)) {
+        isProcessingPose = true;
+        lastPoseInferenceTime = now;
+        poseModel.send({ image: videoElement })
+          .catch(() => {})
+          .finally(() => { isProcessingPose = false; });
       }
 
       // Construct results bundle reusing pre-mapped caches (zero per-frame heap allocation)
