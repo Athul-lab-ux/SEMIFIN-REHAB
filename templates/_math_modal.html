@@ -1,0 +1,213 @@
+<!-- RehabOpt AR — Deterministic Motion-Math, MediaPipe & OpenCV Technical Core Modal -->
+<div id="rehab-math-modal" class="rehab-math-modal" role="dialog" aria-modal="true" aria-labelledby="rmm-title" style="display:none;">
+  <div class="rmm-backdrop" id="rmm-backdrop"></div>
+  <div class="rmm-dialog">
+    <div class="rmm-header">
+      <div class="rmm-title-wrap">
+        <span class="rmm-badge">📐 FOUNDATIONAL ARCHITECTURE</span>
+        <h2 id="rmm-title">The Motion-Math Core, MediaPipe &amp; OpenCV Engine</h2>
+        <p class="rmm-sub">100% deterministic, rule-based mathematical rehabilitation. Zero black-box ML, zero dataset bias, CPU-only 30–60 FPS.</p>
+      </div>
+      <button id="rmm-close" class="rmm-close-btn" aria-label="Close modal">✕</button>
+    </div>
+
+    <div class="rmm-body">
+      <!-- 1. The 13 Core Mathematical Formulas -->
+      <section class="rmm-section">
+        <div class="rmm-section-header">
+          <span class="rmm-sec-num">1</span>
+          <h3>The 13 Clinical &amp; Biomechanical Formulas</h3>
+        </div>
+        <p class="rmm-sec-desc">Raw Cartesian coordinates $(x, y, z) \in [0, 1]$ are transformed in real time through deterministic mathematical formulations:</p>
+        
+        <div class="rmm-table-wrap">
+          <table class="rmm-table">
+            <thead>
+              <tr>
+                <th>Code</th>
+                <th>Mathematical Concept</th>
+                <th>Exact Formulation</th>
+                <th>Clinical Application &amp; Session</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>C1</strong></td>
+                <td>Vector Geometry &amp; Inner Products</td>
+                <td><code>θ = arccos( (a·b) / (||a||·||b||) )</code></td>
+                <td>Elbow flexion/extension &amp; wrist angles in Exercise &amp; Arcade</td>
+              </tr>
+              <tr>
+                <td><strong>C2</strong></td>
+                <td>L₂ Planar Euclidean Distance</td>
+                <td><code>d(p, q) = √( (pₓ - qₓ)² + (pᵧ - qᵧ)² )</code></td>
+                <td>Target reaching, bubble popping, collision detection</td>
+              </tr>
+              <tr>
+                <td><strong>C3</strong></td>
+                <td>Spatial Variance (Dispersion)</td>
+                <td><code>σ = √( (1/N) ∑ ||xᵢ - x̄||² )</code></td>
+                <td>Fist clench vs. finger spread across all 21 hand points</td>
+              </tr>
+              <tr>
+                <td><strong>C4</strong></td>
+                <td>Normalized Planar Reach</td>
+                <td><code>Reach = min(100, (||wrist - shoulder|| / L_arm) × 100)</code></td>
+                <td>Forward arm extension &amp; functional boundary metrics</td>
+              </tr>
+              <tr>
+                <td><strong>C5</strong></td>
+                <td>Radial / Ulnar Deviation</td>
+                <td><code>θ_dev = atan2(det(u_forearm, v_hand), u·v)</code></td>
+                <td>Lateral wrist angle and joint tracking</td>
+              </tr>
+              <tr>
+                <td><strong>C6</strong></td>
+                <td>Bimanual Coordination Index</td>
+                <td><code>BCI = (ROM_impaired / ROM_unaffected) × 100</code></td>
+                <td>Symmetry ratio comparing affected vs. baseline limb</td>
+              </tr>
+              <tr>
+                <td><strong>E1</strong></td>
+                <td>Anti-Cheat Trunk Lateral Tilt</td>
+                <td><code>θ_trunk = |arctan( (y_R - y_L) / (x_R - x_L) )|</code></td>
+                <td>Detects trunk leaning compensation (&gt; 10° triggers cheat alert)</td>
+              </tr>
+              <tr>
+                <td><strong>E2</strong></td>
+                <td>Pincer Grip Precision Distance</td>
+                <td><code>d_pincer = ||p₄ - p₈||₂</code></td>
+                <td>Distance between thumb tip (4) and index tip (8)</td>
+              </tr>
+              <tr>
+                <td><strong>E3</strong></td>
+                <td>Signed Wrist Deviation</td>
+                <td><code>Alignment = atan2(u_forearm × v_knuckle, u·v)</code></td>
+                <td>Wrist drop detection in radial-nerve motor deficits</td>
+              </tr>
+              <tr>
+                <td><strong>E4</strong></td>
+                <td>Orthogonal Path Error</td>
+                <td><code>e_⟂ = ||(p - A) × (B - A)|| / ||B - A||</code></td>
+                <td>Cross-track deviation from optimal straight-line reference</td>
+              </tr>
+              <tr>
+                <td><strong>E5</strong></td>
+                <td>Knuckle Aspect Ratio</td>
+                <td><code>KAR = |x₅ - x₁₇| / |y_knuckle - y₀|</code></td>
+                <td>Forearm supination / pronation during ADL key turn</td>
+              </tr>
+              <tr>
+                <td><strong>E6 / C4</strong></td>
+                <td>Fast Fourier Transform (Tremor)</td>
+                <td><code>X(k) = ∑ₙ x(n)·e^(-i 2π k n / N)</code></td>
+                <td>Spectral energy extraction in pathological 4–12 Hz band</td>
+              </tr>
+              <tr>
+                <td><strong>S1 / S3</strong></td>
+                <td>Central Finite Differences &amp; Jerk</td>
+                <td><code>v(t) ≈ [x(t+h) - x(t-h)] / 2h;  Smoothness = 100 - 18·ln(1 + J̄)</code></td>
+                <td>Velocity, acceleration, jerk, &amp; Flash &amp; Hogan minimum-jerk path</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- 2. MediaPipe Holistic Perception Architecture -->
+      <section class="rmm-section">
+        <div class="rmm-section-header">
+          <span class="rmm-sec-num">2</span>
+          <h3>MediaPipe Holistic Perception Pipeline</h3>
+        </div>
+        <div class="rmm-grid-2">
+          <div class="rmm-card">
+            <h4>👤 33 Body Pose Landmarks</h4>
+            <ul>
+              <li><strong>Left Arm</strong>: Shoulder 11, Elbow 13, Wrist 15</li>
+              <li><strong>Right Arm</strong>: Shoulder 12, Elbow 14, Wrist 16</li>
+              <li><strong>Trunk Anchors</strong>: Left Hip 23, Right Hip 24</li>
+              <li><strong>Dynamic Selection</strong>: Automatically matches the active arm nearest to the camera</li>
+            </ul>
+          </div>
+          <div class="rmm-card">
+            <h4>✋ 21 Hand Landmarks &amp; 23 Bones</h4>
+            <ul>
+              <li><strong>Wrist Base</strong>: Landmark 0</li>
+              <li><strong>5 Digits</strong>: Thumb (1-4), Index (5-8), Middle (9-12), Ring (13-16), Pinky (17-20)</li>
+              <li><strong>Knuckle Base</strong>: Connections (5-9), (9-13), (13-17)</li>
+              <li><strong>Palm Rays</strong>: Base lines from wrist (0) to knuckles (1, 5, 9, 13, 17)</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- 3. OpenCV Rendering & Visual Standards -->
+      <section class="rmm-section">
+        <div class="rmm-section-header">
+          <span class="rmm-sec-num">3</span>
+          <h3>OpenCV Visual &amp; Color Specification</h3>
+        </div>
+        <p class="rmm-sec-desc">Directly porting the exact BGR rendering rules from <code>modules/sensor.py</code> across all four web sessions:</p>
+        <div class="rmm-color-strip">
+          <div class="rmm-color-item">
+            <span class="rmm-swatch" style="background:#EF4444;"></span>
+            <div class="rmm-swatch-info">
+              <strong>Red Wrist (0)</strong>
+              <code>(0, 0, 255) BGR · #EF4444</code>
+              <span>5.5px circle at Landmark 0</span>
+            </div>
+          </div>
+          <div class="rmm-color-item">
+            <span class="rmm-swatch" style="background:#00E5FF;"></span>
+            <div class="rmm-swatch-info">
+              <strong>Cyan Hand Bones</strong>
+              <code>(255, 229, 0) BGR · #00E5FF</code>
+              <span>2.5px lines over 23 connections</span>
+            </div>
+          </div>
+          <div class="rmm-color-item">
+            <span class="rmm-swatch" style="background:#FFFFFF; border:1px solid #94A3B8;"></span>
+            <div class="rmm-swatch-info">
+              <strong>White Hand Joints</strong>
+              <code>(255, 255, 255) BGR · #FFFFFF</code>
+              <span>3.5px circles on points 1–20</span>
+            </div>
+          </div>
+          <div class="rmm-color-item">
+            <span class="rmm-swatch" style="background:#00C853;"></span>
+            <div class="rmm-swatch-info">
+              <strong>Green Arm Bones</strong>
+              <code>(83, 200, 0) BGR · #00C853</code>
+              <span>4.0px lines shoulder→elbow→wrist</span>
+            </div>
+          </div>
+          <div class="rmm-color-item">
+            <span class="rmm-swatch" style="background:#FFEB3B;"></span>
+            <div class="rmm-swatch-info">
+              <strong>Yellow Arm Joints</strong>
+              <code>(0, 255, 255) BGR · #FFEB3B</code>
+              <span>6.5px circles at shoulder/elbow</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 4. 100% Explainable Architecture -->
+      <section class="rmm-section rmm-callout">
+        <h4>🛡️ The 20-Second Verification Story for Clinicians &amp; Reviewers</h4>
+        <p>
+          "RehabOpt AR is driven entirely by our <strong>13-Formula Motion-Math Core</strong>.
+          MediaPipe Holistic tracks 33 body and 21 hand points on a standard CPU. Vector geometry calculates exact joint angles;
+          L₂ distance evaluates reach and bubble collision; spatial variance classifies fists and spreads;
+          FFT extracts 4–12 Hz tremor frequencies; and central finite differences calculate velocity and jerk against the Flash &amp; Hogan minimum-jerk optimal trajectory.
+          Every metric is <strong>100% explainable, reproducible, and verifiable</strong>."
+        </p>
+      </section>
+    </div>
+
+    <div class="rmm-footer">
+      <button id="rmm-confirm" class="clin-btn clin-btn-primary">Acknowledge &amp; Return to Workspace</button>
+    </div>
+  </div>
+</div>

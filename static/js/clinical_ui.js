@@ -338,6 +338,26 @@
     if (window.RehabBio) window.RehabBio.unlock();
   }, { once: true });
 
+  // ---- Motion-Math & Vision Specs Modal -------------------------------
+  const mathBtn = $("tb-math-btn");
+  const mathModal = $("rehab-math-modal");
+  if (mathBtn && mathModal) {
+    const openMathModal = () => { mathModal.style.display = "flex"; };
+    const closeMathModal = () => { mathModal.style.display = "none"; };
+    mathBtn.addEventListener("click", openMathModal);
+    const closeBtn = $("rmm-close");
+    if (closeBtn) closeBtn.addEventListener("click", closeMathModal);
+    const backdrop = $("rmm-backdrop");
+    if (backdrop) backdrop.addEventListener("click", closeMathModal);
+    const confirmBtn = $("rmm-confirm");
+    if (confirmBtn) confirmBtn.addEventListener("click", closeMathModal);
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && mathModal.style.display !== "none") {
+        closeMathModal();
+      }
+    });
+  }
+
   // Boot
   loadProfile();
 })();

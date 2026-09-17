@@ -98,7 +98,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const GAMES = {
     // 1. Flappy Reach
     flappy: {
-      name: "Flappy Reach", emoji: "🐦", trains: "Upper-limb reach & elevation", formula: "Active Reach",
+      name: "Flappy Reach", emoji: "🐦", trains: "Upper-limb reach & elevation", formula: "[C4] Active Reach",
       guide: "Show your index fingertip to fly the bird continuously! Glide past pillars to score +2 pts. 3 lives.",
       lives: true,
       init() {
@@ -185,7 +185,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // 2. Fruit Ballistic
     fruit: {
-      name: "Fruit Ballistic", emoji: "🍉", trains: "Ballistic reach & open-palm speed", formula: "Blade Velocity",
+      name: "Fruit Ballistic", emoji: "🍉", trains: "Ballistic reach & open-palm speed", formula: "[S2] Blade Velocity & Jerk",
       guide: "Slice rising fruits with your fingertip blade! 1-min timer. Avoid bombs 💣!",
       lives: true,
       init() {
@@ -296,7 +296,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // 3. Star Catch
     starcatch: {
-      name: "Star Catch", emoji: "⭐", trains: "Lateral planar sweep & reach", formula: "Lateral Range",
+      name: "Star Catch", emoji: "⭐", trains: "Lateral planar sweep & reach", formula: "[C2] L₂ Target Interception",
       guide: "Slide collector basket with your fingertip to catch falling stars ⭐ and avoid bombs 💣!",
       lives: true,
       init() {
@@ -365,7 +365,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // 4. Fist Pop
     fistpop: {
-      name: "Fist Pop", emoji: "✊", trains: "Spasticity release (fist to open palm)", formula: "Spasticity Release",
+      name: "Fist Pop", emoji: "✊", trains: "Spasticity release (fist to open palm)", formula: "[C3] σ Spatial Variance",
       guide: "Clench a fist to charge energy, then open your hand or wrist to trigger a bursting shockwave!",
       lives: true,
       init() {
@@ -487,7 +487,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // 5. Wrist Hammer
     hammer: {
-      name: "Wrist Hammer", emoji: "🔨", trains: "Fast downward wrist snap & upward curl", formula: "Wrist Acceleration",
+      name: "Wrist Hammer", emoji: "🔨", trains: "Fast downward wrist snap & upward curl", formula: "[C1/S1] Wrist Angle & Accel",
       guide: "Bubbles rise from below! Curl your wrist up or snap down to smash bubbles with your virtual hammer!",
       lives: true,
       init() {
@@ -576,7 +576,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // 6. Elbow Crusher
     crusher: {
-      name: "Elbow Crusher", emoji: "💪", trains: "Elbow flexion past 95° active ROM", formula: "Elbow ROM",
+      name: "Elbow Crusher", emoji: "💪", trains: "Elbow flexion past 95° active ROM", formula: "[C1] Elbow Goniometry θ ≥ 95°",
       guide: "Flex elbow past 95° to smash hydraulic crusher plates on crystals! Extend past 120° to reload.",
       lives: true,
       init() {
@@ -663,7 +663,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // 7. Pinch Pop
     pinch: {
-      name: "Pinch Pop", emoji: "🤏", trains: "Thumb–index pincer precision", formula: "Pincer Precision",
+      name: "Pinch Pop", emoji: "🤏", trains: "Thumb–index pincer precision", formula: "[E2] Pincer Precision",
       guide: "Hover over floating bubbles and pinch your thumb and index finger together to pop them!",
       lives: true,
       init() {
@@ -730,7 +730,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // 8. Bubble Deflector
     deflector: {
-      name: "Bubble Deflector", emoji: "🛡️", trains: "Hand tilt & deflector stability", formula: "Shield Angle",
+      name: "Bubble Deflector", emoji: "🛡️", trains: "Hand tilt & deflector stability", formula: "[C5] Radial Deviation θ",
       guide: "Tilt your hand to angle the energy shield. Deflect falling bubbles into left/right goal buckets!",
       lives: true,
       init() {
@@ -842,7 +842,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // 9. Color Bubble Match
     colormatch: {
-      name: "Color Bubble Match", emoji: "🔵", trains: "Cognitive-motor sequence targeting", formula: "Color Sequence",
+      name: "Color Bubble Match", emoji: "🔵", trains: "Cognitive-motor sequence targeting", formula: "[C2/E4] Target Distance & Cross-Track",
       guide: "Pop the announced target color bubble in sequence! Popping the wrong color drops a life.",
       lives: true,
       init() {
