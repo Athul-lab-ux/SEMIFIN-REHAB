@@ -47,13 +47,6 @@ const VisionLoader = (() => {
   let cachedHand = null;
   let cachedHandSide = null;
 
-  // Optical motion tracker fallback canvas
-  let optCanvas = null;
-  let optCtx = null;
-  let prevFrameData = null;
-  let optCentroid = null;
-  let lastModelDetectionTime = 0;
-
   // Mirror Mode (Default: Natural Left=Left)
   let isMirrored = localStorage.getItem("rehab_mirror_mode") !== "inverted";
   function mapX(val) {
@@ -169,56 +162,6 @@ const VisionLoader = (() => {
     } catch (e) {
       console.error("[VisionLoader] Error initializing neural models:", e);
     }
-  }
-
-  // --- Fast Optical Motion Fallback -------------------------------------
-  function computeOpticalMotion(video) {
-    const vw = video.videoWidth || 640;
-    const vh = video.videoHeight || 480;
-    if (!optCanvas) {
-      optCanvas = document.createElement("canvas");
-      optCanvas.width = 160;
-      optCanvas.height = 120;
-      optCtx = optCanvas.getContext("2d", { willReadFrequently: true });
-    }
-    try {
-      optCtx.drawImage(video, 0, 0, 160, 120);
-      const current = optCtx.getImageData(0, 0, 160, 120).data;
-      if (!prevFrameData) {
-        prevFrameData = current;
-        return optCentroid;
-      }
-      let sumX = 0, sumY = 0, count = 0;
-      // Step through every 3rd pixel for speed
-      for (let y = 0; y < 120; y += 3) {
-        for (let x = 0; x < 160; x += 3) {
-          const idx = (y * 160 + x) * 4;
-          const dr = Math.abs(current[idx] - prevFrameData[idx]);
-          const dg = Math.abs(current[idx + 1] - prevFrameData[idx + 1]);
-          const db = Math.abs(current[idx + 2] - prevFrameData[idx + 2]);
-          const diff = dr + dg + db;
-          if (diff > 50) {
-            sumX += x;
-            sumY += y;
-            count++;
-          }
-        }
-      }
-      prevFrameData = current;
-      if (count > 25) {
-        const targetX = sumX / count / 160;
-        const targetY = sumY / count / 120;
-        if (!optCentroid) {
-          optCentroid = { x: targetX, y: targetY };
-        } else {
-          optCentroid.x += (targetX - optCentroid.x) * 0.35;
-          optCentroid.y += (targetY - optCentroid.y) * 0.35;
-        }
-      }
-    } catch (e) {
-      // ignore optical canvas exceptions
-    }
-    return optCentroid;
   }
 
   // --- Immediate Camera Acquisition -------------------------------------
