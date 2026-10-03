@@ -1,12 +1,10 @@
 /**
  * RehabOpt AR — Session 4: ADL Functional Lab Engine (P4 Clinical Overhaul)
- * 6 Mandated Clinical Tasks with 6 Visual Skeletal Steps each:
- * 1. 🔑 90° Door Key Turn
- * 2. 💡 Rocker Light Switch
- * 3. 🎛️ Rotary Thermostat
- * 4. 🔢 Touchless PIN Pad
- * 5. 🚰 Water Faucet Twist
- * 6. 💊 Pill Bottle Cap Twist
+ * 4 Core Clinical Tasks with 6 Visual Skeletal Steps each:
+ * 1. 💡 Rocker Light Switch
+ * 2. 🎛️ Rotary Thermostat
+ * 3. 🔢 Touchless PIN Pad
+ * 4. 🚰 Water Faucet Twist
  * Pure deterministic mathematics (no ML/DL guessing).
  */
 document.addEventListener("DOMContentLoaded", async () => {
@@ -127,19 +125,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   });
   resizeCanvas();
 
-  // --- 6-Step Clinical Protocol Definitions for All 6 Tasks ---
+  // --- 6-Step Clinical Protocol Definitions for 4 Core Tasks ---
   const ADL_TASKS = {
-    key: {
-      name: "🔑 90° Door Key Turn",
-      steps: [
-        { name: "Neutral Rest", desc: "Rest hand poised at ready position" },
-        { name: "Forward Reach", desc: "Move hand toward deadbolt lock" },
-        { name: "3-Finger Grip", desc: "Pinch Thumb, Index & Middle on key" },
-        { name: "90° Z-Axis Turn", desc: "Rotate 3 fingers 90° clockwise" },
-        { name: "Unlock Sustain", desc: "Hold unlocked key for 1 sec" },
-        { name: "Home Return", desc: "Retract hand to neutral base" },
-      ],
-    },
     light: {
       name: "💡 Rocker Light Switch",
       steps: [
@@ -182,17 +169,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         { name: "Rotary Torque", desc: "Rotate handle 180° clockwise" },
         { name: "Flow Sustain", desc: "Hold open while water flows" },
         { name: "Retract Home", desc: "Retract hand to neutral base" },
-      ],
-    },
-    pill: {
-      name: "💊 Pill Bottle Cap Twist",
-      steps: [
-        { name: "Neutral Rest", desc: "Hand relaxed at start" },
-        { name: "Overhead Reach", desc: "Position palm directly above cap" },
-        { name: "Axial Depression", desc: "Press downward onto childproof cap" },
-        { name: "Counter-Twist", desc: "Twist counter-clockwise 60°" },
-        { name: "Cap Release", desc: "Hold open cap steady 1 sec" },
-        { name: "Home Return", desc: "Retract hand to finish cycle" },
       ],
     },
   };
@@ -385,8 +361,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   function resetTaskVariables() {
-    keyRotation = 0;
-    keyInitialAngle = null;
     switchOn = false;
     thermostatTemp = 18;
     randomPin = generateRandomPin();
@@ -395,18 +369,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     dwellTarget = -1;
     faucetAngle = 0;
     waterFlowing = false;
-    pillDepressed = false;
-    pillAngle = 0;
   }
 
-  // --- Guidance Popup Content & 10s Inactivity Re-trigger ---
+  // --- Guidance Popup Content & 10s Inactivity Re-trigger (4 Core Tasks) ---
   const ADL_GUIDES = {
-    key: {
-      title: "🔑 90° Door Key Turn",
-      what: "Rotate deadbolt key 90° clockwise along Z-axis into lock to unlock.",
-      how: "Pinch Thumb, Index & Middle fingers together on the key, and rotate them 90° clockwise into the lock.",
-      tip: "Key points into screen along Z-axis. Uses 3-finger chuck pinch and active forearm supination.",
-    },
     light: {
       title: "💡 Rocker Light Switch",
       what: "Flip the wall light switch ON and OFF.",
@@ -430,12 +396,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       what: "Twist faucet handle 180° clockwise to start water.",
       how: "Wrap hand around handle and turn clockwise. Water flows when fully opened.",
       tip: "Retrains cylindrical grasp strength and rotational torque.",
-    },
-    pill: {
-      title: "💊 Pill Bottle Cap Twist",
-      what: "Depress childproof cap downward and twist 60° counter-clockwise.",
-      how: "Press downward onto the cap with palm, then twist inward.",
-      tip: "Retrains axial compression combined with fine motor rotational decoupling.",
     },
   };
 
@@ -682,9 +642,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       case 3: // Step 4: Motor Action Execution
         let actionDone = false;
-        if (currentTask === "key") {
-          actionDone = keyRotation >= 85;
-        } else if (currentTask === "light") {
+        if (currentTask === "light") {
           actionDone = switchOn === true;
         } else if (currentTask === "thermostat") {
           actionDone = thermostatTemp >= 23.5;
@@ -692,8 +650,6 @@ document.addEventListener("DOMContentLoaded", async () => {
           actionDone = pinProgress >= 4;
         } else if (currentTask === "faucet") {
           actionDone = faucetAngle >= 150;
-        } else if (currentTask === "pill") {
-          actionDone = pillDepressed && pillAngle >= 50;
         }
         if (actionDone) {
           if (now - stepStartTime >= 350) advanceStep();
@@ -846,9 +802,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     const hx = handPos.x * w, hy = handPos.y * h;
 
     switch (currentTask) {
-      case "key":
-        drawKeyTask(hx, hy);
-        break;
       case "light":
         drawLightTask(hx, hy);
         break;
@@ -861,245 +814,10 @@ document.addEventListener("DOMContentLoaded", async () => {
       case "faucet":
         drawFaucetTask(hx, hy);
         break;
-      case "pill":
-        drawPillTask(hx, hy);
-        break;
     }
   }
 
-  // 1. 🔑 Key Task (Realistic 3-Finger Z-Axis Key Turn)
-  function drawKeyTask(hx, hy) {
-    const cx = gameCanvas.width * 0.5, cy = gameCanvas.height * 0.46;
-    const w = gameCanvas.width, h = gameCanvas.height;
-
-    // 1. Outer deadbolt escutcheon plate (brushed titanium/slate)
-    gCtx.save();
-    gCtx.fillStyle = "rgba(15, 23, 42, 0.88)";
-    gCtx.strokeStyle = "#38BDF8";
-    gCtx.lineWidth = 2.5;
-    gCtx.beginPath();
-    gCtx.roundRect(cx - 110, cy - 80, 220, 160, 16);
-    gCtx.fill();
-    gCtx.stroke();
-
-    // Plate screws
-    const screwOffsets = [[-95, -65], [95, -65], [-95, 65], [95, 65]];
-    screwOffsets.forEach(([sx, sy]) => {
-      gCtx.beginPath();
-      gCtx.arc(cx + sx, cy + sy, 5, 0, Math.PI * 2);
-      gCtx.fillStyle = "#475569";
-      gCtx.fill();
-      gCtx.strokeStyle = "#94A3B8";
-      gCtx.lineWidth = 1;
-      gCtx.stroke();
-    });
-
-    // Deadbolt plate header
-    gCtx.font = "bold 11px Inter, sans-serif";
-    gCtx.fillStyle = "#94A3B8";
-    gCtx.textAlign = "center";
-    gCtx.fillText("DEADBOLT CYLINDER · Z-AXIS", cx, cy - 58);
-
-    // Sliding deadbolt latch indicator
-    const boltExtended = keyRotation < 85;
-    gCtx.fillStyle = boltExtended ? "rgba(239, 68, 68, 0.35)" : "rgba(16, 185, 129, 0.35)";
-    gCtx.strokeStyle = boltExtended ? "#EF4444" : "#10B981";
-    gCtx.lineWidth = 2;
-    gCtx.beginPath();
-    const boltShift = (keyRotation / keyTarget) * 20;
-    gCtx.roundRect(cx + 45 + boltShift, cy - 14, 50, 28, 4);
-    gCtx.fill();
-    gCtx.stroke();
-    gCtx.font = "bold 10px monospace";
-    gCtx.fillStyle = boltExtended ? "#FCA5A5" : "#6EE7B7";
-    gCtx.fillText(boltExtended ? "LOCKED" : "UNLOCKED", cx + 70 + boltShift, cy + 4);
-
-    // 2. Lock Cylinder (Facing into screen along Z-axis)
-    const rimGrad = gCtx.createRadialGradient(cx, cy, 25, cx, cy, 54);
-    rimGrad.addColorStop(0, "#1E293B");
-    rimGrad.addColorStop(0.7, "#334155");
-    rimGrad.addColorStop(1, "#0F172A");
-    gCtx.beginPath();
-    gCtx.arc(cx, cy, 54, 0, Math.PI * 2);
-    gCtx.fillStyle = rimGrad;
-    gCtx.fill();
-    gCtx.strokeStyle = "#FBBF24";
-    gCtx.lineWidth = 3;
-    gCtx.stroke();
-
-    // 3. Hand 3-Finger Tracking & Z-Axis Rotation Math
-    let isPinching = false;
-    let thumbP = null, indexP = null, middleP = null;
-
-    if (wristData) {
-      thumbP = wristData.thumbTip ? { x: wristData.thumbTip.x * w, y: wristData.thumbTip.y * h } : null;
-      indexP = wristData.indexTip ? { x: wristData.indexTip.x * w, y: wristData.indexTip.y * h } : null;
-      middleP = wristData.middleTip ? { x: wristData.middleTip.x * w, y: wristData.middleTip.y * h } : null;
-
-      if (thumbP && indexP && middleP) {
-        const dTI = Math.hypot(thumbP.x - indexP.x, thumbP.y - indexP.y);
-        const dIM = Math.hypot(indexP.x - middleP.x, indexP.y - middleP.y);
-        const dTM = Math.hypot(thumbP.x - middleP.x, thumbP.y - middleP.y);
-        const maxDist = Math.max(dTI, dIM, dTM);
-
-        isPinching = maxDist < (w * 0.16);
-
-        // Angle of 3-finger key grip around Z-axis
-        const midIMx = (indexP.x + middleP.x) / 2;
-        const midIMy = (indexP.y + middleP.y) / 2;
-        const angle = Math.atan2(midIMy - thumbP.y, midIMx - thumbP.x) * (180 / Math.PI);
-        const knuckleAngle = wristData.knuckleAngle || 0;
-
-        if (currentStepIndex >= 3) {
-          if (keyInitialAngle === null) {
-            keyInitialAngle = angle;
-          }
-          let delta = angle - keyInitialAngle;
-          while (delta < -180) delta += 360;
-          while (delta > 180) delta -= 360;
-
-          // Clockwise rotation tracking combined with knuckle supination
-          const effectiveTurn = Math.max(delta, Math.abs(knuckleAngle) * 0.95);
-          if (effectiveTurn > 0) {
-            keyRotation = Math.max(keyRotation, Math.min(keyTarget, effectiveTurn));
-          }
-        }
-      }
-    }
-
-    // 4. Rotating Inner Cylinder Plug (Facing screen along Z-axis)
-    gCtx.save();
-    gCtx.translate(cx, cy);
-    gCtx.rotate((keyRotation * Math.PI) / 180);
-
-    // Inner brass cylinder core (plug)
-    const plugGrad = gCtx.createRadialGradient(0, 0, 8, 0, 0, 36);
-    plugGrad.addColorStop(0, "#FEF3C7");
-    plugGrad.addColorStop(0.5, "#F59E0B");
-    plugGrad.addColorStop(1, "#B45309");
-    gCtx.beginPath();
-    gCtx.arc(0, 0, 36, 0, Math.PI * 2);
-    gCtx.fillStyle = plugGrad;
-    gCtx.fill();
-    gCtx.strokeStyle = "#FDE68A";
-    gCtx.lineWidth = 2;
-    gCtx.stroke();
-
-    // 3D Depth Rings along Z-Axis (facing straight into the keyhole)
-    gCtx.beginPath();
-    gCtx.arc(0, 0, 24, 0, Math.PI * 2);
-    gCtx.strokeStyle = "rgba(0, 0, 0, 0.4)";
-    gCtx.lineWidth = 2;
-    gCtx.stroke();
-
-    gCtx.beginPath();
-    gCtx.arc(0, 0, 14, 0, Math.PI * 2);
-    gCtx.strokeStyle = "rgba(0, 0, 0, 0.55)";
-    gCtx.lineWidth = 1.5;
-    gCtx.stroke();
-
-    // Keyway slot (perpendicular into screen along Z-axis)
-    gCtx.fillStyle = "#070D18";
-    gCtx.beginPath();
-    gCtx.roundRect(-4, -18, 8, 36, 3);
-    gCtx.fill();
-    gCtx.strokeStyle = "#1E293B";
-    gCtx.lineWidth = 1;
-    gCtx.stroke();
-
-    // Key bow (head) held facing the user, perpendicular along Z-axis
-    gCtx.fillStyle = "#F59E0B";
-    gCtx.strokeStyle = "#FDE68A";
-    gCtx.lineWidth = 2.5;
-    gCtx.beginPath();
-    gCtx.roundRect(-16, -6, 32, 12, 5);
-    gCtx.fill();
-    gCtx.stroke();
-
-    // Key grip teeth & ridges along perpendicular axis
-    gCtx.fillStyle = "#B45309";
-    gCtx.fillRect(-12, -4, 4, 8);
-    gCtx.fillRect(-4, -4, 4, 8);
-    gCtx.fillRect(4, -4, 4, 8);
-
-    gCtx.restore();
-
-    // 5. 90° Clockwise Rotation Guide Arc
-    gCtx.beginPath();
-    const startArc = -Math.PI / 2;
-    const endArc = startArc + (keyRotation / keyTarget) * (Math.PI / 2);
-    gCtx.arc(cx, cy, 76, startArc, endArc);
-    gCtx.strokeStyle = keyRotation >= keyTarget ? "#10B981" : "#F59E0B";
-    gCtx.lineWidth = 6;
-    gCtx.lineCap = "round";
-    gCtx.stroke();
-
-    // Readout label
-    gCtx.font = "bold 13px Inter, sans-serif";
-    gCtx.fillStyle = keyRotation >= keyTarget ? "#10B981" : "#FBBF24";
-    gCtx.textAlign = "center";
-    gCtx.fillText(
-      keyRotation >= keyTarget ? "✅ 90° UNLOCKED!" : `↻ ROTATE CLOCKWISE: ${Math.round(keyRotation)}° / 90°`,
-      cx,
-      cy + 104
-    );
-
-    // 6. Visual 3-Finger Detection & Grip Indicators (Thumb 4, Index 8, Middle 12)
-    if (thumbP && indexP && middleP) {
-      const fingers = [
-        { p: thumbP, name: "Thumb (4)" },
-        { p: indexP, name: "Index (8)" },
-        { p: middleP, name: "Middle (12)" },
-      ];
-
-      fingers.forEach(({ p }) => {
-        gCtx.beginPath();
-        gCtx.arc(p.x, p.y, 14, 0, Math.PI * 2);
-        gCtx.strokeStyle = isPinching ? "#10B981" : "#F59E0B";
-        gCtx.lineWidth = 2.5;
-        gCtx.stroke();
-
-        gCtx.beginPath();
-        gCtx.arc(p.x, p.y, 4, 0, Math.PI * 2);
-        gCtx.fillStyle = isPinching ? "#10B981" : "#F59E0B";
-        gCtx.fill();
-      });
-
-      // Connector laser lines between Thumb, Index & Middle
-      gCtx.beginPath();
-      gCtx.moveTo(thumbP.x, thumbP.y);
-      gCtx.lineTo(indexP.x, indexP.y);
-      gCtx.lineTo(middleP.x, middleP.y);
-      gCtx.closePath();
-      gCtx.strokeStyle = isPinching ? "rgba(16, 185, 129, 0.6)" : "rgba(245, 158, 11, 0.35)";
-      gCtx.lineWidth = 1.5;
-      gCtx.stroke();
-
-      // Laser guide line from 3-finger centroid to lock cylinder
-      const fcx = (thumbP.x + indexP.x + middleP.x) / 3;
-      const fcy = (thumbP.y + indexP.y + middleP.y) / 3;
-      gCtx.beginPath();
-      gCtx.moveTo(fcx, fcy);
-      gCtx.lineTo(cx, cy);
-      gCtx.strokeStyle = isPinching ? "rgba(16, 185, 129, 0.4)" : "rgba(56, 189, 248, 0.25)";
-      gCtx.setLineDash([4, 4]);
-      gCtx.stroke();
-      gCtx.setLineDash([]);
-
-      // Grip Status Badge
-      gCtx.font = "bold 11px Inter, sans-serif";
-      gCtx.fillStyle = isPinching ? "#10B981" : "#F59E0B";
-      gCtx.textAlign = "center";
-      gCtx.fillText(
-        isPinching ? "👌 3-FINGER KEY GRIP ENGAGED" : "👉 Pinch Thumb, Index & Middle together",
-        fcx,
-        fcy - 24
-      );
-    }
-    gCtx.restore();
-  }
-
-  // 2. 💡 Light Switch Task
+  // 1. 💡 Light Switch Task
   function drawLightTask(hx, hy) {
     const cx = gameCanvas.width * 0.5, cy = gameCanvas.height * 0.46;
 
@@ -1369,42 +1087,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
-  // 6. 💊 Pill Bottle Task
-  function drawPillTask(hx, hy) {
-    const cx = gameCanvas.width * 0.5, cy = gameCanvas.height * 0.46;
-
-    // Bottle body
-    gCtx.fillStyle = "rgba(245, 158, 11, 0.35)";
-    gCtx.strokeStyle = "#F59E0B";
-    gCtx.lineWidth = 2.5;
-    gCtx.beginPath();
-    gCtx.roundRect(cx - 40, cy - 10, 80, 110, 10);
-    gCtx.fill();
-    gCtx.stroke();
-
-    // White childproof cap
-    const capY = pillDepressed ? cy - 22 : cy - 32;
-    gCtx.fillStyle = "#F8FAFC";
-    gCtx.strokeStyle = "#64748B";
-    gCtx.lineWidth = 2;
-    gCtx.save();
-    gCtx.translate(cx, capY);
-    gCtx.rotate((-pillAngle * Math.PI) / 180);
-    gCtx.fillRect(-34, -12, 68, 24);
-    gCtx.strokeRect(-34, -12, 68, 24);
-    gCtx.restore();
-
-    // Downward depression + twist detection
-    if (wristData && currentStepIndex >= 2) {
-      if (Math.hypot(handPos.x - 0.5, handPos.y - 0.40) < 0.12) {
-        pillDepressed = true;
-        if (currentStepIndex >= 3) {
-          pillAngle = Math.min(60, pillAngle + 1.5);
-        }
-      }
-    }
-  }
-
   // --- Continuous 60 FPS Render Loop & 10s Inactivity Popup ---
   function adlRenderLoop() {
     requestAnimationFrame(adlRenderLoop);
@@ -1432,7 +1114,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (currentTask === "pin") {
       padPositions.forEach((pos, i) => {
         if (Math.hypot(nx - pos.x, ny - pos.y) < 0.08) {
-          if (currentStepIndex >= 1 && currentStepIndex <= 4 && padLabels[i] === String(PIN[currentStepIndex - 1])) {
+          if (currentStepIndex >= 1 && currentStepIndex <= 4 && padLabels[i] === String(randomPin[currentStepIndex - 1])) {
             pinProgress++;
             showToast(`🔢 Digit ${padLabels[i]} accepted`, "info");
             advanceStep();
@@ -1442,19 +1124,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     } else if (currentTask === "light") {
       switchOn = true;
       advanceStep();
-    } else if (currentTask === "key") {
-      keyRotation = Math.min(keyTarget, keyRotation + 30);
-      if (keyRotation >= keyTarget) advanceStep();
     } else if (currentTask === "thermostat") {
       thermostatTemp = Math.min(tempMax, thermostatTemp + 2.0);
       if (thermostatTemp >= tempMax) advanceStep();
     } else if (currentTask === "faucet") {
       faucetAngle = Math.min(180, faucetAngle + 60);
       if (faucetAngle >= 150) advanceStep();
-    } else if (currentTask === "pill") {
-      pillDepressed = true;
-      pillAngle = Math.min(60, pillAngle + 30);
-      if (pillAngle >= 50) advanceStep();
     }
   });
 

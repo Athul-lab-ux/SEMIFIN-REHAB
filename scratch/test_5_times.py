@@ -120,16 +120,19 @@ class TestRehabOptSystem(unittest.TestCase):
         self.assertNotIn('game-shelf', content)
 
     def test_adl_key_and_pin_features(self):
-        # Verify adl_engine.js has 3-finger Z-axis key rotation and randomized PIN
+        # Verify adl_engine.js has 4 core tasks and key/pill removed
         path = os.path.join(os.path.dirname(__file__), '..', 'static', 'js', 'adl_engine.js')
         with open(path, 'r', encoding='utf-8') as f:
             content = f.read()
 
         self.assertIn('generateRandomPin', content)
         self.assertIn('randomPin', content)
-        self.assertIn('is3FingerGrip', content)
-        self.assertIn('middleTip', content)
-        self.assertIn('DEADBOLT CYLINDER · Z-AXIS', content)
+        self.assertIn('switchOn', content)
+        self.assertIn('thermostatTemp', content)
+        self.assertIn('waterFlowing', content)
+        self.assertIn('faucetAngle', content)
+        self.assertNotIn('🔑 90° Door Key Turn', content)
+        self.assertNotIn('💊 Pill Bottle Cap Twist', content)
 
     def test_telemetry_post(self):
         with self.client.session_transaction() as sess:
