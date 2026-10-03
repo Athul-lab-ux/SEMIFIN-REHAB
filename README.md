@@ -15,7 +15,7 @@ A production-grade, clinical-grade web platform for post-stroke motor recovery t
 | 🦾 Session 1 | **Exercise Drills** | Elbow goniometry, rep latching, anti-cheat trunk monitoring, 4s action guide popup, Camera & Mirror toggles |
 | 🎮 Session 2 | **Arcade Arena** | 9 clinical games including Flappy Reach, Ballistic Reach, Target Tracking with dual Camera & Mirror controls |
 | 🎨 Session 3 | **Neon Air-Canvas** | Dynamic mirror view, vertical left-side brush slider, full-hand draw (>=4 fingers), 2-finger pointer (dwell click) |
-| 🔑 Session 4 | **ADL Functional Lab** | 6 Mandated Tasks (Key, Light, Thermostat, PIN, Faucet, Pill) with 6 visual posture cards & 10s idle popup |
+| 🎈 Session 4 | **ADL Functional Lab** | 4 Clinical Tasks (Balloon Air Pump, 4-Tank Water Reaction, Light Switch, PIN Pad) with 6 visual posture cards & 10s idle popup |
 
 ### 🪞 Dynamic Mirror Mode & Hardware Controls
 - **Synchronized Natural Mirroring (P7)**: Physical Left = Screen Left across all 4 camera modules. Video stream (`transform: scaleX(-1)`) and MediaPipe landmark vectors ($x = 1 - raw.x$) are 100% matched.

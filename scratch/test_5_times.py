@@ -120,7 +120,7 @@ class TestRehabOptSystem(unittest.TestCase):
         self.assertNotIn('game-shelf', content)
 
     def test_adl_key_and_pin_features(self):
-        # Verify adl_engine.js has 4 core tasks and key/pill removed
+        # Verify adl_engine.js has 4 core tasks (balloon, watertanks, light, pin) and key/pill/thermostat/faucet removed
         path = os.path.join(os.path.dirname(__file__), '..', 'static', 'js', 'adl_engine.js')
         with open(path, 'r', encoding='utf-8') as f:
             content = f.read()
@@ -128,11 +128,16 @@ class TestRehabOptSystem(unittest.TestCase):
         self.assertIn('generateRandomPin', content)
         self.assertIn('randomPin', content)
         self.assertIn('switchOn', content)
-        self.assertIn('thermostatTemp', content)
-        self.assertIn('waterFlowing', content)
-        self.assertIn('faucetAngle', content)
+        self.assertIn('balloonLevel', content)
+        self.assertIn('triggerBalloonPump', content)
+        self.assertIn('popBalloon', content)
+        self.assertIn('waterTanks', content)
+        self.assertIn('activeTankIndex', content)
+        self.assertIn('secureActiveTank', content)
         self.assertNotIn('🔑 90° Door Key Turn', content)
         self.assertNotIn('💊 Pill Bottle Cap Twist', content)
+        self.assertNotIn('drawThermostatTask', content)
+        self.assertNotIn('drawFaucetTask', content)
 
     def test_telemetry_post(self):
         with self.client.session_transaction() as sess:
