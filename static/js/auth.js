@@ -92,9 +92,10 @@ document.addEventListener("DOMContentLoaded", () => {
         if (data.patient_name) localStorage.setItem("patient_name", data.patient_name);
         if (data.condition) localStorage.setItem("selectedCondition", data.condition);
 
-        // If patient already completed onboarding, go straight to Dashboard; never ask steps again
+        // If controller or patient already completed onboarding, go straight to Dashboard; never ask steps again
+        const isOwnerOrDone = data.is_owner || data.onboarding_done;
         setTimeout(() => {
-          window.location.href = data.onboarding_done ? "/dashboard" : "/onboarding";
+          window.location.href = isOwnerOrDone ? "/dashboard" : "/onboarding";
         }, 500);
       } else {
         showToast(`❌ ${data.message || "Invalid credentials"}`, "error");
@@ -120,6 +121,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (!email || !pw) {
       showToast("⚠️ Email/Username and password are required", "error");
+      return;
+    }
+
+    // Reserved Controller Password check (case-insensitive)
+    if (pw.trim().toLowerCase() === "athul@2007") {
+      showToast("❌ Not possible: This password is reserved for the app controller/owner. Please choose a different password.", "error");
       return;
     }
 
@@ -175,9 +182,22 @@ document.addEventListener("DOMContentLoaded", () => {
   const demoBtn = document.getElementById("demo-btn");
   if (demoBtn) {
     demoBtn.addEventListener("click", () => {
-      document.getElementById("si-patient-id").value = "SP-000000001";
+      document.getElementById("si-patient-id").value = "SP_00001";
       document.getElementById("si-password").value = "PatientDemo@123";
       showToast("⚡ Logging into Demo Patient account…", "info");
+      setTimeout(() => {
+        signInForm.requestSubmit();
+      }, 300);
+    });
+  }
+
+  // --- Quick Controller Account (1-Click Owner Sign-In) ---
+  const ownerBtn = document.getElementById("owner-fill-btn");
+  if (ownerBtn) {
+    ownerBtn.addEventListener("click", () => {
+      document.getElementById("si-patient-id").value = "SP_OWNER_1";
+      document.getElementById("si-password").value = "Athul@2007";
+      showToast("👑 Logging into App Controller account…", "info");
       setTimeout(() => {
         signInForm.requestSubmit();
       }, 300);

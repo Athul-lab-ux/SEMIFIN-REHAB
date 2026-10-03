@@ -197,6 +197,68 @@ class TestRehabOptSystem(unittest.TestCase):
         self.assertEqual(stats.get('status'), 'success')
         self.assertIn('stats', stats)
 
+    def test_auth_controller_and_id_format(self):
+        import re
+
+        # 1. Controller / Owner login with fixed credentials SP_OWNER_1 / Athul@2007
+        res = self.client.post('/api/login', json={'patient_id': 'SP_OWNER_1', 'password': 'Athul@2007'})
+        self.assertEqual(res.status_code, 200)
+        data = json.loads(res.data)
+        self.assertEqual(data.get('status'), 'success')
+        self.assertTrue(data.get('is_owner'))
+        self.assertEqual(data.get('patient_id'), 'SP_OWNER_1')
+
+        # 2. Block registration with Athul@2007 in upper, lower, and mixed case
+        for pw in ['Athul@2007', 'athul@2007', 'ATHUL@2007', 'aThUl@2007']:
+            r = self.client.post('/api/register', json={
+                'username': f'user_test_{pw[:4]}',
+                'email': f'{pw[:4]}@hospital.org',
+                'password': pw
+            })
+            self.assertEqual(r.status_code, 400)
+            res_json = json.loads(r.data)
+            self.assertIn('Not possible', res_json.get('message', ''))
+
+        # 3. Valid user registration receives SP_00001 to SP_99999 format
+        import time
+        uniq_id = f"test_{int(time.time() * 1000)}"
+        reg_res = self.client.post('/api/register', json={
+            'username': f'p_{uniq_id}',
+            'email': f'{uniq_id}@hospital.org',
+            'password': 'StrongPatientPass@2026'
+        })
+        self.assertEqual(reg_res.status_code, 200)
+        reg_data = json.loads(reg_res.data)
+        new_pid = reg_data.get('patient_id')
+        self.assertTrue(bool(re.match(r'^SP_\d{5}$', new_pid)), f"Expected SP_XXXXX format, got {new_pid}")
+
+        # 4. Master Patient Activity Center endpoint (/api/admin/patients) for Controller
+        with self.client.session_transaction() as sess:
+            sess['patient_id'] = 'SP_OWNER_1'
+            sess['is_owner'] = True
+        admin_res = self.client.get('/api/admin/patients')
+        self.assertEqual(admin_res.status_code, 200)
+        admin_data = json.loads(admin_res.data)
+        self.assertEqual(admin_data.get('status'), 'success')
+        self.assertIn('summary', admin_data)
+        self.assertIn('patients', admin_data)
+
+        # 5. Non-controller access to /api/admin/patients is blocked with 403 Forbidden
+        with self.client.session_transaction() as sess:
+            sess['patient_id'] = new_pid
+            sess['is_owner'] = False
+        non_admin_res = self.client.get('/api/admin/patients')
+        self.assertEqual(non_admin_res.status_code, 403)
+
+        # 6. Controller can inspect any patient via ?patient_id= parameter
+        with self.client.session_transaction() as sess:
+            sess['patient_id'] = 'SP_OWNER_1'
+            sess['is_owner'] = True
+        insp_res = self.client.get(f'/api/report/stats?patient_id={new_pid}')
+        self.assertEqual(insp_res.status_code, 200)
+        insp_data = json.loads(insp_res.data)
+        self.assertEqual(insp_data.get('stats', {}).get('patient_id'), new_pid)
+
 if __name__ == '__main__':
     for iteration in range(1, 6):
         print(f"==================================================")

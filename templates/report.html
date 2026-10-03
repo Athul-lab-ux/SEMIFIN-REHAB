@@ -3,6 +3,17 @@
   <link rel="stylesheet" href="/static/css/report.css" />
 {% endblock %}
 {% block extra_body %}
+  {% if target_patient_id %}
+  <div style="background:#FEF3C7; border:1px solid #FDE68A; border-radius:10px; padding:12px 18px; margin-bottom:14px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+    <div style="font-size:13.5px; font-weight:800; color:#B45309;">
+      👑 Controller Oversight: Reviewing clinical progress and telemetry records for Patient <span style="font-family:monospace; background:#FEF9C3; padding:2px 8px; border-radius:4px; border:1px solid #FDE047;">{{ target_patient_id }}</span>
+    </div>
+    <a href="/dashboard#controller-center" class="clin-btn" style="padding:6px 12px; font-size:12px; text-decoration:none; background:#B45309; color:#FFFFFF; border-radius:6px; font-weight:700;">
+      ← Return to Master Patient Center
+    </a>
+  </div>
+  {% endif %}
+
   <div class="no-print actions-row">
     <h1 style="margin:0; font-size:20px;">📋 Clinical Report Card</h1>
     <div class="actions-right">

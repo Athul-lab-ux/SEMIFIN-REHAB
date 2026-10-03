@@ -40,14 +40,18 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (els.date) els.date.textContent = `Date: ${today}`;
   if (els.date2) els.date2.textContent = today;
 
+  const urlParams = new URLSearchParams(window.location.search);
+  const targetPid = urlParams.get("patient_id");
+
   // --- Load biomarker summary --------------------------------------------
   async function loadStats() {
     try {
-      const res = await fetch("/api/report/stats");
+      const statsEndpoint = targetPid ? `/api/report/stats?patient_id=${encodeURIComponent(targetPid)}` : "/api/report/stats";
+      const res = await fetch(statsEndpoint);
       const data = await res.json();
       if (data.status !== "success") return;
       const s = data.stats || {};
-      const pid = s.patient_id || localStorage.getItem("patientId") || "SP-000000001";
+      const pid = s.patient_id || targetPid || localStorage.getItem("patientId") || "SP_00001";
       if (els.patientId) {
         els.patientId.textContent = s.patient_name ? `${pid} · ${s.patient_name}` : pid;
       }
@@ -66,7 +70,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (els.legLeft && els.legRight && els.legC6 && els.legSnapshot) {
         let leg = null;
         try {
-          const legRes = await fetch("/api/telemetry/history?only_leg=1&limit=1");
+          const legEndpoint = targetPid ? `/api/telemetry/history?patient_id=${encodeURIComponent(targetPid)}&only_leg=1&limit=1` : "/api/telemetry/history?only_leg=1&limit=1";
+          const legRes = await fetch(legEndpoint);
           const legData = await legRes.json();
           if (legData.status === "success" && legData.history && legData.history.length) {
             leg = legData.history[0];
@@ -110,7 +115,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       els.soap.textContent = "🤖 Clinical AI is synthesizing the SOAP progress note…";
 
       try {
-        const statsRes = await fetch("/api/report/stats");
+        const statsEndpoint = targetPid ? `/api/report/stats?patient_id=${encodeURIComponent(targetPid)}` : "/api/report/stats";
+        const statsRes = await fetch(statsEndpoint);
         const statsData = await statsRes.json();
         const s = statsData.status === "success" ? statsData.stats : {};
 
@@ -118,6 +124,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
+            patient_id: s.patient_id || targetPid,
             condition: s.condition || "Hemiparesis",
             streak: s.streak || 1,
             repetitions_completed: 0,

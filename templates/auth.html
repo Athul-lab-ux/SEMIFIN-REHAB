@@ -46,7 +46,7 @@
               <label for="si-patient-id"><span class="lbl-sym">👤</span> Patient ID, Email, or Username</label>
               <div class="input-icon-wrap">
                 <span class="input-icon" aria-hidden="true">🪪</span>
-                <input type="text" id="si-patient-id" placeholder="Enter Patient ID, email, or username" autocomplete="username" required />
+                <input type="text" id="si-patient-id" placeholder="Patient ID (SP_00001 / SP_OWNER_1), email, or username" autocomplete="username" required />
               </div>
             </div>
             <div class="input-group">
@@ -66,7 +66,10 @@
             <a href="#" id="go-register">Create an account here ➜</a>
           </p>
           <button id="demo-btn" class="btn-demo" title="1-Click Patient Demo Login">
-            <span>⚡</span> Quick Demo Patient Login (1-Click)
+            <span>⚡</span> Quick Demo Patient Login (SP_00001)
+          </button>
+          <button type="button" id="owner-fill-btn" class="btn-demo" style="margin-top:8px; background:rgba(245, 158, 11, 0.12); border-color:#F59E0B; color:#B45309;" title="Quick Controller Login">
+            <span>👑</span> App Controller Login (SP_OWNER_1)
           </button>
         </div>
 

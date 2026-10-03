@@ -86,5 +86,135 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
+  // ---- Master Controller Activity Center (SP_OWNER_1) ---------------------
+  const ctrlCenter = document.getElementById("controller-center");
+  if (ctrlCenter) {
+    const totalPatientsEl = document.getElementById("ctrl-total-patients");
+    const totalSessionsEl = document.getElementById("ctrl-total-sessions");
+    const totalMinsEl = document.getElementById("ctrl-total-mins");
+    const patientsTbody = document.getElementById("ctrl-patients-tbody");
+    const recentStreamEl = document.getElementById("ctrl-recent-stream");
+    const searchInput = document.getElementById("ctrl-patient-search");
+    const filterSelect = document.getElementById("ctrl-condition-filter");
+    const refreshBtn = document.getElementById("btn-refresh-patients");
+
+    let loadedPatients = [];
+
+    function renderPatientsTable() {
+      if (!patientsTbody) return;
+      const query = (searchInput ? searchInput.value : "").trim().toLowerCase();
+      const conditionFilter = filterSelect ? filterSelect.value : "ALL";
+
+      const filtered = loadedPatients.filter((p) => {
+        const matchesQuery =
+          !query ||
+          (p.patient_id && p.patient_id.toLowerCase().includes(query)) ||
+          (p.patient_name && p.patient_name.toLowerCase().includes(query)) ||
+          (p.email && p.email.toLowerCase().includes(query)) ||
+          (p.username && p.username.toLowerCase().includes(query));
+
+        const matchesCondition =
+          conditionFilter === "ALL" || p.selected_condition === conditionFilter;
+
+        return matchesQuery && matchesCondition;
+      });
+
+      if (filtered.length === 0) {
+        patientsTbody.innerHTML = `
+          <tr>
+            <td colspan="8" style="padding:24px; text-align:center; color:#94A3B8;">
+              ${loadedPatients.length === 0 ? "No patient activities recorded yet." : "No matching patients found."}
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      patientsTbody.innerHTML = filtered
+        .map(
+          (p) => `
+        <tr style="border-bottom:1px solid #E2E8F0; transition:background 0.2s;" onmouseover="this.style.background='#F8FAFC'" onmouseout="this.style.background='transparent'">
+          <td style="padding:10px 14px;">
+            <span class="clin-chip" style="font-family:monospace; font-weight:800; background:#E0F2FE; color:#0369A1; padding:3px 7px; border-radius:5px; font-size:11.5px;">${p.patient_id}</span>
+          </td>
+          <td style="padding:10px 14px;">
+            <div style="font-weight:700; color:#1E293B;">${p.patient_name || 'Patient'}</div>
+            <div style="font-size:11px; color:#64748B;">${p.email || p.username || ''}</div>
+          </td>
+          <td style="padding:10px 14px;">
+            <span style="font-weight:700; color:#334155;">${iconFor(p.selected_condition)} ${p.selected_condition || 'Hemiparesis'}</span>
+          </td>
+          <td style="padding:10px 14px;">
+            <span style="font-weight:800; color:#EA580C;">🔥 ${p.current_streak || 1}d</span>
+          </td>
+          <td style="padding:10px 14px;">
+            <strong>${p.session_count || 0}</strong> <span style="font-size:11px; color:#64748B;">(${p.total_minutes || 0}m)</span>
+          </td>
+          <td style="padding:10px 14px;">
+            <strong>${Math.round(p.peak_rom || 0)}°</strong> <span style="font-size:11px; color:#64748B;">(${Math.round(p.avg_smoothness || 0)}/100)</span>
+          </td>
+          <td style="padding:10px 14px; font-size:11.5px; color:#64748B;">
+            ${p.last_session_date || (p.created_at ? p.created_at.split(' ')[0] : 'Today')}
+          </td>
+          <td style="padding:10px 14px; text-align:center;">
+            <a href="/report?patient_id=${encodeURIComponent(p.patient_id)}" class="clin-btn" style="padding:4px 9px; font-size:11.5px; text-decoration:none; background:#0284C7; color:#FFFFFF; border-radius:6px; font-weight:700; display:inline-block;">
+              📋 View Report ➜
+            </a>
+          </td>
+        </tr>
+      `
+        )
+        .join("");
+    }
+
+    function renderRecentStream(events) {
+      if (!recentStreamEl) return;
+      if (!events || events.length === 0) {
+        recentStreamEl.innerHTML = `<div style="font-size:12px; color:#94A3B8; text-align:center;">No recent exercises logged yet.</div>`;
+        return;
+      }
+      recentStreamEl.innerHTML = events
+        .map(
+          (e) => `
+        <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px; padding:4px 6px; border-bottom:1px dashed #E2E8F0;">
+          <div>
+            <strong style="color:#0369A1;">${e.patient_id}</strong> (${e.patient_name || 'Patient'}):
+            <span style="color:#334155; font-weight:600;"> ${e.session_type}</span> · ${e.condition}
+          </div>
+          <div style="color:#64748B; font-size:11px;">
+            ROM: ${Math.round(e.peak_rom)}° · ${e.duration_seconds}s · ${e.created_at || ''}
+          </div>
+        </div>
+      `
+        )
+        .join("");
+    }
+
+    async function loadControllerActivities() {
+      try {
+        const res = await fetch("/api/admin/patients");
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.status !== "success") return;
+
+        if (totalPatientsEl) totalPatientsEl.textContent = data.summary.total_registered_patients || 0;
+        if (totalSessionsEl) totalSessionsEl.textContent = data.summary.total_sessions_conducted || 0;
+        if (totalMinsEl) totalMinsEl.textContent = `${data.summary.total_exercise_minutes || 0}m`;
+
+        loadedPatients = data.patients || [];
+        renderPatientsTable();
+        renderRecentStream(data.recent_activity || []);
+      } catch (err) {
+        console.error("Controller activity load error:", err);
+      }
+    }
+
+    if (searchInput) searchInput.addEventListener("input", renderPatientsTable);
+    if (filterSelect) filterSelect.addEventListener("change", renderPatientsTable);
+    if (refreshBtn) refreshBtn.addEventListener("click", loadControllerActivities);
+
+    await loadControllerActivities();
+  }
+
   await loadSnapshot();
 });

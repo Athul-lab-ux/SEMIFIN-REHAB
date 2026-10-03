@@ -60,6 +60,96 @@
     </p>
   </section>
 
+  {% if is_owner %}
+  <!-- 👑 APP CONTROLLER · MASTER PATIENT ACTIVITY CENTER -->
+  <section id="controller-center" class="controller-card" style="background:#FFFFFF; border:2px solid #F59E0B; border-radius:16px; padding:22px; margin-bottom:28px; box-shadow:0 4px 16px rgba(245, 158, 11, 0.12);">
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:14px; margin-bottom:18px; border-bottom:1px solid #FDE68A; padding-bottom:14px;">
+      <div>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span style="font-size:20px;">👑</span>
+          <span class="clin-chip" style="background:#FEF3C7; color:#B45309; font-weight:800; font-size:12px; padding:4px 10px; border-radius:6px;">APP CONTROLLER · OVERSIGHT CONSOLE</span>
+          <span style="font-size:12px; color:#92400E; font-weight:700;">Account: SP_OWNER_1</span>
+        </div>
+        <h2 style="font-size:18px; font-weight:800; color:#1E293B; margin:6px 0 2px;">Master Patient Activity Center</h2>
+        <p style="font-size:13px; color:#64748B; margin:0;">Real-time clinical monitoring of all registered stroke patients, adherence streaks, recovery metrics, and telemetry reports.</p>
+      </div>
+      <div style="display:flex; gap:10px;">
+        <button type="button" id="btn-refresh-patients" class="clin-btn" style="background:#F1F5F9; color:#334155; font-size:12.5px; padding:7px 12px; border:1px solid #CBD5E1; border-radius:8px; font-weight:700; cursor:pointer;">🔄 Refresh Activity</button>
+      </div>
+    </div>
+
+    <!-- Aggregate Counter Badges -->
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:12px; margin-bottom:20px;">
+      <div style="background:#FEF9C3; border:1px solid #FDE047; border-radius:10px; padding:12px 14px;">
+        <div style="font-size:11.5px; font-weight:700; color:#854D0E;">TOTAL PATIENTS</div>
+        <div id="ctrl-total-patients" style="font-size:24px; font-weight:900; color:#713F12;">0</div>
+        <div style="font-size:11px; color:#A16207;">Valid IDs: SP_00001 - SP_99999</div>
+      </div>
+      <div style="background:#EFF6FF; border:1px solid #BFDBFE; border-radius:10px; padding:12px 14px;">
+        <div style="font-size:11.5px; font-weight:700; color:#1E40AF;">SESSIONS CONDUCTED</div>
+        <div id="ctrl-total-sessions" style="font-size:24px; font-weight:900; color:#1E3A8A;">0</div>
+        <div style="font-size:11px; color:#3B82F6;">Across All Core Routines</div>
+      </div>
+      <div style="background:#ECFDF5; border:1px solid #A7F3D0; border-radius:10px; padding:12px 14px;">
+        <div style="font-size:11.5px; font-weight:700; color:#065F46;">TOTAL REHAB MINUTES</div>
+        <div id="ctrl-total-mins" style="font-size:24px; font-weight:900; color:#064E3B;">0m</div>
+        <div style="font-size:11px; color:#10B981;">Active Patient Exercise Time</div>
+      </div>
+    </div>
+
+    <!-- Search & Filter Controls -->
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:14px;">
+      <div style="display:flex; align-items:center; gap:8px; flex:1; min-width:240px;">
+        <span style="font-size:14px;">🔍</span>
+        <input type="text" id="ctrl-patient-search" placeholder="Search by Patient ID (SP_00001), name, or email..." style="width:100%; max-width:360px; padding:8px 12px; border:1px solid #CBD5E1; border-radius:8px; font-size:13px;" />
+      </div>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <label for="ctrl-condition-filter" style="font-size:12.5px; font-weight:700; color:#475569;">Filter Profile:</label>
+        <select id="ctrl-condition-filter" style="padding:7px 10px; border:1px solid #CBD5E1; border-radius:8px; font-size:12.5px;">
+          <option value="ALL">All Conditions</option>
+          <option value="Hemiparesis">🦾 Hemiparesis</option>
+          <option value="Flexor Spasticity">✋ Flexor Spasticity</option>
+          <option value="Motor Ataxia">🎯 Motor Ataxia</option>
+          <option value="Intention Tremor">🫨 Intention Tremor</option>
+          <option value="Motor Apraxia">🧠 Motor Apraxia</option>
+          <option value="Wrist Drop">🤚 Wrist Drop</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Patient Directory Table -->
+    <div style="overflow-x:auto; border:1px solid #E2E8F0; border-radius:10px;">
+      <table id="ctrl-patients-table" style="width:100%; border-collapse:collapse; text-align:left; font-size:13px;">
+        <thead>
+          <tr style="background:#F8FAFC; border-bottom:1px solid #E2E8F0; color:#475569; font-weight:700; font-size:12px;">
+            <th style="padding:10px 14px;">PATIENT ID</th>
+            <th style="padding:10px 14px;">PATIENT NAME</th>
+            <th style="padding:10px 14px;">STROKE PROFILE</th>
+            <th style="padding:10px 14px;">DAILY STREAK</th>
+            <th style="padding:10px 14px;">SESSIONS</th>
+            <th style="padding:10px 14px;">PEAK ROM</th>
+            <th style="padding:10px 14px;">LAST ACTIVE</th>
+            <th style="padding:10px 14px; text-align:center;">CONTROLLER ACTION</th>
+          </tr>
+        </thead>
+        <tbody id="ctrl-patients-tbody">
+          <tr>
+            <td colspan="8" style="padding:24px; text-align:center; color:#94A3B8;">Loading patient activities...</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Recent Exercise Events Stream -->
+    <div style="margin-top:20px;">
+      <div style="font-size:13px; font-weight:800; color:#334155; margin-bottom:8px;">📡 Live Patient Telemetry Stream</div>
+      <div id="ctrl-recent-stream" style="display:flex; flex-direction:column; gap:6px; max-height:160px; overflow-y:auto; background:#F8FAFC; border:1px solid #E2E8F0; border-radius:8px; padding:10px;">
+        <div style="font-size:12px; color:#94A3B8; text-align:center;">Loading recent activity stream...</div>
+      </div>
+    </div>
+  </section>
+  {% endif %}
+
   <!-- Session launch cards -->
   <h2 class="section-title">Practice Sessions</h2>
   <section class="sessions-grid">

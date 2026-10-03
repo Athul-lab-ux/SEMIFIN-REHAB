@@ -94,6 +94,7 @@ CREATE TABLE IF NOT EXISTS patients (
     username TEXT DEFAULT '',
     email TEXT UNIQUE NOT NULL,
     password_hash TEXT NOT NULL,
+    role TEXT DEFAULT 'patient',
     selected_condition TEXT DEFAULT 'Hemiparesis',
     current_streak INTEGER DEFAULT 1,
     last_session_date TEXT,
@@ -159,11 +160,55 @@ CREATE TABLE IF NOT EXISTS chat_logs (
 # ---------------------------------------------------------------------------
 _schema_initialized = False
 
+def seed_or_update_owner(db):
+    """Seed or update fixed Controller / Owner account (SP_OWNER_1 / Athul@2007) and default demo patient."""
+    try:
+        owner_hash = generate_password_hash("Athul@2007", method="scrypt")
+        existing_owner = db.execute("SELECT id FROM patients WHERE UPPER(patient_id) = 'SP_OWNER_1'").fetchone()
+        if existing_owner:
+            db.execute(
+                """UPDATE patients SET
+                   password_hash = ?,
+                   role = 'owner',
+                   username = 'owner',
+                   email = 'owner@rehabopt.com',
+                   patient_name = 'App Controller (Athul)',
+                   onboarding_done = 1
+                   WHERE UPPER(patient_id) = 'SP_OWNER_1'""",
+                (owner_hash,),
+            )
+        else:
+            db.execute(
+                """INSERT INTO patients
+                   (patient_id, username, email, password_hash, role, patient_name,
+                    selected_condition, current_streak, onboarding_done)
+                   VALUES ('SP_OWNER_1', 'owner', 'owner@rehabopt.com', ?, 'owner',
+                           'App Controller (Athul)', 'Hemiparesis', 10, 1)""",
+                (owner_hash,),
+            )
+
+        # Seed initial demo patient SP_00001 if not present
+        existing_sp1 = db.execute("SELECT id FROM patients WHERE UPPER(patient_id) = 'SP_00001'").fetchone()
+        if not existing_sp1:
+            demo_hash = generate_password_hash("PatientDemo@123", method="scrypt")
+            db.execute(
+                """INSERT OR IGNORE INTO patients
+                   (patient_id, username, email, password_hash, role, patient_name,
+                    selected_condition, current_streak, last_session_date, onboarding_done)
+                   VALUES ('SP_00001', 'demo', 'demo@gmail.com', ?, 'patient',
+                           'Demo Recovery Patient', 'Hemiparesis', 5, '2026-09-03', 1)""",
+                (demo_hash,),
+            )
+        db.commit()
+    except Exception as e:
+        print(f"[WARN] seed_or_update_owner: {e}")
+
 def init_db_schema_once(db):
     global _schema_initialized
     if not _schema_initialized:
         db.executescript(SCHEMA_SQL)
         ensure_schema_columns(db)
+        seed_or_update_owner(db)
         _schema_initialized = True
 
 def get_db():
@@ -194,15 +239,15 @@ def get_db():
                 demo_hash = generate_password_hash("PatientDemo@123", method="scrypt")
                 g.db.execute(
                     """INSERT OR IGNORE INTO patients
-                       (patient_id, username, email, password_hash, selected_condition, current_streak, last_session_date, onboarding_done)
-                       VALUES (?, 'demo', ?, ?, 'Hemiparesis', 5, '2026-09-03', 1)""",
+                       (patient_id, username, email, password_hash, role, selected_condition, current_streak, last_session_date, onboarding_done)
+                       VALUES (?, 'demo', ?, ?, 'patient', 'Hemiparesis', 5, '2026-09-03', 1)""",
                     ("SP-000000001", "demo@gmail.com", demo_hash),
                 )
                 test_hash = generate_password_hash("TestPass@123", method="scrypt")
                 g.db.execute(
                     """INSERT OR IGNORE INTO patients
-                       (patient_id, username, email, password_hash, patient_name, selected_condition, current_streak, last_session_date, onboarding_done)
-                       VALUES (?, 'testpatient', ?, ?, 'Clinical Test Patient', 'Hemiparesis', 7, '2026-09-14', 1)""",
+                       (patient_id, username, email, password_hash, role, patient_name, selected_condition, current_streak, last_session_date, onboarding_done)
+                       VALUES (?, 'testpatient', ?, ?, 'patient', 'Clinical Test Patient', 'Hemiparesis', 7, '2026-09-14', 1)""",
                     ("SP-TEST-001", "testpatient@rehabopt.local", test_hash),
                 )
                 g.db.commit()
@@ -223,6 +268,7 @@ def ensure_schema_columns(db):
     try:
         existing = {r["name"] for r in db.execute("PRAGMA table_info(patients)").fetchall()}
         additions = {
+            "role": "TEXT DEFAULT 'patient'",
             "username": "TEXT DEFAULT ''",
             "onboarding_done": "INTEGER DEFAULT 0",
             "stroke_onset": "TEXT",
@@ -248,7 +294,7 @@ def ensure_schema_columns(db):
 
 
 def init_db():
-    """Initialize the database and seed demo account."""
+    """Initialize the database and seed demo account and controller."""
     os.makedirs(os.path.dirname(os.path.abspath(DATABASE)), exist_ok=True)
     db = sqlite3.connect(DATABASE, timeout=30.0)
     db.row_factory = sqlite3.Row
@@ -264,20 +310,21 @@ def init_db():
             pass
     db.executescript(SCHEMA_SQL)
     ensure_schema_columns(db)
+    seed_or_update_owner(db)
 
     # Generate real scrypt hash for demo password
     demo_hash = generate_password_hash("PatientDemo@123", method="scrypt")
     db.execute(
         """INSERT OR IGNORE INTO patients
-           (patient_id, username, email, password_hash, selected_condition, current_streak, last_session_date, onboarding_done)
-           VALUES (?, 'demo', ?, ?, 'Hemiparesis', 5, '2026-09-03', 1)""",
+           (patient_id, username, email, password_hash, role, selected_condition, current_streak, last_session_date, onboarding_done)
+           VALUES (?, 'demo', ?, ?, 'patient', 'Hemiparesis', 5, '2026-09-03', 1)""",
         ("SP-000000001", "demo@gmail.com", demo_hash),
     )
     test_hash = generate_password_hash("TestPass@123", method="scrypt")
     db.execute(
         """INSERT OR IGNORE INTO patients
-           (patient_id, username, email, password_hash, patient_name, selected_condition, current_streak, last_session_date, onboarding_done)
-           VALUES (?, 'testpatient', ?, ?, 'Clinical Test Patient', 'Hemiparesis', 7, '2026-09-14', 1)""",
+           (patient_id, username, email, password_hash, role, patient_name, selected_condition, current_streak, last_session_date, onboarding_done)
+           VALUES (?, 'testpatient', ?, ?, 'patient', 'Clinical Test Patient', 'Hemiparesis', 7, '2026-09-14', 1)""",
         ("SP-TEST-001", "testpatient@rehabopt.local", test_hash),
     )
     db.commit()
@@ -297,11 +344,13 @@ def login_required(f):
 
 
 def onboarding_required(f):
-    """Block clinical pages until the patient completes onboarding."""
+    """Block clinical pages until the patient completes onboarding, except controller."""
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if "patient_id" not in session:
             return redirect(url_for("auth_portal"))
+        if session.get("is_owner") or session.get("patient_id") == "SP_OWNER_1":
+            return f(*args, **kwargs)
         db = get_db()
         row = db.execute(
             "SELECT onboarding_done FROM patients WHERE patient_id = ?",
@@ -314,18 +363,28 @@ def onboarding_required(f):
 
 
 def generate_next_patient_id(db):
+    """
+    Generate next patient ID in valid sequence SP_00001 to SP_99999.
+    Excludes owner/controller IDs (e.g. SP_OWNER_1).
+    """
     cur = db.execute("SELECT patient_id FROM patients")
     max_num = 0
     for r in cur.fetchall():
-        pid = r["patient_id"] or ""
-        if "-" in pid:
-            try:
-                num = int(pid.split("-")[1])
-                if num > max_num:
-                    max_num = num
-            except ValueError:
-                pass
-    return f"SP-{max_num + 1:09d}"
+        pid = (r["patient_id"] or "").strip().upper()
+        # Parse SP_XXXXX or legacy SP-XXXXX
+        if pid.startswith("SP_") or pid.startswith("SP-"):
+            suffix = pid[3:]
+            if suffix.isdigit():
+                try:
+                    num = int(suffix)
+                    if 0 < num <= 99999 and num > max_num:
+                        max_num = num
+                except ValueError:
+                    pass
+    next_num = max_num + 1
+    if next_num > 99999:
+        next_num = 1
+    return f"SP_{next_num:05d}"
 
 
 def update_streak(db, patient_id):
@@ -403,7 +462,8 @@ def onboarding():
 @login_required
 @onboarding_required
 def dashboard():
-    return render_template("dashboard.html")
+    is_owner = bool(session.get("is_owner") or session.get("patient_id") == "SP_OWNER_1")
+    return render_template("dashboard.html", is_owner=is_owner)
 
 
 @app.route("/therapy")
@@ -439,7 +499,8 @@ def adl_lab():
 @login_required
 @onboarding_required
 def report():
-    return render_template("report.html")
+    target_pid = request.args.get("patient_id")
+    return render_template("report.html", target_patient_id=target_pid)
 
 
 @app.route("/profile")
@@ -461,6 +522,13 @@ def api_register():
 
     if not raw_email and not raw_user:
         return jsonify({"status": "error", "message": "Email or Username and password are required"}), 400
+
+    # Reserved Controller Password Check (case-insensitive for Athul@2007)
+    if password.strip().lower() == "athul@2007":
+        return jsonify({
+            "status": "error",
+            "message": "Not possible: This password is reserved for the app controller/owner. Please choose a different password."
+        }), 400
 
     if "@" in raw_email:
         email = raw_email.lower()
@@ -506,9 +574,9 @@ def api_register():
         secondary_color = ""
 
     db.execute(
-        """INSERT INTO patients (patient_id, username, email, password_hash, selected_condition, current_streak, last_session_date,
+        """INSERT INTO patients (patient_id, username, email, password_hash, role, selected_condition, current_streak, last_session_date,
            patient_name, patient_dob, patient_phone, primary_color, secondary_color, profile_photo)
-           VALUES (?, ?, ?, ?, 'Hemiparesis', 1, NULL, ?, ?, ?, ?, ?, '')""",
+           VALUES (?, ?, ?, ?, 'patient', 'Hemiparesis', 1, NULL, ?, ?, ?, ?, ?, '')""",
         (patient_id, username, email, password_hash, name, dob, phone, primary_color, secondary_color),
     )
     db.commit()
@@ -517,6 +585,8 @@ def api_register():
     session["patient_id"] = patient_id
     session["email"] = email
     session["patient_name"] = name
+    session["is_owner"] = False
+    session["role"] = "patient"
 
     return jsonify({
         "status": "success",
@@ -562,24 +632,32 @@ def api_login():
     if not user:
         user = db.execute("SELECT * FROM patients WHERE LOWER(patient_name) = ?", (raw_ident.lower(),)).fetchone()
 
-    # 6. Numeric matching (e.g. "39", "039", "SP-39" -> "SP-000000039") ONLY when purely numeric or starts with SP-
+    # 6. Numeric and formatted ID matching (e.g. "1", "00001", "SP_1", "SP_00001", "SP-000000039")
     if not user:
-        if raw_ident.isdigit() or raw_ident.upper().startswith("SP-"):
-            num_clean = re.sub(r"[^0-9]", "", raw_ident)
+        clean_upper = raw_ident.upper()
+        if clean_upper.startswith("SP_") or clean_upper.startswith("SP-") or clean_upper.isdigit():
+            num_clean = re.sub(r"[^0-9]", "", clean_upper)
             if num_clean:
                 try:
-                    formatted_id = f"SP-{int(num_clean):09d}"
-                    user = db.execute("SELECT * FROM patients WHERE UPPER(patient_id) = ?", (formatted_id,)).fetchone()
+                    num_val = int(num_clean)
+                    # Match SP_00001 (5 digits)
+                    user = db.execute("SELECT * FROM patients WHERE UPPER(patient_id) = ?", (f"SP_{num_val:05d}",)).fetchone()
+                    # Match legacy SP-000000001 (9 digits)
+                    if not user:
+                        user = db.execute("SELECT * FROM patients WHERE UPPER(patient_id) = ?", (f"SP-{num_val:09d}",)).fetchone()
                 except ValueError:
                     pass
 
     if not user or not check_password_hash(user["password_hash"], password):
         return jsonify({"status": "error", "message": "Invalid credentials. Please verify your Patient ID, Email, or Password."}), 401
 
+    is_owner = (user["patient_id"].upper() == "SP_OWNER_1" or (user["role"] if "role" in user.keys() else "") == "owner")
     session.permanent = True
     session["patient_id"] = user["patient_id"]
     session["email"] = user["email"]
     session["patient_name"] = user["patient_name"]
+    session["is_owner"] = is_owner
+    session["role"] = "owner" if is_owner else "patient"
 
     return jsonify({
         "status": "success",
@@ -588,8 +666,31 @@ def api_login():
         "email": user["email"],
         "patient_name": user["patient_name"],
         "condition": user["selected_condition"],
-        "onboarding_done": bool(user["onboarding_done"]),
+        "is_owner": is_owner,
+        "onboarding_done": True if is_owner else bool(user["onboarding_done"]),
     })
+
+
+@app.route("/api/profile/password", methods=["POST"])
+@login_required
+def api_profile_password():
+    data = request.get_json() or {}
+    new_password = (data.get("password") or data.get("new_password") or "").strip()
+
+    if new_password.lower() == "athul@2007":
+        return jsonify({
+            "status": "error",
+            "message": "Not possible: This password is reserved for the app controller/owner. Please choose a different password."
+        }), 400
+
+    if len(new_password) < 6:
+        return jsonify({"status": "error", "message": "Password must be at least 6 characters"}), 400
+
+    db = get_db()
+    new_hash = generate_password_hash(new_password, method="scrypt")
+    db.execute("UPDATE patients SET password_hash = ? WHERE patient_id = ?", (new_hash, session["patient_id"]))
+    db.commit()
+    return jsonify({"status": "success", "message": "Password updated successfully"})
 
 
 @app.route("/api/logout", methods=["POST"])
@@ -873,10 +974,89 @@ def api_log_telemetry():
     return jsonify({"status": "success", "streak": streak})
 
 
+@app.route("/api/admin/patients", methods=["GET"])
+@login_required
+def api_admin_patients():
+    if not session.get("is_owner") and session.get("patient_id") != "SP_OWNER_1":
+        return jsonify({"status": "error", "message": "Access denied. Controller privileges required."}), 403
+
+    db = get_db()
+    rows = db.execute(
+        """SELECT 
+            p.id,
+            p.patient_id,
+            p.patient_name,
+            p.username,
+            p.email,
+            p.selected_condition,
+            p.current_streak,
+            p.last_session_date,
+            p.onboarding_done,
+            p.affected_side,
+            p.rehab_goal,
+            p.created_at,
+            COUNT(t.id) as session_count,
+            COALESCE(SUM(t.duration_seconds), 0) as total_duration_seconds,
+            COALESCE(MAX(t.peak_rom), 0) as peak_rom,
+            COALESCE(AVG(t.smoothness_score), 0) as avg_smoothness,
+            COALESCE(SUM(t.cheats_blocked), 0) as total_cheats,
+            COALESCE(SUM(t.score), 0) as total_score,
+            MAX(t.created_at) as last_activity_time
+        FROM patients p
+        LEFT JOIN telemetry_logs t ON p.patient_id = t.patient_id
+        WHERE p.patient_id != 'SP_OWNER_1'
+        GROUP BY p.id
+        ORDER BY p.id DESC"""
+    ).fetchall()
+
+    patients_list = []
+    total_sessions_all = 0
+    total_seconds_all = 0
+
+    for r in rows:
+        d = dict(r)
+        d["total_minutes"] = round(d["total_duration_seconds"] / 60, 1)
+        d["peak_rom"] = round(d["peak_rom"], 1)
+        d["avg_smoothness"] = round(d["avg_smoothness"], 1)
+        total_sessions_all += d["session_count"]
+        total_seconds_all += d["total_duration_seconds"]
+        patients_list.append(d)
+
+    recent_events = db.execute(
+        """SELECT t.patient_id, p.patient_name, t.session_type, t.condition,
+                  t.duration_seconds, t.peak_rom, t.score, t.created_at
+           FROM telemetry_logs t
+           LEFT JOIN patients p ON t.patient_id = p.patient_id
+           WHERE t.patient_id != 'SP_OWNER_1'
+           ORDER BY t.created_at DESC
+           LIMIT 15"""
+    ).fetchall()
+
+    return jsonify({
+        "status": "success",
+        "controller": {
+            "patient_id": session.get("patient_id"),
+            "role": "owner",
+        },
+        "summary": {
+            "total_registered_patients": len(patients_list),
+            "total_sessions_conducted": total_sessions_all,
+            "total_exercise_minutes": round(total_seconds_all / 60, 1),
+        },
+        "patients": patients_list,
+        "recent_activity": [dict(e) for e in recent_events],
+    })
+
+
 @app.route("/api/telemetry/history", methods=["GET"])
 @login_required
 def api_telemetry_history():
     db = get_db()
+    pid = session["patient_id"]
+    target_pid = request.args.get("patient_id")
+    if target_pid and (session.get("is_owner") or session.get("patient_id") == "SP_OWNER_1"):
+        pid = target_pid.strip()
+
     rows = db.execute(
         """SELECT session_type, condition, duration_seconds, peak_rom,
                   smoothness_score, cheats_blocked, score, created_at
@@ -884,7 +1064,7 @@ def api_telemetry_history():
            WHERE patient_id = ?
            ORDER BY created_at DESC
            LIMIT 50""",
-        (session["patient_id"],),
+        (pid,),
     ).fetchall()
     return jsonify({"status": "success", "history": [dict(r) for r in rows]})
 
@@ -894,6 +1074,9 @@ def api_telemetry_history():
 def api_report_stats():
     db = get_db()
     pid = session["patient_id"]
+    target_pid = request.args.get("patient_id")
+    if target_pid and (session.get("is_owner") or session.get("patient_id") == "SP_OWNER_1"):
+        pid = target_pid.strip()
 
     user = db.execute(
         "SELECT patient_id, patient_name, current_streak, selected_condition FROM patients WHERE patient_id = ?",
@@ -1126,7 +1309,10 @@ def generate_soap():
     Works 100% out-of-the-box without requiring any external API key.
     """
     data = request.get_json() or {}
-    patient_id = session.get("patient_id", "SP-000000001")
+    patient_id = session.get("patient_id", "SP_00001")
+    target_pid = request.args.get("patient_id") or data.get("patient_id")
+    if target_pid and (session.get("is_owner") or session.get("patient_id") == "SP_OWNER_1"):
+        patient_id = target_pid.strip()
     condition = data.get("condition", "Hemiparesis")
     streak = data.get("streak", 1)
     reps = data.get("repetitions_completed", 0)

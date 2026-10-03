@@ -40,6 +40,13 @@
     <span class="rl-ico">📝</span> Setup Steps & Story
   </a>
 
+  {% if session.get('is_owner') or session.get('patient_id') == 'SP_OWNER_1' %}
+  <div class="rail-label" style="color:#D97706; font-weight:800;">App Controller</div>
+  <a href="/dashboard#controller-center" class="rail-link" aria-label="Master Patient Activity Center" style="color:#B45309; font-weight:700; background:rgba(245, 158, 11, 0.08); border-radius:8px;">
+    <span class="rl-ico">👑</span> All Patients Center
+  </a>
+  {% endif %}
+
   <div class="rail-foot">
     <a href="/logout" class="rail-link" id="tb-logout" aria-label="Sign out">
       <span class="rl-ico">🚪</span> Sign Out
