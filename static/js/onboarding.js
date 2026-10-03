@@ -36,9 +36,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     "Motor Ataxia": "Coordination & aiming difficulties",
     "Intention Tremor": "Shaking while reaching or holding",
     "Motor Apraxia": "Remembering how to do multi-step tasks",
-    "Wrist Drop": "Difficulty lifting the wrist up",
-    "Lower-Limb": "Weakness or stiffness in one or both legs",
-    LowerLimb: "Weakness or stiffness in one or both legs"
+    "Wrist Drop": "Difficulty lifting the wrist up"
   };
 
   function showToast(msg, type = "info") {
@@ -213,8 +211,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       { key: "Motor Ataxia", emoji: "🎯", label: "Motor Ataxia / Dysmetria" },
       { key: "Intention Tremor", emoji: "🫨", label: "Intention Tremor" },
       { key: "Motor Apraxia", emoji: "🧠", label: "Motor Apraxia" },
-      { key: "Wrist Drop", emoji: "🤚", label: "Wrist Drop (Extensor Paresis)" },
-      { key: "Lower-Limb", emoji: "🦵", label: "Lower-Limb Crural Paresis" }
+      { key: "Wrist Drop", emoji: "🤚", label: "Wrist Drop (Extensor Paresis)" }
     ];
 
     const profiles =

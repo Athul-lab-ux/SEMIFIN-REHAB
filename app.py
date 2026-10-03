@@ -435,13 +435,6 @@ def adl_lab():
     return render_template("adl_lab.html")
 
 
-@app.route("/leg")
-@login_required
-@onboarding_required
-def leg():
-    return redirect(url_for("therapy"))
-
-
 @app.route("/report")
 @login_required
 @onboarding_required
@@ -732,11 +725,9 @@ def api_update_colors():
 def api_update_condition():
     data = request.get_json() or {}
     condition = data.get("condition", "Hemiparesis")
-    if condition == "LowerLimb":
-        condition = "Lower-Limb"
     valid_conditions = [
         "Hemiparesis", "Flexor Spasticity", "Motor Ataxia",
-        "Intention Tremor", "Motor Apraxia", "Wrist Drop", "Lower-Limb"
+        "Intention Tremor", "Motor Apraxia", "Wrist Drop"
     ]
     if condition not in valid_conditions:
         return jsonify({"status": "error", "message": "Invalid condition profile"}), 400
@@ -763,7 +754,7 @@ def api_streak():
 # ---------------------------------------------------------------------------
 VALID_CONDITIONS = [
     "Hemiparesis", "Flexor Spasticity", "Motor Ataxia",
-    "Intention Tremor", "Motor Apraxia", "Wrist Drop", "Lower-Limb"
+    "Intention Tremor", "Motor Apraxia", "Wrist Drop"
 ]
 
 
@@ -787,11 +778,8 @@ def api_onboarding_status():
 def api_onboarding_submit():
     data = request.get_json() or {}
     condition = (data.get("condition") or "").strip()
-    if condition == "LowerLimb":
-        condition = "Lower-Limb"
     if condition not in ("Hemiparesis", "Flexor Spasticity", "Motor Ataxia",
-                          "Intention Tremor", "Motor Apraxia", "Wrist Drop",
-                          "Lower-Limb", ""):
+                          "Intention Tremor", "Motor Apraxia", "Wrist Drop", ""):
         return jsonify({"status": "error", "message": "Please choose a stroke category"}), 400
 
     # Optional personal details

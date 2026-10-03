@@ -162,18 +162,27 @@ class TestRehabOptSystem(unittest.TestCase):
         self.assertIn('👉 CURRENT STEP: DO THIS NOW', engine)
         self.assertIn('peak_elbow_rom_deg', engine)
 
-        # 2. Verify exercise_library.js has 7M posture exercises
+        # 2. Verify exercise_library.js has exactly 10 simple exercises across 6 stroke profiles
         lib_path = os.path.join(os.path.dirname(__file__), '..', 'static', 'js', 'exercise_library.js')
         with open(lib_path, 'r', encoding='utf-8') as f:
             lib = f.read()
+        import re
+        ex_block = lib.split('const EXERCISES = [')[1].split('];')[0]
+        ex_keys = re.findall(r'key:\s*"([^"]+)"', ex_block)
+        self.assertEqual(len(ex_keys), 10, f"Expected exactly 10 simple exercises, found {len(ex_keys)}")
         self.assertIn('Horizontal Wrist Up & Down', lib)
         self.assertIn('Hand Open & Close', lib)
         self.assertIn('Elbow Extension & Flexion', lib)
         self.assertIn('wristPitch', lib)
 
-        # 3. Verify clinical SOAP note generation and report stats
+        # 3. Verify /leg route is removed and cleanly redirects to /dashboard
         with self.client.session_transaction() as sess:
             sess['patient_id'] = 'SP-000000001'
+        leg_res = self.client.get('/leg')
+        self.assertEqual(leg_res.status_code, 302)
+        self.assertEqual(leg_res.location, '/dashboard')
+
+        # 4. Verify clinical SOAP note generation and report stats
         res = self.client.get('/api/report/stats')
         self.assertEqual(res.status_code, 200)
         stats = json.loads(res.data)

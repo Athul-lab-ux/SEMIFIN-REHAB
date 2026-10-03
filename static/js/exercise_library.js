@@ -30,22 +30,12 @@ const EXERCISES = [
   /* ============ 1 · HEMIPARESIS (active weakness / ROM loss) ============ */
   {
     key: "elbow_ext", profile: "Hemiparesis", emoji: "🦾", name: "Elbow Extension & Flexion",
-    metric: "ELBOW °", hint: "Start with bent elbow, straighten arm outward past 125°, hold, then bend elbow back down.",
+    metric: "ELBOW °", hint: "Start with bent elbow, straighten arm outward past 115°, hold, then bend elbow back down.",
     steps: [
       S("Step 1: Start with elbow flexed / bent (≤95°)", (m) => m.elbowMax != null && m.elbowMax <= 95),
-      S("Step 2: Reach and straighten arm outward (>95°)", (m) => m.elbowMax != null && m.elbowMax > 95 && m.elbowMax < 125),
-      S("Step 3: Lock straight elbow extension (≥125°)", (m) => m.elbowMax != null && m.elbowMax >= 125, 0.8),
-      S("Step 4: Bend elbow back down (≤100° - 1 Rep)", (m) => m.elbowMax != null && m.elbowMax <= 100),
-    ],
-  },
-  {
-    key: "fwd_reach", profile: "Hemiparesis", emoji: "📏", name: "Forward Planar Reach",
-    metric: "REACH", hint: "Drive your hand forward along an imaginary table, avoiding trunk tilt.",
-    steps: [
-      S("Arm resting by side (neutral ≤100°)", (m) => m.elbowMax != null && m.elbowMax <= 100),
-      S("Drive hand forward across table", (m) => m.reach != null && m.reach > 0.06),
-      S("Full forward reach & hold (≥120°)", (m) => (m.elbowMax != null && m.elbowMax >= 120) || (m.reach != null && m.reach > 0.12), 0.8),
-      S("Smoothly glide hand back to side (≤105° - 1 Rep)", (m) => m.elbowMax != null && m.elbowMax <= 105),
+      S("Step 2: Reach and straighten arm outward (>95°)", (m) => m.elbowMax != null && m.elbowMax > 95 && m.elbowMax < 115),
+      S("Step 3: Lock straight elbow extension (≥115°)", (m) => m.elbowMax != null && m.elbowMax >= 115, 0.8),
+      S("Step 4: Bend elbow back down (≤95° - 1 Rep)", (m) => m.elbowMax != null && m.elbowMax <= 95),
     ],
   },
   {
@@ -64,20 +54,10 @@ const EXERCISES = [
     key: "palm_open", profile: "Flexor Spasticity", emoji: "🖐️", name: "Hand Open & Close (Fist to Open Palm)",
     metric: "PALM", hint: "Start in closed fist, open your palm wide with fingers spread, hold, then close fist again.",
     steps: [
-      S("Step 1: Start with closed fist / curled fingers", (m) => m.spread != null && m.spread <= 0.070),
-      S("Step 2: Unfurl and open hand wide outward", (m) => m.spread != null && m.spread > 0.072 && m.spread < 0.090),
-      S("Step 3: Hold wide open palm stretch", (m) => m.spread != null && m.spread >= 0.088, 0.8),
-      S("Step 4: Close fingers tightly back into fist (1 Rep)", (m) => m.spread != null && m.spread <= 0.070),
-    ],
-  },
-  {
-    key: "slow_unfurl", profile: "Flexor Spasticity", emoji: "🐢", name: "Slow Elbow Unfurling",
-    metric: "ELBOW °", hint: "Slowly straighten arm outward without rushing, hold, then bend elbow back down.",
-    steps: [
-      S("Step 1: Start with flexed elbow (≤95°)", (m) => m.elbowMax != null && m.elbowMax <= 95),
-      S("Step 2: Slowly open elbow outward (>95°)", (m) => m.elbowMax != null && m.elbowMax > 95 && m.elbowMax < 120 && (m.speed == null || m.speed < 1.2)),
-      S("Step 3: Hold gentle straight extension (≥120°)", (m) => m.elbowMax != null && m.elbowMax >= 120 && (m.speed == null || m.speed < 1.0), 1.0),
-      S("Step 4: Bend elbow back down to flexed rest (≤98° - 1 Rep)", (m) => m.elbowMax != null && m.elbowMax <= 98),
+      S("Step 1: Start with closed fist / curled fingers", (m) => m.spread != null && m.spread <= 0.075),
+      S("Step 2: Unfurl and open hand wide outward", (m) => m.spread != null && m.spread > 0.075 && m.spread < 0.088),
+      S("Step 3: Hold wide open palm stretch", (m) => m.spread != null && m.spread >= 0.085, 0.8),
+      S("Step 4: Close fingers tightly back into fist (1 Rep)", (m) => m.spread != null && m.spread <= 0.075),
     ],
   },
   {
@@ -86,19 +66,19 @@ const EXERCISES = [
     steps: [
       S("Step 1: Neutral horizontal wrist (|angle| ≤12°)", (m) => (m.wristPitch != null && Math.abs(m.wristPitch) <= 12) || (m.dev != null && Math.abs(m.dev) <= 8)),
       S("Step 2: Tilt wrist UPward (>14°)", (m) => (m.wristPitch != null && m.wristPitch > 14 && m.wristPitch < 20) || (m.dev != null && m.dev > 8 && m.dev < 14)),
-      S("Step 3: Hold upward wrist stretch (≥18°)", (m) => (m.wristPitch != null && m.wristPitch >= 18) || (m.dev != null && m.dev >= 14), 1.0),
+      S("Step 3: Hold upward wrist stretch (≥18°)", (m) => (m.wristPitch != null && m.wristPitch >= 18) || (m.dev != null && m.dev >= 14), 0.8),
       S("Step 4: Return wrist DOWN to level (≤8° - 1 Rep)", (m) => (m.wristPitch != null && m.wristPitch <= 8) || (m.dev != null && m.dev <= 8)),
     ],
   },
 
   /* ============ 3 · MOTOR ATAXIA (overshoot / uncoordinated reach) ============ */
   {
-    key: "ataxia_hold", profile: "Motor Ataxia", emoji: "🎯", name: "Target Holding",
+    key: "ataxia_hold", profile: "Motor Ataxia", emoji: "🎯", name: "Target Center Hold",
     metric: "STABLE", hint: "Damp terminal oscillation by holding your index fingertip steady in the center.",
     steps: [
       S("Resting hand outside center zone (x<0.35)", (m) => m.tipX != null && m.tipX < 0.35),
       S("Navigate fingertip toward target ring", (m) => m.tipX != null && m.tipX >= 0.35 && m.tipX <= 0.65),
-      S("Lock dead-center & hold steady (2s)", (m) => m.tipX != null && m.tipX > 0.40 && m.tipX < 0.60 && m.tipY > 0.40 && m.tipY < 0.60, 2.0),
+      S("Lock dead-center & hold steady (1.5s)", (m) => m.tipX != null && m.tipX > 0.38 && m.tipX < 0.62 && m.tipY > 0.38 && m.tipY < 0.62, 1.5),
       S("Controlled withdrawal to edge (x<0.35)", (m) => m.tipX != null && m.tipX < 0.35),
     ],
   },
@@ -112,88 +92,38 @@ const EXERCISES = [
       S("Smoothly return back to left rail (x<0.30)", (m) => m.tipX != null && m.tipX < 0.30),
     ],
   },
-  {
-    key: "ataxia_hop", profile: "Motor Ataxia", emoji: "⤴️", name: "Point-to-Point Hopping",
-    metric: "ZONE", hint: "Accurately hop between low and high targets without dysmetric overshoot.",
-    steps: [
-      S("Rest fingertip in the low target zone (y>0.64)", (m) => m.tipY != null && m.tipY > 0.64),
-      S("Launch upward toward high target", (m) => m.tipY != null && m.tipY <= 0.64 && m.tipY > 0.34),
-      S("Land cleanly in high target zone (y<0.34)", (m) => m.tipY != null && m.tipY <= 0.34, 0.8),
-      S("Return and dock in low target (y>0.64)", (m) => m.tipY != null && m.tipY > 0.64),
-    ],
-  },
 
   /* ============ 4 · INTENTION TREMOR (terminal shaking) ============ */
   {
     key: "tremor_hold", profile: "Intention Tremor", emoji: "🤚", name: "Endpoint Stabilization Hold",
-    metric: "STILL 2.5s", hint: "Reach the target and quiet terminal tremor through isometric stabilization.",
+    metric: "STILL 2s", hint: "Reach the target and quiet terminal tremor through isometric stabilization.",
     steps: [
       S("Rest beside the target (x<0.35)", (m) => m.tipX != null && m.tipX < 0.35),
       S("Move hand into target zone", (m) => m.tipX != null && m.tipX >= 0.35 && m.tipX <= 0.65),
-      S("Quiet all oscillation & hold (2.5s)", (m) => m.tipX != null && m.tipX > 0.40 && m.tipX < 0.60 && m.tipY > 0.40 && m.tipY < 0.60, 2.5),
+      S("Quiet all oscillation & hold (2.0s)", (m) => m.tipX != null && m.tipX > 0.38 && m.tipX < 0.62 && m.tipY > 0.38 && m.tipY < 0.62, 2.0),
       S("Smoothly withdraw to edge (x<0.35)", (m) => m.tipX != null && m.tipX < 0.35),
     ],
   },
   {
     key: "tremor_hover", profile: "Intention Tremor", emoji: "🧘", name: "Mid-Air Hover Zone",
-    metric: "HOLD 3s", hint: "Keep your hand floating high and steady without sinking.",
+    metric: "HOLD 2.5s", hint: "Keep your hand floating high and steady without sinking.",
     steps: [
       S("Arm resting down low (y>0.60)", (m) => m.tipY != null && m.tipY > 0.60),
-      S("Ascend into upper hover ceiling", (m) => m.tipY != null && m.tipY <= 0.60 && m.tipY > 0.34),
-      S("Hover steady inside ceiling (3s)", (m) => m.tipY != null && m.tipY <= 0.34 && m.tipX > 0.30 && m.tipX < 0.70, 3.0),
+      S("Ascend into upper hover ceiling", (m) => m.tipY != null && m.tipY <= 0.60 && m.tipY > 0.30),
+      S("Hover steady inside ceiling (2.5s)", (m) => m.tipY != null && m.tipY <= 0.35 && m.tipX > 0.25 && m.tipX < 0.75, 2.5),
       S("Controlled lowering to resting base", (m) => m.tipY != null && m.tipY > 0.60),
-    ],
-  },
-  {
-    key: "tremor_aim", profile: "Intention Tremor", emoji: "🎯", name: "Precision Aim & Hold",
-    metric: "AIM", hint: "Point index finger at the upper target bullseye and maintain stability.",
-    steps: [
-      S("Hand resting low (y>0.58)", (m) => m.tipY != null && m.tipY > 0.58),
-      S("Elevate and aim toward upper bullseye", (m) => m.tipY != null && m.tipY <= 0.58 && m.tipY > 0.32),
-      S("Lock inside bullseye & hold (2s)", (m) => m.tipY != null && m.tipY <= 0.32 && m.tipX > 0.40 && m.tipX < 0.60, 2.0),
-      S("Lower hand back to low rest (y>0.58)", (m) => m.tipY != null && m.tipY > 0.58),
     ],
   },
 
   /* ============ 5 · MOTOR APRAXIA (sequencing / motor memory) ============ */
-  {
-    key: "apraxia_lift", profile: "Motor Apraxia", emoji: "🫳", name: "Two-Stage Lift & Lock",
-    metric: "STAGE", hint: "Follow the kinematic sequence: lift forearm, cock wrist up, then release.",
-    steps: [
-      S("Arm neutral down by hip (<20°)", (m) => m.elevMax != null && m.elevMax < 20),
-      S("Stage 1 — lift forearm to horizontal (35°-75°)", (m) => m.elevMax != null && m.elevMax >= 35 && m.elevMax <= 75, 0.8),
-      S("Stage 2 — cock wrist up & lock (dev >10°)", (m) => m.dev != null && m.dev > 10, 1.0),
-      S("Lower arm and relax wrist (<20°)", (m) => m.elevMax != null && m.elevMax < 20),
-    ],
-  },
   {
     key: "apraxia_pinch", profile: "Motor Apraxia", emoji: "🤏", name: "Virtual Pincer Grasp & Release",
     metric: "PINCH", hint: "Execute fine-motor sequence: open wide, pinch virtual peg, release wide.",
     steps: [
       S("Open hand wide (pinch >0.08)", (m) => m.pinch != null && m.pinch > 0.08),
       S("Approach thumb and index together", (m) => m.pinch != null && m.pinch <= 0.08 && m.pinch > 0.05),
-      S("Lock tight pincer grasp & hold (pinch <0.05)", (m) => m.pinch != null && m.pinch < 0.05, 1.2),
+      S("Lock tight pincer grasp & hold (pinch <0.05)", (m) => m.pinch != null && m.pinch < 0.05, 0.8),
       S("Release back to wide open hand (>0.08)", (m) => m.pinch != null && m.pinch > 0.08),
-    ],
-  },
-  {
-    key: "apraxia_zone", profile: "Motor Apraxia", emoji: "🔢", name: "Sequential Zone Tap",
-    metric: "SEQ", hint: "Touch the spatial targets in exact sequence: 1 (top-left) → 2 (top-right) → 3 (bottom).",
-    steps: [
-      S("Neutral ready position", (m) => m.tipX != null),
-      S("Tap Zone 1 (top-left)", (m) => m.tipX != null && m.tipX < 0.45 && m.tipY < 0.40, 0.7),
-      S("Tap Zone 2 (top-right)", (m) => m.tipX != null && m.tipX > 0.55 && m.tipY < 0.40, 0.7),
-      S("Tap Zone 3 (bottom-center)", (m) => m.tipX != null && m.tipX > 0.40 && m.tipX < 0.60 && m.tipY > 0.60, 0.8),
-    ],
-  },
-  {
-    key: "apraxia_oco", profile: "Motor Apraxia", emoji: "✋", name: "Fist → Open Palm → Fist",
-    metric: "CYCLE", hint: "Follow the 4-phase sequence: closed fist → open palm → hold → close fist.",
-    steps: [
-      S("Step 1: Clench hand into closed fist", (m) => m.spread != null && m.spread <= 0.070),
-      S("Step 2: Open palm wide & spread fingers", (m) => m.spread != null && m.spread >= 0.088, 0.6),
-      S("Step 3: Hold wide open palm", (m) => m.spread != null && m.spread >= 0.088, 0.8),
-      S("Step 4: Close tightly into fist again (1 Rep)", (m) => m.spread != null && m.spread <= 0.070),
     ],
   },
 
@@ -206,36 +136,6 @@ const EXERCISES = [
       S("Step 2: Cock wrist UPward (>14°)", (m) => (m.wristPitch != null && m.wristPitch > 14 && m.wristPitch < 20) || (m.dev != null && m.dev > 8 && m.dev < 14)),
       S("Step 3: Hold peak wrist UP position (≥18°)", (m) => (m.wristPitch != null && m.wristPitch >= 18) || (m.dev != null && m.dev >= 14), 0.8),
       S("Step 4: Lower wrist DOWN to neutral (≤8° - 1 Rep)", (m) => (m.wristPitch != null && m.wristPitch <= 8) || (m.dev != null && m.dev <= 8)),
-    ],
-  },
-  {
-    key: "wrist_sweep", profile: "Wrist Drop", emoji: "↔️", name: "Radial–Ulnar Wrist Sweeps",
-    metric: "DEV °", hint: "Sweep your wrist horizontally from radial outward to ulnar inward.",
-    steps: [
-      S("Neutral wrist center (|dev| <6°)", (m) => (m.dev != null && Math.abs(m.dev) < 6) || (m.wristPitch != null && Math.abs(m.wristPitch) < 8)),
-      S("Sweep outward toward thumb (dev >8°)", (m) => (m.dev != null && m.dev > 8) || (m.wristPitch != null && m.wristPitch > 10), 0.8),
-      S("Sweep inward toward pinky (dev <-6°)", (m) => (m.dev != null && m.dev < -6) || (m.wristPitch != null && m.wristPitch < -8), 0.8),
-      S("Return to neutral center (≤6° - 1 Rep)", (m) => (m.dev != null && Math.abs(m.dev) < 6) || (m.wristPitch != null && Math.abs(m.wristPitch) < 8)),
-    ],
-  },
-  {
-    key: "wrist_point", profile: "Wrist Drop", emoji: "👉", name: "Point & Hold",
-    metric: "POINT 2s", hint: "Keep wrist cocked upward while extending index finger to point.",
-    steps: [
-      S("Hand resting on surface (neutral)", (m) => (m.dev != null && m.dev < 7) || (m.wristPitch != null && m.wristPitch < 10)),
-      S("Lift wrist and extend index finger", (m) => ((m.dev != null && m.dev >= 7) || (m.wristPitch != null && m.wristPitch >= 10)) && m.spread != null && m.spread > 0.04),
-      S("Maintain lifted wrist point & hold (2s)", (m) => ((m.dev != null && m.dev >= 8) || (m.wristPitch != null && m.wristPitch >= 12)) && m.spread != null && m.spread > 0.05, 2.0),
-      S("Relax hand and wrist back to rest (1 Rep)", (m) => (m.dev != null && m.dev < 7) || (m.wristPitch != null && m.wristPitch < 10)),
-    ],
-  },
-  {
-    key: "wrist_openlift", profile: "Wrist Drop", emoji: "🖐️", name: "Open Palm + Lift",
-    metric: "OPEN+LIFT", hint: "Simultaneously open all fingers wide AND cock your wrist up.",
-    steps: [
-      S("Relaxed hand & wrist (neutral)", (m) => m.spread != null && m.spread < 0.075),
-      S("Initiate finger unfurl & wrist lift", (m) => m.spread != null && m.spread >= 0.075 && ((m.dev != null && m.dev >= 7) || (m.wristPitch != null && m.wristPitch >= 10))),
-      S("Full open palm + cocked wrist hold", (m) => m.spread != null && m.spread > 0.088 && ((m.dev != null && m.dev >= 9) || (m.wristPitch != null && m.wristPitch >= 14)), 1.0),
-      S("Smooth return to relaxed posture (1 Rep)", (m) => m.spread != null && m.spread < 0.075),
     ],
   },
 ];
