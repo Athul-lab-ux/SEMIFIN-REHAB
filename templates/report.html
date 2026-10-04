@@ -81,12 +81,107 @@
       </div>
     </section>
 
+    <!-- 2 · Recovery Quality Index (RQI) -->
+    <section class="sheet-section" id="report-rqi-section">
+      <h2 class="sheet-h">2 · Recovery Quality Index (RQI) Performance</h2>
+      <div style="display:flex; align-items:center; justify-content:space-around; flex-wrap:wrap; gap:20px; background:#F8FAFC; border:1px solid #E2E8F0; border-radius:12px; padding:16px;">
+        <div style="text-align:center;">
+          <div class="rqi-gauge" style="width:160px; height:100px; margin:0 auto;">
+            <svg viewBox="0 0 200 120" style="width:100%; height:100%;">
+              <path class="gauge-bg" d="M 20 100 A 80 80 0 0 1 180 100" stroke="#CBD5E1" stroke-width="16" fill="none" stroke-linecap="round" />
+              <path class="gauge-fill" id="report-rqi-arc" d="M 20 100 A 80 80 0 0 1 180 100" stroke="#10B981" stroke-width="16" fill="none" stroke-linecap="round" stroke-dasharray="251" stroke-dashoffset="251" />
+            </svg>
+            <div class="gauge-label" id="report-rqi-label" style="font-size:12px; font-weight:700; color:#0F2A4A;">Loading...</div>
+          </div>
+          <div id="report-rqi-tier" class="ds-tier starting" style="margin-top:6px; font-size:13px; padding:4px 12px;">🌱 Starting Out</div>
+        </div>
+        <div style="flex:1; min-width:240px; font-size:13px; color:#334155;">
+          <div style="margin-bottom:8px;">
+            <div style="display:flex; justify-content:space-between;">
+              <span><strong>Adherence</strong> (Consistency)</span>
+              <span id="report-rqi-adh-val" style="font-weight:700;">—</span>
+            </div>
+            <div class="ds-progress" style="height:8px; margin-top:3px; background:#E2E8F0;">
+              <div class="ds-progress-fill" id="report-rqi-adh" style="width:20%; background:#10B981;"></div>
+            </div>
+          </div>
+          <div style="margin-bottom:8px;">
+            <div style="display:flex; justify-content:space-between;">
+              <span><strong>Smoothness</strong> (Fluidity)</span>
+              <span id="report-rqi-smooth-val" style="font-weight:700;">—</span>
+            </div>
+            <div class="ds-progress" style="height:8px; margin-top:3px; background:#E2E8F0;">
+              <div class="ds-progress-fill" id="report-rqi-smooth" style="width:40%; background:#38BDF8;"></div>
+            </div>
+          </div>
+          <div>
+            <div style="display:flex; justify-content:space-between;">
+              <span><strong>Active Range</strong> (ROM)</span>
+              <span id="report-rqi-range-val" style="font-weight:700;">—</span>
+            </div>
+            <div class="ds-progress" style="height:8px; margin-top:3px; background:#E2E8F0;">
+              <div class="ds-progress-fill" id="report-rqi-range" style="width:35%; background:#F59E0B;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- AI SOAP note -->
     <section class="sheet-section">
-      <h2 class="sheet-h">2 · AI Clinical SOAP Assessment</h2>
+      <h2 class="sheet-h">3 · AI Clinical SOAP Assessment</h2>
       <div id="soap-note" class="soap-note" aria-live="polite">
         Click <strong>Generate AI SOAP Note</strong> to have the clinical AI analyze the
         patient's biomechanical telemetry into a structured progress note.
+      </div>
+    </section>
+
+    <!-- Controller Oversight: Clinical Dossier -->
+    <section class="sheet-section" id="dossier-section" style="display:none;">
+      <h2 class="sheet-h">4 · Clinical Intake &amp; Telemetry Audit Dossier</h2>
+      <p style="font-size:12px; color:#64748B; margin-bottom:12px;">Controller oversight data: Full patient profile intake survey, therapy history, and workout logs.</p>
+      
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:12px; margin-bottom:16px;">
+        <div style="background:#F8FAFC; border:1px solid #E2E8F0; border-radius:8px; padding:10px;">
+          <div style="font-size:11px; text-transform:uppercase; color:#64748B; font-weight:700;">👤 Name / DOB / Phone</div>
+          <div id="dossier-contact" style="font-size:13px; font-weight:600; color:#0F2A4A; margin-top:4px;">—</div>
+        </div>
+        <div style="background:#F8FAFC; border:1px solid #E2E8F0; border-radius:8px; padding:10px;">
+          <div style="font-size:11px; text-transform:uppercase; color:#64748B; font-weight:700;">🧠 Affected Side &amp; Onset</div>
+          <div id="dossier-stroke" style="font-size:13px; font-weight:600; color:#0F2A4A; margin-top:4px;">—</div>
+        </div>
+        <div style="background:#F8FAFC; border:1px solid #E2E8F0; border-radius:8px; padding:10px;">
+          <div style="font-size:11px; text-transform:uppercase; color:#64748B; font-weight:700;">🩹 Pain Level &amp; Therapy</div>
+          <div id="dossier-therapy" style="font-size:13px; font-weight:600; color:#0F2A4A; margin-top:4px;">—</div>
+        </div>
+        <div style="background:#F8FAFC; border:1px solid #E2E8F0; border-radius:8px; padding:10px;">
+          <div style="font-size:11px; text-transform:uppercase; color:#64748B; font-weight:700;">🎯 Primary Goal &amp; Notes</div>
+          <div id="dossier-goal" style="font-size:13px; font-weight:600; color:#0F2A4A; margin-top:4px;">—</div>
+        </div>
+      </div>
+
+      <div style="overflow-x:auto; margin-bottom:12px;">
+        <table style="width:100%; border-collapse:collapse; font-size:12px; text-align:left;">
+          <thead>
+            <tr style="background:#0F2A4A; color:#FFFFFF;">
+              <th style="padding:6px 10px;">Date &amp; Time</th>
+              <th style="padding:6px 10px;">Routine</th>
+              <th style="padding:6px 10px;">Duration</th>
+              <th style="padding:6px 10px;">Peak ROM</th>
+              <th style="padding:6px 10px;">Smoothness</th>
+              <th style="padding:6px 10px;">Score</th>
+            </tr>
+          </thead>
+          <tbody id="dossier-telemetry-tbody">
+            <tr><td colspan="6" style="padding:10px; text-align:center; color:#94A3B8;">Loading workout logs...</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="no-print" style="text-align:right;">
+        <button id="download-json-btn" class="clin-btn clin-btn-ghost" style="font-size:12px; padding:6px 14px;">
+          📥 Download Full Patient Audit JSON
+        </button>
       </div>
     </section>
 

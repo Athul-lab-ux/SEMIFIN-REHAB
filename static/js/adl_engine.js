@@ -106,6 +106,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   let lastTankPressTime = 0;
   let lastTankTime = performance.now();
 
+  // 5. 🫗 Pour the Water Game States
+  let pourGlassLevel = 0; // 0 to 100%
+  let pourTargetReached = false;
+  let pourParticles = [];
+  let lastPourTime = performance.now();
+  let pourSpillAlerted = false;
+
   // Randomized 4-digit PIN generator for cognitive-motor index finger tapping
   function generateRandomPin() {
     const digits = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
@@ -195,6 +202,17 @@ document.addEventListener("DOMContentLoaded", async () => {
         { name: "Enter Digit 3", desc: "Tap random digit with index finger" },
         { name: "Enter Digit 4", desc: "Tap random digit with index finger" },
         { name: "Code Confirmed", desc: "Retract hand to complete rep" },
+      ],
+    },
+    pour: {
+      name: "🫗 Pour the Water",
+      steps: [
+        { name: "Neutral Rest", desc: "Hold pitcher upright at home base" },
+        { name: "Align Over Glass", desc: "Move pitcher above drinking glass" },
+        { name: "Rotate Forearm", desc: "Tilt hand (pronation) to start pouring" },
+        { name: "Pour Water Stream", desc: "Hold tilt as water fills the glass" },
+        { name: "Fill Target Zone", desc: "Fill glass into green zone (75-95%)" },
+        { name: "Rotate Upright", desc: "Level hand upright to stop pouring" },
       ],
     },
   };
@@ -377,6 +395,64 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
     }
 
+    if (taskKey === "pour") {
+      switch (stepIndex) {
+        case 0:
+          body = `
+            <rect x="55" y="40" width="22" height="30" rx="3" fill="none" stroke="${dots}" stroke-width="1.5"/>
+            <rect x="25" y="25" width="20" height="28" rx="3" fill="#1E293B" stroke="${lines}" stroke-width="1.5"/>
+            <path d="M 25 32 L 20 32 L 20 42 L 25 42" stroke="${lines}" stroke-width="1.5" fill="none"/>
+            <circle cx="35" cy="65" r="5" fill="${dots}"/>
+          `;
+          break;
+        case 1:
+          body = `
+            <rect x="55" y="40" width="22" height="30" rx="3" fill="none" stroke="${dots}" stroke-width="1.5"/>
+            <rect x="45" y="16" width="20" height="26" rx="3" fill="#1E293B" stroke="${lines}" stroke-width="1.5"/>
+            <path d="M 45 22 L 40 22 L 40 32 L 45 32" stroke="${lines}" stroke-width="1.5" fill="none"/>
+            <line x1="30" y1="30" x2="42" y2="24" stroke="${dots}" stroke-width="1.5" stroke-dasharray="2,2"/>
+          `;
+          break;
+        case 2:
+          body = `
+            <rect x="55" y="40" width="22" height="30" rx="3" fill="none" stroke="${dots}" stroke-width="1.5"/>
+            <g transform="translate(48,22) rotate(35)">
+              <rect x="-10" y="-12" width="20" height="26" rx="3" fill="#1E293B" stroke="${lines}" stroke-width="1.5"/>
+              <path d="M -10 -4 L -15 -4 L -15 6 L -10 6" stroke="${lines}" stroke-width="1.5" fill="none"/>
+            </g>
+            <path d="M 32 18 A 12 12 0 0 1 44 14" stroke="${amber}" stroke-width="2" fill="none"/>
+          `;
+          break;
+        case 3:
+          body = `
+            <rect x="55" y="40" width="22" height="30" rx="3" fill="none" stroke="${dots}" stroke-width="1.5"/>
+            <rect x="57" y="55" width="18" height="13" rx="2" fill="#38BDF8" opacity="0.6"/>
+            <g transform="translate(45,20) rotate(50)">
+              <rect x="-10" y="-12" width="20" height="26" rx="3" fill="#1E293B" stroke="${lines}" stroke-width="1.5"/>
+            </g>
+            <path d="M 52 26 Q 58 35 62 55" stroke="#38BDF8" stroke-width="2.5" fill="none"/>
+          `;
+          break;
+        case 4:
+          body = `
+            <rect x="55" y="40" width="22" height="30" rx="3" fill="none" stroke="${dots}" stroke-width="1.5"/>
+            <rect x="57" y="46" width="18" height="22" rx="2" fill="${green}" opacity="0.7"/>
+            <line x1="53" y1="46" x2="79" y2="46" stroke="${green}" stroke-width="2"/>
+            <text x="66" y="36" font-size="8" font-weight="bold" fill="${green}" text-anchor="middle">TARGET</text>
+          `;
+          break;
+        case 5:
+          body = `
+            <rect x="55" y="40" width="22" height="30" rx="3" fill="none" stroke="${dots}" stroke-width="1.5"/>
+            <rect x="57" y="46" width="18" height="22" rx="2" fill="${green}" opacity="0.7"/>
+            <rect x="25" y="25" width="20" height="28" rx="3" fill="#1E293B" stroke="${lines}" stroke-width="1.5"/>
+            <path d="M 40 18 A 12 12 0 0 0 28 22" stroke="${green}" stroke-width="2" fill="none"/>
+            <text x="66" y="60" font-size="10" fill="#FFFFFF" text-anchor="middle">✓</text>
+          `;
+          break;
+      }
+    }
+
     return `<svg viewBox="0 0 100 80" xmlns="http://www.w3.org/2000/svg" style="background:${bg}; border-radius:6px; display:block;">
       <rect width="100" height="80" fill="${bg}"/>
       ${body}
@@ -507,9 +583,16 @@ document.addEventListener("DOMContentLoaded", async () => {
     tanksSecuredCount = 0;
     waterSplashParticles = [];
     lastTankTime = performance.now();
+
+    // Pour the Water reset
+    pourGlassLevel = 0;
+    pourTargetReached = false;
+    pourParticles = [];
+    lastPourTime = performance.now();
+    pourSpillAlerted = false;
   }
 
-  // --- Guidance Popup Content & 10s Inactivity Re-trigger (4 Core Tasks) ---
+  // --- Guidance Popup Content & 10s Inactivity Re-trigger (5 Clinical Tasks) ---
   const ADL_GUIDES = {
     balloon: {
       title: "🎈 Balloon Air Pump",
@@ -534,6 +617,12 @@ document.addEventListener("DOMContentLoaded", async () => {
       what: "Tap the 4 randomly announced numbers in order.",
       how: "Listen to each random number and reach to tap it directly using your index fingertip.",
       tip: "Retrains cognitive-motor sequence targeting and index finger precision.",
+    },
+    pour: {
+      title: "🫗 Pour the Water",
+      what: "Tilt your hand to pour water from the pitcher into the target glass, then return upright.",
+      how: "Hold the pitcher upright, position it above the glass, rotate your forearm (pronation) to tilt and pour until the glass fills to the green mark, then rotate back upright.",
+      tip: "Retrains forearm pronation and supination rotation, essential for eating, drinking, and turning door handles.",
     },
   };
 
@@ -976,23 +1065,27 @@ document.addEventListener("DOMContentLoaded", async () => {
           }
           break;
 
-        case 1: // Step 2: Forward Reach / Open Hand
+        case 1: // Step 2: Forward Reach / Open Hand / Align
           if (currentTask === "balloon") {
             if (balloonHandOpen) advanceStep();
           } else if (currentTask === "watertanks") {
             // Handled when tank secured
           } else if (currentTask === "light") {
             if (distToTarget < 0.22 && now - stepStartTime >= 350) advanceStep();
+          } else if (currentTask === "pour") {
+            if (handPos.x > 0.35 && handPos.x < 0.75 && handPos.y < 0.65 && now - stepStartTime >= 350) advanceStep();
           }
           break;
 
-        case 2: // Step 3: Contact Align / Clench Fist
+        case 2: // Step 3: Contact Align / Clench Fist / Forearm Rotate
           if (currentTask === "balloon") {
             if (balloonPumps >= 1) advanceStep();
           } else if (currentTask === "watertanks") {
             // Handled when tank secured
           } else if (currentTask === "light") {
             if (distToTarget < 0.16 && now - stepStartTime >= 350) advanceStep();
+          } else if (currentTask === "pour") {
+            if (Math.abs(wristData.knuckleAngle) > 30 && now - stepStartTime >= 350) advanceStep();
           }
           break;
 
@@ -1006,24 +1099,35 @@ document.addEventListener("DOMContentLoaded", async () => {
             actionDone = switchOn === true;
           } else if (currentTask === "pin") {
             actionDone = pinProgress >= 4;
+          } else if (currentTask === "pour") {
+            actionDone = pourGlassLevel >= 40;
           }
           if (actionDone) {
             if (now - stepStartTime >= 350) advanceStep();
           }
           break;
 
-        case 4: // Step 5: Peak Sustain / 5s Caution Hold
+        case 4: // Step 5: Peak Sustain / 5s Caution Hold / Fill Target
           if (currentTask === "balloon") {
             // Evaluated continuously in drawBalloonTask (5s timer)
           } else if (currentTask === "watertanks") {
             // Evaluated via tank shutoffs
+          } else if (currentTask === "pour") {
+            if (pourGlassLevel >= 75 && pourGlassLevel <= 100) {
+              pourTargetReached = true;
+              advanceStep();
+            }
           } else if (now - stepStartTime >= 800) {
             advanceStep();
           }
           break;
 
-        case 5: // Step 6: Home Return
-          if (distToTarget > 0.18 || handPos.y > 0.60) {
+        case 5: // Step 6: Home Return / Level Upright
+          if (currentTask === "pour") {
+            if (Math.abs(wristData.knuckleAngle) < 22 && pourTargetReached && now - stepStartTime >= 400) {
+              advanceStep();
+            }
+          } else if (distToTarget > 0.18 || handPos.y > 0.60) {
             if (now - stepStartTime >= 400) advanceStep();
           }
           break;
@@ -1173,6 +1277,9 @@ document.addEventListener("DOMContentLoaded", async () => {
         break;
       case "pin":
         drawPinTask(hx, hy);
+        break;
+      case "pour":
+        drawPourTask(hx, hy);
         break;
     }
   }
@@ -1763,6 +1870,207 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
+  // 5. 🫗 Pour the Water Task (Forearm Pronation / Supination Biomechanics)
+  function drawPourTask(hx, hy) {
+    const w = gameCanvas.width, h = gameCanvas.height;
+    const now = performance.now();
+    const dt = Math.min(0.1, (now - lastPourTime) / 1000);
+    lastPourTime = now;
+
+    const gw = 120;
+    const gh = 170;
+    const gx = w * 0.58;
+    const gy = h * 0.52;
+
+    let rollAngleDeg = 0;
+    if (wristData && wristData.knuckleAngle != null) {
+      rollAngleDeg = wristData.knuckleAngle;
+    }
+
+    const px = Math.max(80, Math.min(w - 80, hx));
+    const py = Math.max(60, Math.min(gy - 30, hy));
+
+    const isTilting = Math.abs(rollAngleDeg) > 28;
+    const spoutX = px + (rollAngleDeg >= 0 ? 40 : -40);
+    const spoutY = py + 20;
+
+    const overGlass = spoutX >= gx - 40 && spoutX <= gx + gw + 40 && spoutY < gy + 30;
+
+    if (isTilting && overGlass && !adlPaused) {
+      pourGlassLevel = Math.min(115, pourGlassLevel + 22.0 * dt);
+
+      for (let i = 0; i < 3; i++) {
+        pourParticles.push({
+          x: spoutX + (Math.random() - 0.5) * 8,
+          y: spoutY,
+          vx: (Math.random() - 0.5) * 1.5,
+          vy: 8 + Math.random() * 6,
+          radius: 2.5 + Math.random() * 3,
+          color: Math.random() > 0.4 ? "#38BDF8" : "#60A5FA",
+          alpha: 0.9,
+        });
+      }
+
+      if (window.RehabBio && Math.random() < 0.2) {
+        window.RehabBio.playBeep(420 + pourGlassLevel * 2, 0.04, 0.12);
+      }
+    }
+
+    if (pourGlassLevel > 100 && !pourSpillAlerted) {
+      pourSpillAlerted = true;
+      if (window.RehabBio) {
+        window.RehabBio.playBuzz();
+        window.RehabBio.speak("Careful! Glass is overflowing! Level the pitcher upright!");
+      }
+      showToast("⚠️ Glass is overflowing! Level pitcher back upright!", "warning");
+    }
+
+    if (pourGlassLevel >= 75 && pourGlassLevel <= 100 && !pourTargetReached) {
+      pourTargetReached = true;
+      if (window.RehabBio) {
+        window.RehabBio.playBeep(784, 0.08, 0.3);
+        window.RehabBio.speak("Target zone reached! Now rotate pitcher upright!");
+      }
+      showToast("🎉 Perfect fill! Rotate pitcher upright to finish rep!", "success");
+    }
+
+    pourParticles.forEach((p) => {
+      p.x += p.vx;
+      p.y += p.vy;
+      p.alpha -= 0.025;
+    });
+    pourParticles = pourParticles.filter((p) => p.alpha > 0 && p.y < gy + gh);
+
+    pourParticles.forEach((p) => {
+      gCtx.save();
+      gCtx.globalAlpha = Math.max(0, p.alpha);
+      gCtx.fillStyle = p.color;
+      gCtx.beginPath();
+      gCtx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+      gCtx.fill();
+      gCtx.restore();
+    });
+
+    // Draw Target Drinking Glass
+    gCtx.save();
+    gCtx.strokeStyle = "rgba(255, 255, 255, 0.75)";
+    gCtx.lineWidth = 3;
+    gCtx.fillStyle = "rgba(15, 23, 42, 0.65)";
+    gCtx.beginPath();
+    gCtx.moveTo(gx, gy);
+    gCtx.lineTo(gx + 12, gy + gh);
+    gCtx.lineTo(gx + gw - 12, gy + gh);
+    gCtx.lineTo(gx + gw, gy);
+    gCtx.closePath();
+    gCtx.fill();
+    gCtx.stroke();
+
+    const targetY1 = gy + gh * (1 - 0.95);
+    const targetY2 = gy + gh * (1 - 0.75);
+    gCtx.fillStyle = "rgba(16, 185, 129, 0.22)";
+    gCtx.fillRect(gx + 10, targetY1, gw - 20, targetY2 - targetY1);
+    gCtx.strokeStyle = "#10B981";
+    gCtx.lineWidth = 1.5;
+    gCtx.setLineDash([4, 4]);
+    gCtx.strokeRect(gx + 10, targetY1, gw - 20, targetY2 - targetY1);
+    gCtx.setLineDash([]);
+
+    gCtx.font = "bold 11px Inter, sans-serif";
+    gCtx.fillStyle = "#10B981";
+    gCtx.fillText("🎯 TARGET (75-95%)", gx + gw + 8, targetY2 - 4);
+
+    if (pourGlassLevel > 0) {
+      const fillH = Math.min(gh - 8, (Math.min(100, pourGlassLevel) / 100) * (gh - 14));
+      const fillY = gy + gh - 4 - fillH;
+      const grad = gCtx.createLinearGradient(gx, fillY, gx, gy + gh);
+      grad.addColorStop(0, pourGlassLevel > 100 ? "#F59E0B" : "#38BDF8");
+      grad.addColorStop(1, "#1D4ED8");
+      gCtx.fillStyle = grad;
+      gCtx.beginPath();
+      gCtx.moveTo(gx + 14, gy + gh - 4);
+      gCtx.lineTo(gx + 12, fillY);
+      gCtx.lineTo(gx + gw - 12, fillY);
+      gCtx.lineTo(gx + gw - 14, gy + gh - 4);
+      gCtx.closePath();
+      gCtx.fill();
+
+      gCtx.strokeStyle = "#93C5FD";
+      gCtx.lineWidth = 2;
+      gCtx.beginPath();
+      gCtx.moveTo(gx + 12, fillY);
+      gCtx.lineTo(gx + gw - 12, fillY);
+      gCtx.stroke();
+    }
+
+    gCtx.font = "bold 14px monospace";
+    gCtx.fillStyle = pourGlassLevel >= 75 && pourGlassLevel <= 100 ? "#10B981" : (pourGlassLevel > 100 ? "#EF4444" : "#FFFFFF");
+    gCtx.textAlign = "center";
+    gCtx.fillText(`GLASS: ${Math.round(pourGlassLevel)}%`, gx + gw * 0.5, gy + gh + 24);
+    gCtx.textAlign = "start";
+    gCtx.restore();
+
+    // Draw Pitcher at Hand Position
+    gCtx.save();
+    gCtx.translate(px, py);
+    const rad = (rollAngleDeg * Math.PI) / 180;
+    gCtx.rotate(rad);
+
+    gCtx.fillStyle = "rgba(30, 41, 59, 0.88)";
+    gCtx.strokeStyle = isTilting ? "#38BDF8" : "#94A3B8";
+    gCtx.lineWidth = 2.5;
+    gCtx.beginPath();
+    gCtx.roundRect(-30, -40, 60, 80, 10);
+    gCtx.fill();
+    gCtx.stroke();
+
+    gCtx.fillStyle = "#38BDF8";
+    gCtx.beginPath();
+    gCtx.moveTo(25, -30);
+    gCtx.lineTo(44, -38);
+    gCtx.lineTo(30, -20);
+    gCtx.closePath();
+    gCtx.fill();
+
+    gCtx.strokeStyle = "#94A3B8";
+    gCtx.lineWidth = 4;
+    gCtx.beginPath();
+    gCtx.arc(-32, 0, 16, Math.PI * 0.5, Math.PI * 1.5, false);
+    gCtx.stroke();
+
+    gCtx.fillStyle = "rgba(56, 189, 248, 0.5)";
+    gCtx.fillRect(-26, 0, 52, 36);
+
+    gCtx.font = "bold 11px Inter, sans-serif";
+    gCtx.fillStyle = "#FFFFFF";
+    gCtx.textAlign = "center";
+    gCtx.fillText("PITCHER", 0, -6);
+
+    gCtx.font = "10px monospace";
+    gCtx.fillStyle = isTilting ? "#38BDF8" : "#94A3B8";
+    gCtx.fillText(`${Math.round(Math.abs(rollAngleDeg))}°`, 0, 14);
+    gCtx.restore();
+
+    gCtx.fillStyle = "rgba(15, 23, 42, 0.85)";
+    gCtx.strokeStyle = isTilting ? "#38BDF8" : "#64748B";
+    gCtx.lineWidth = 1.5;
+    const bannerW = Math.min(480, w * 0.8);
+    const bannerX = (w - bannerW) / 2;
+    gCtx.beginPath();
+    gCtx.roundRect(bannerX, 16, bannerW, 36, 10);
+    gCtx.fill();
+    gCtx.stroke();
+
+    gCtx.font = "bold 13px Inter, sans-serif";
+    gCtx.fillStyle = isTilting ? "#38BDF8" : "#E2E8F0";
+    gCtx.textAlign = "center";
+    let statusMsg = "Tilt forearm (pronation) to stream water into the glass";
+    if (pourGlassLevel > 100) statusMsg = "⚠️ OVERFLOW! Rotate forearm back upright!";
+    else if (pourTargetReached) statusMsg = "🎯 Great job! Rotate hand upright to complete rep!";
+    else if (isTilting && overGlass) statusMsg = "🌊 Pouring into glass… reach the green target zone!";
+    gCtx.fillText(statusMsg, w * 0.5, 39);
+    gCtx.textAlign = "start";
+  }
+
   // --- Continuous 60 FPS Render Loop & 10s Inactivity Popup ---
   function adlRenderLoop() {
     requestAnimationFrame(adlRenderLoop);
@@ -1829,6 +2137,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     } else if (currentTask === "light") {
       switchOn = true;
       advanceStep();
+    } else if (currentTask === "pour") {
+      pourGlassLevel = Math.min(100, pourGlassLevel + 25);
+      showToast(`🫗 Water poured: ${Math.round(pourGlassLevel)}%`, "info");
+      if (pourGlassLevel >= 75) {
+        pourTargetReached = true;
+        advanceStep();
+      }
     }
   });
 

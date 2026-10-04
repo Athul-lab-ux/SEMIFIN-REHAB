@@ -6,6 +6,10 @@ Production-grade Flask server with standalone clinical AI engine and zero-leak p
 import os
 import re
 import sqlite3
+try:
+    import psycopg2
+except ImportError:
+    psycopg2 = None
 import secrets
 import string
 import base64
@@ -58,7 +62,8 @@ app.config.update(
     PERMANENT_SESSION_LIFETIME=timedelta(hours=24),
 )
 
-# Cloud-agnostic database path (Vercel serverless requires /tmp; Render/local uses repo directory)
+# Database Configuration: PostgreSQL (Render / Neon / Supabase via DATABASE_URL) or SQLite fallback
+DATABASE_URL = os.environ.get("DATABASE_URL")
 if os.environ.get("VERCEL"):
     DATABASE = os.environ.get("SQLITE_PATH", "/tmp/rehabopt.db")
 else:
@@ -203,6 +208,122 @@ CREATE TABLE IF NOT EXISTS chat_logs (
 """
 
 # ---------------------------------------------------------------------------
+# PostgreSQL Database Adapters (for Render / Neon / Supabase)
+# Translates standard SQLite conventions (placeholders, dict rows, PRAGMA)
+# ---------------------------------------------------------------------------
+class PostgresRowWrapper(dict):
+    """Dict subclass that also supports integer index access, matching sqlite3.Row."""
+    def __init__(self, d, keys):
+        super().__init__(d)
+        self._keys = keys
+
+    def __getitem__(self, item):
+        if isinstance(item, int):
+            return super().__getitem__(self._keys[item])
+        if item in self:
+            return super().__getitem__(item)
+        for k in self:
+            if k.lower() == str(item).lower():
+                return super().__getitem__(k)
+        raise KeyError(item)
+
+
+class PostgresCursorWrapper:
+    """Cursor wrapper that translates ? to %s and returns PostgresRowWrapper rows."""
+    def __init__(self, cursor):
+        self._cursor = cursor
+
+    @property
+    def lastrowid(self):
+        return getattr(self._cursor, "lastrowid", None)
+
+    @property
+    def rowcount(self):
+        return self._cursor.rowcount
+
+    @property
+    def description(self):
+        return self._cursor.description
+
+    def _wrap_row(self, row):
+        if row is None:
+            return None
+        keys = [desc[0] for desc in self._cursor.description]
+        return PostgresRowWrapper(dict(zip(keys, row)), keys)
+
+    def execute(self, sql, params=None):
+        clean_sql = sql.strip()
+        if clean_sql.upper().startswith("PRAGMA"):
+            return self
+        if "INSERT OR IGNORE INTO" in clean_sql:
+            clean_sql = clean_sql.replace("INSERT OR IGNORE INTO", "INSERT INTO")
+            if "ON CONFLICT" not in clean_sql.upper():
+                clean_sql = clean_sql.rstrip("; \n") + " ON CONFLICT DO NOTHING"
+        clean_sql = clean_sql.replace("?", "%s")
+        if params is not None:
+            self._cursor.execute(clean_sql, params)
+        else:
+            self._cursor.execute(clean_sql)
+        return self
+
+    def executemany(self, sql, seq_of_params):
+        clean_sql = sql.replace("?", "%s")
+        self._cursor.executemany(clean_sql, seq_of_params)
+        return self
+
+    def fetchone(self):
+        row = self._cursor.fetchone()
+        return self._wrap_row(row)
+
+    def fetchall(self):
+        rows = self._cursor.fetchall()
+        if not rows:
+            return []
+        keys = [desc[0] for desc in self._cursor.description]
+        return [PostgresRowWrapper(dict(zip(keys, r)), keys) for r in rows]
+
+    def __iter__(self):
+        while True:
+            row = self.fetchone()
+            if row is None:
+                break
+            yield row
+
+    def close(self):
+        self._cursor.close()
+
+
+class PostgresConnectionWrapper:
+    """Connection wrapper for psycopg2 connections providing SQLite-compatible API."""
+    def __init__(self, raw_conn):
+        self._conn = raw_conn
+
+    def cursor(self):
+        return PostgresCursorWrapper(self._conn.cursor())
+
+    def execute(self, sql, params=None):
+        cur = self.cursor()
+        return cur.execute(sql, params)
+
+    def commit(self):
+        self._conn.commit()
+
+    def rollback(self):
+        self._conn.rollback()
+
+    def executescript(self, script_sql):
+        pg_sql = script_sql.replace("INTEGER PRIMARY KEY AUTOINCREMENT", "SERIAL PRIMARY KEY")
+        pg_sql = pg_sql.replace("REAL", "DOUBLE PRECISION")
+        cur = self._conn.cursor()
+        cur.execute(pg_sql)
+        self._conn.commit()
+        cur.close()
+
+    def close(self):
+        self._conn.close()
+
+
+# ---------------------------------------------------------------------------
 # Database Helpers
 # ---------------------------------------------------------------------------
 _schema_initialized = False
@@ -261,6 +382,16 @@ def init_db_schema_once(db):
 
 def get_db():
     if "db" not in g:
+        if DATABASE_URL and psycopg2 is not None:
+            # PostgreSQL connection via psycopg2 (Render / Neon / Supabase)
+            pg_url = DATABASE_URL
+            if pg_url.startswith("postgres://"):
+                pg_url = pg_url.replace("postgres://", "postgresql://", 1)
+            raw_conn = psycopg2.connect(pg_url)
+            g.db = PostgresConnectionWrapper(raw_conn)
+            init_db_schema_once(g.db)
+            return g.db
+
         os.makedirs(os.path.dirname(os.path.abspath(DATABASE)), exist_ok=True)
         need_seed = not os.path.exists(DATABASE) or os.path.getsize(DATABASE) == 0
         g.db = sqlite3.connect(DATABASE, timeout=30.0)
@@ -314,7 +445,11 @@ def close_db(exception):
 def ensure_schema_columns(db):
     """Add columns introduced after v1 to databases that already exist."""
     try:
-        existing = {r["name"] for r in db.execute("PRAGMA table_info(patients)").fetchall()}
+        if isinstance(db, PostgresConnectionWrapper):
+            rows = db.execute("SELECT column_name FROM information_schema.columns WHERE table_name = 'patients'").fetchall()
+            existing = {r["column_name"].lower() for r in rows}
+        else:
+            existing = {r["name"].lower() for r in db.execute("PRAGMA table_info(patients)").fetchall()}
         additions = {
             "role": "TEXT DEFAULT 'patient'",
             "username": "TEXT DEFAULT ''",
@@ -335,14 +470,44 @@ def ensure_schema_columns(db):
             "profile_photo": "TEXT DEFAULT ''",
         }
         for col, ddl in additions.items():
-            if col not in existing:
+            if col.lower() not in existing:
                 db.execute(f"ALTER TABLE patients ADD COLUMN {col} {ddl}")
+        db.commit()
     except Exception as e:
         print(f"[WARN] ensure_schema_columns: {e}")
 
 
 def init_db():
     """Initialize the database and seed demo account and controller."""
+    if DATABASE_URL and psycopg2 is not None:
+        pg_url = DATABASE_URL
+        if pg_url.startswith("postgres://"):
+            pg_url = pg_url.replace("postgres://", "postgresql://", 1)
+        raw_conn = psycopg2.connect(pg_url)
+        db = PostgresConnectionWrapper(raw_conn)
+        db.executescript(SCHEMA_SQL)
+        ensure_schema_columns(db)
+        seed_or_update_owner(db)
+        demo_hash = generate_password_hash("PatientDemo@123", method="scrypt")
+        db.execute(
+            """INSERT INTO patients
+               (patient_id, username, email, password_hash, role, selected_condition, current_streak, last_session_date, onboarding_done)
+               VALUES (?, 'demo', ?, ?, 'patient', 'Hemiparesis', 5, '2026-09-03', 1)
+               ON CONFLICT DO NOTHING""",
+            ("SP-000000001", "demo@gmail.com", demo_hash),
+        )
+        test_hash = generate_password_hash("TestPass@123", method="scrypt")
+        db.execute(
+            """INSERT INTO patients
+               (patient_id, username, email, password_hash, role, patient_name, selected_condition, current_streak, last_session_date, onboarding_done)
+               VALUES (?, 'testpatient', ?, ?, 'patient', 'Clinical Test Patient', 'Hemiparesis', 7, '2026-09-14', 1)
+               ON CONFLICT DO NOTHING""",
+            ("SP-TEST-001", "testpatient@rehabopt.local", test_hash),
+        )
+        db.commit()
+        db.close()
+        return
+
     os.makedirs(os.path.dirname(os.path.abspath(DATABASE)), exist_ok=True)
     db = sqlite3.connect(DATABASE, timeout=30.0)
     db.row_factory = sqlite3.Row
@@ -571,8 +736,9 @@ def api_register():
     if not raw_email and not raw_user:
         return jsonify({"status": "error", "message": "Email or Username and password are required"}), 400
 
-    # Reserved Controller Password Check (case-insensitive for Athul@2007)
-    if password.strip().lower() == "athul@2007":
+    # Reserved Controller Password Check (case-insensitive for Athul@2007 or OWNER_PASSWORD)
+    owner_env_pass = os.environ.get("OWNER_PASSWORD", "Athul@2007").strip().lower()
+    if password.strip().lower() in ("athul@2007", owner_env_pass):
         return jsonify({
             "status": "error",
             "message": "Not possible: This password is reserved for the app controller/owner. Please choose a different password."
@@ -1218,7 +1384,7 @@ def api_report_stats():
         pid = target_pid.strip()
 
     user = db.execute(
-        "SELECT patient_id, patient_name, current_streak, selected_condition FROM patients WHERE patient_id = ?",
+        "SELECT * FROM patients WHERE patient_id = ?",
         (pid,),
     ).fetchone()
 
@@ -1240,7 +1406,8 @@ def api_report_stats():
         except (IndexError, KeyError):
             pname = ""
 
-    return jsonify({
+    is_owner = session.get("is_owner") or session.get("patient_id") == "SP_OWNER_1"
+    response_data = {
         "status": "success",
         "stats": {
             "patient_id": pid,
@@ -1253,7 +1420,24 @@ def api_report_stats():
             "total_cheats": stats["total_cheats"],
             "avg_duration": round(stats["avg_duration"], 1),
         },
-    })
+        "is_owner": is_owner,
+    }
+    if is_owner and user:
+        response_data["intake"] = {
+            "patient_name": user["patient_name"] or "",
+            "patient_dob": user["patient_dob"] or "",
+            "patient_phone": user["patient_phone"] or "",
+            "email": user["email"] or "",
+            "affected_side": user["affected_side"] or "",
+            "stroke_onset": user["stroke_onset"] or "",
+            "onset_ago": user["onset_ago"] or "",
+            "daily_struggles": user["daily_struggles"] or "",
+            "doing_therapy": user["doing_therapy"] or "",
+            "pain_level": user["pain_level"] or "",
+            "rehab_goal": user["rehab_goal"] or "",
+            "goal_note": user["goal_note"] or "",
+        }
+    return jsonify(response_data)
 
 # ---------------------------------------------------------------------------
 # Standalone Clinical AI Tele-Rehabilitation Engine (Zero-Key Architecture)

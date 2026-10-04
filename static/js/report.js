@@ -89,6 +89,32 @@ document.addEventListener("DOMContentLoaded", async () => {
           els.legSnapshot.classList.add("show");
         }
       }
+
+      if (data.is_owner) {
+        const dossierSec = document.getElementById("dossier-section");
+        if (dossierSec) dossierSec.style.display = "block";
+
+        const contactEl = document.getElementById("dossier-contact");
+        const strokeEl = document.getElementById("dossier-stroke");
+        const therapyEl = document.getElementById("dossier-therapy");
+        const goalEl = document.getElementById("dossier-goal");
+
+        const intake = data.intake || {};
+        if (contactEl) {
+          contactEl.textContent = `${intake.patient_name || s.patient_name || "Patient"} · DOB: ${intake.patient_dob || "—"} · Phone: ${intake.patient_phone || "—"}`;
+        }
+        if (strokeEl) {
+          strokeEl.textContent = `Side: ${intake.affected_side || "Hemiparesis"} · Onset: ${intake.stroke_onset || intake.onset_ago || "Recent"}`;
+        }
+        if (therapyEl) {
+          therapyEl.textContent = `Pain: ${intake.pain_level || "Mild"} · Therapy: ${intake.doing_therapy || "Self-guided"}`;
+        }
+        if (goalEl) {
+          goalEl.textContent = `${intake.rehab_goal || "Improve functional range"} ${intake.goal_note ? "— " + intake.goal_note : ""}`;
+        }
+
+        loadTelemetryAudit(pid, data);
+      }
     } catch (err) {
       console.error("Stats error:", err);
     }
@@ -197,5 +223,111 @@ document.addEventListener("DOMContentLoaded", async () => {
     return `Left knee reached ${L}° and right knee reached ${R}°. You have more range on the right side right now — the left side is the one to work on.`;
   }
 
+  // --- Recovery Quality Index (Performance Meter) ---
+  async function loadRQI() {
+    try {
+      const rqiEndpoint = targetPid ? `/api/rqi?patient_id=${encodeURIComponent(targetPid)}` : "/api/rqi";
+      const res = await fetch(rqiEndpoint);
+      const data = await res.json();
+      if (data.status !== "success") return;
+
+      const tierEl = document.getElementById("report-rqi-tier");
+      const labelEl = document.getElementById("report-rqi-label");
+      const arcEl = document.getElementById("report-rqi-arc");
+      const adhFill = document.getElementById("report-rqi-adh");
+      const smoothFill = document.getElementById("report-rqi-smooth");
+      const rangeFill = document.getElementById("report-rqi-range");
+      const adhVal = document.getElementById("report-rqi-adh-val");
+      const smoothVal = document.getElementById("report-rqi-smooth-val");
+      const rangeVal = document.getElementById("report-rqi-range-val");
+
+      if (tierEl) {
+        tierEl.className = "ds-tier " + data.tier;
+        tierEl.textContent = data.tier_emoji + " " + data.tier_label;
+      }
+      if (labelEl) {
+        labelEl.textContent = data.tier_label;
+      }
+      if (arcEl) {
+        const tierPercent = { starting: 15, steady: 40, strong: 65, peak: 90 };
+        const pct = tierPercent[data.tier] || 15;
+        const offset = 251 - (251 * pct / 100);
+        arcEl.style.strokeDashoffset = offset;
+        const tierColors = { starting: "#66bb6a", steady: "#42a5f5", strong: "#fdd835", peak: "#ec407a" };
+        arcEl.style.stroke = tierColors[data.tier] || "#10B981";
+      }
+
+      const adhPct = Math.min(100, Math.round(((data.streak || 1) / 7.0) * 100));
+      if (adhFill) adhFill.style.width = `${adhPct}%`;
+      if (adhVal) adhVal.textContent = `${data.streak || 1}/7 Days`;
+
+      if (data.components) {
+        const sPct = Math.round(data.components.smoothness * 100);
+        const rPct = Math.round(data.components.range * 100);
+        if (smoothFill) smoothFill.style.width = `${sPct}%`;
+        if (rangeFill) rangeFill.style.width = `${rPct}%`;
+        if (smoothVal) smoothVal.textContent = `${sPct}%`;
+        if (rangeVal) rangeVal.textContent = `${rPct}%`;
+      } else {
+        if (smoothFill) smoothFill.style.width = "75%";
+        if (rangeFill) rangeFill.style.width = "65%";
+        if (smoothVal) smoothVal.textContent = "Good";
+        if (rangeVal) rangeVal.textContent = "Progressing";
+      }
+    } catch (e) {
+      console.warn("Report RQI load failed:", e);
+    }
+  }
+
+  // --- Telemetry Session Audit & Full JSON Export for Controller ---
+  async function loadTelemetryAudit(pid, fullData) {
+    try {
+      const histEndpoint = targetPid ? `/api/telemetry/history?patient_id=${encodeURIComponent(targetPid)}&limit=20` : "/api/telemetry/history?limit=20";
+      const res = await fetch(histEndpoint);
+      const data = await res.json();
+      const tbody = document.getElementById("dossier-telemetry-tbody");
+      if (!tbody) return;
+
+      if (data.status === "success" && data.history && data.history.length) {
+        tbody.innerHTML = data.history.map(row => `
+          <tr style="border-bottom:1px solid #E2E8F0;">
+            <td style="padding:6px 10px;">${(row.created_at || "—").replace("T", " ").slice(0, 16)}</td>
+            <td style="padding:6px 10px;"><strong>${row.session_type || "Exercise"}</strong></td>
+            <td style="padding:6px 10px;">${row.duration_seconds || 0}s</td>
+            <td style="padding:6px 10px;">${Math.round(row.peak_rom || 0)}°</td>
+            <td style="padding:6px 10px;">${Math.round(row.smoothness_score || 0)}/100</td>
+            <td style="padding:6px 10px; font-weight:700; color:#10B981;">${row.score || 0}</td>
+          </tr>
+        `).join("");
+      } else {
+        tbody.innerHTML = `<tr><td colspan="6" style="padding:10px; text-align:center; color:#94A3B8;">No telemetry sessions logged yet.</td></tr>`;
+      }
+
+      const downloadBtn = document.getElementById("download-json-btn");
+      if (downloadBtn) {
+        downloadBtn.onclick = () => {
+          const exportPayload = {
+            patient_id: pid,
+            exported_at: new Date().toISOString(),
+            stats: fullData.stats,
+            intake: fullData.intake,
+            telemetry_history: data.history || [],
+          };
+          const blob = new Blob([JSON.stringify(exportPayload, null, 2)], { type: "application/json" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `patient_audit_${pid}_${new Date().toISOString().slice(0, 10)}.json`;
+          a.click();
+          URL.revokeObjectURL(url);
+          showToast("📥 Full patient audit JSON downloaded", "success");
+        };
+      }
+    } catch (e) {
+      console.warn("Failed to load telemetry audit:", e);
+    }
+  }
+
   await loadStats();
+  await loadRQI();
 });
