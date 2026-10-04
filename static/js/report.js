@@ -241,16 +241,17 @@ document.addEventListener("DOMContentLoaded", async () => {
       const smoothVal = document.getElementById("report-rqi-smooth-val");
       const rangeVal = document.getElementById("report-rqi-range-val");
 
+      const tierPercent = { starting: 15, steady: 40, strong: 65, peak: 90 };
+      const pct = data.rqi_score != null ? Math.round(data.rqi_score) : (tierPercent[data.tier] || 15);
+
       if (tierEl) {
         tierEl.className = "ds-tier " + data.tier;
         tierEl.textContent = data.tier_emoji + " " + data.tier_label;
       }
       if (labelEl) {
-        labelEl.textContent = data.tier_label;
+        labelEl.innerHTML = `<span class="gauge-pct" style="font-size:24px; font-weight:800; color:#0F2A4A; display:block;">${pct}%</span><span class="gauge-sub" style="font-size:11px; font-weight:600; color:#64748B;">${data.tier_label}</span>`;
       }
       if (arcEl) {
-        const tierPercent = { starting: 15, steady: 40, strong: 65, peak: 90 };
-        const pct = tierPercent[data.tier] || 15;
         const offset = 251 - (251 * pct / 100);
         arcEl.style.strokeDashoffset = offset;
         const tierColors = { starting: "#66bb6a", steady: "#42a5f5", strong: "#fdd835", peak: "#ec407a" };

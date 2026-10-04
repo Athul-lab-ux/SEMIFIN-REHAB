@@ -393,22 +393,24 @@ async function loadRQI() {
     const labelEl = document.getElementById('rqi-label');
     const arcEl = document.getElementById('rqi-arc');
     
+    // Calculate recovery percentage
+    const tierPercent = { starting: 15, steady: 40, strong: 65, peak: 90 };
+    const pct = data.rqi_score != null ? Math.round(data.rqi_score) : (tierPercent[data.tier] || 25);
+
     if (tierEl) {
       tierEl.className = 'ds-tier ' + data.tier;
       tierEl.textContent = data.tier_emoji + ' ' + data.tier_label;
     }
     if (labelEl) {
-      labelEl.textContent = data.tier_label;
+      labelEl.innerHTML = `<span class="gauge-pct">${pct}%</span><span class="gauge-sub">${data.tier_label}</span>`;
     }
     if (arcEl) {
-      // Arc length is ~251px (half circle). Calculate fill based on tier.
-      const tierPercent = {starting: 15, steady: 40, strong: 65, peak: 90};
-      const pct = tierPercent[data.tier] || 15;
+      // Arc length is ~251px (half circle). Calculate fill based on actual percentage.
       const offset = 251 - (251 * pct / 100);
       arcEl.style.strokeDashoffset = offset;
       
       // Color by tier
-      const tierColors = {starting: '#66bb6a', steady: '#42a5f5', strong: '#fdd835', peak: '#ec407a'};
+      const tierColors = { starting: '#66bb6a', steady: '#42a5f5', strong: '#fdd835', peak: '#ec407a' };
       arcEl.style.stroke = tierColors[data.tier] || '#10B981';
     }
   } catch(e) {

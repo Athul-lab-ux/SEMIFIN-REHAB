@@ -11,7 +11,7 @@
 
 /* ---------- Typography ---------- */
 body {
-  font-family: system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   font-size: 18px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
@@ -117,17 +117,18 @@ button:active, .btn:active {
 /* ---------- Recovery Dial / Gauge ---------- */
 .rqi-gauge {
   position: relative;
-  width: 200px;
-  height: 120px;
+  width: 220px;
+  height: 125px;
   margin: 0 auto;
 }
 .rqi-gauge svg {
   width: 100%;
   height: 100%;
+  overflow: visible;
 }
 .rqi-gauge .gauge-bg {
   fill: none;
-  stroke: rgba(255, 255, 255, 0.1);
+  stroke: #E2E8F0;
   stroke-width: 16;
   stroke-linecap: round;
 }
@@ -136,17 +137,33 @@ button:active, .btn:active {
   stroke: var(--clin-brand, #10B981);
   stroke-width: 16;
   stroke-linecap: round;
-  transition: stroke-dashoffset 1s ease;
+  transition: stroke-dashoffset 1s ease, stroke 0.4s ease;
 }
 .rqi-gauge .gauge-label {
   position: absolute;
-  bottom: 8px;
+  bottom: 0px;
   left: 50%;
   transform: translateX(-50%);
   text-align: center;
-  font-size: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.1;
+  pointer-events: none;
+  color: #0F2A4A;
+}
+.rqi-gauge .gauge-pct {
+  font-size: 32px;
+  font-weight: 800;
+  color: #0F2A4A;
+  letter-spacing: -0.5px;
+}
+.rqi-gauge .gauge-sub {
+  font-size: 13px;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.8);
+  color: #64748B;
+  margin-top: 2px;
 }
 
 /* ---------- Text overflow safety ---------- */
@@ -189,5 +206,21 @@ a, button, .btn, input, select, textarea {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* ---------- Clean Modern Scrollbar ---------- */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #F1F5F9;
+}
+::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
 }
 

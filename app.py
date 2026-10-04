@@ -1524,12 +1524,12 @@ def api_rqi():
         "tier": tier,
         "tier_label": tier_label,
         "tier_emoji": tier_emoji,
+        "rqi_score": round(rqi),
         "total_sessions": total_sessions,
         "streak": streak,
     }
-    # Only expose raw numbers to owner/clinician
+    # Expose component breakdown to owner/clinician
     if is_owner:
-        result["rqi_score"] = rqi
         result["components"] = {
             "adherence": round(adherence, 3),
             "smoothness": round(smoothness, 3),
