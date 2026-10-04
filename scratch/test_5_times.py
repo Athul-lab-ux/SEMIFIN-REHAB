@@ -200,16 +200,21 @@ class TestRehabOptSystem(unittest.TestCase):
     def test_auth_controller_and_id_format(self):
         import re
 
-        # 1. Controller / Owner login with fixed credentials SP_OWNER_1 / Athul@2007
-        res = self.client.post('/api/login', json={'patient_id': 'SP_OWNER_1', 'password': 'Athul@2007'})
+        # 1. Controller / Owner login with OWNER_PASSWORD
+        os.environ['OWNER_PASSWORD'] = 'SecureOwnerTestPass@2026'
+        with app.app_context():
+            from app import seed_or_update_owner
+            seed_or_update_owner(get_db())
+
+        res = self.client.post('/api/login', json={'patient_id': 'SP_OWNER_1', 'password': 'SecureOwnerTestPass@2026'})
         self.assertEqual(res.status_code, 200)
         data = json.loads(res.data)
         self.assertEqual(data.get('status'), 'success')
         self.assertTrue(data.get('is_owner'))
         self.assertEqual(data.get('patient_id'), 'SP_OWNER_1')
 
-        # 2. Block registration with Athul@2007 in upper, lower, and mixed case
-        for pw in ['Athul@2007', 'athul@2007', 'ATHUL@2007', 'aThUl@2007']:
+        # 2. Reject registration if password is under 8 characters
+        for pw in ['short', '1234567', 'pass']:
             r = self.client.post('/api/register', json={
                 'username': f'user_test_{pw[:4]}',
                 'email': f'{pw[:4]}@hospital.org',
@@ -217,7 +222,7 @@ class TestRehabOptSystem(unittest.TestCase):
             })
             self.assertEqual(r.status_code, 400)
             res_json = json.loads(r.data)
-            self.assertIn('Not possible', res_json.get('message', ''))
+            self.assertIn('at least 8 characters', res_json.get('message', ''))
 
         # 3. Valid user registration receives SP_00001 to SP_99999 format
         import time
@@ -235,7 +240,7 @@ class TestRehabOptSystem(unittest.TestCase):
         # 4. Master Patient Activity Center endpoint (/api/admin/patients) for Controller
         with self.client.session_transaction() as sess:
             sess['patient_id'] = 'SP_OWNER_1'
-            sess['is_owner'] = True
+            sess['role'] = 'owner'
         admin_res = self.client.get('/api/admin/patients')
         self.assertEqual(admin_res.status_code, 200)
         admin_data = json.loads(admin_res.data)
@@ -246,14 +251,14 @@ class TestRehabOptSystem(unittest.TestCase):
         # 5. Non-controller access to /api/admin/patients is blocked with 403 Forbidden
         with self.client.session_transaction() as sess:
             sess['patient_id'] = new_pid
-            sess['is_owner'] = False
+            sess['role'] = 'patient'
         non_admin_res = self.client.get('/api/admin/patients')
         self.assertEqual(non_admin_res.status_code, 403)
 
         # 6. Controller can inspect any patient via ?patient_id= parameter
         with self.client.session_transaction() as sess:
             sess['patient_id'] = 'SP_OWNER_1'
-            sess['is_owner'] = True
+            sess['role'] = 'owner'
         insp_res = self.client.get(f'/api/report/stats?patient_id={new_pid}')
         self.assertEqual(insp_res.status_code, 200)
         insp_data = json.loads(insp_res.data)

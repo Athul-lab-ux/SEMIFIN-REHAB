@@ -46,14 +46,24 @@ app = Flask(
     static_folder=os.path.join(BASE_DIR, "static"),
     static_url_path="/static",
 )
-# Stable secret key: use env var in production, fixed fallback for dev
-app.secret_key = os.environ.get("FLASK_SECRET_KEY", os.environ.get("SECRET_KEY", "rehabopt-ar-production-stable-secret-key-2026"))
+# Detect production (Render sets RENDER=true, or check FLASK_ENV=production)
+_IS_PRODUCTION = bool(
+    os.environ.get("RENDER")
+    or os.environ.get("FLASK_ENV") == "production"
+    or os.environ.get("ENV") == "production"
+)
+
+# Stable secret key: must come from the environment. If missing in production, stop with fatal error.
+secret_key_env = os.environ.get("SECRET_KEY") or os.environ.get("FLASK_SECRET_KEY")
+if _IS_PRODUCTION and not secret_key_env:
+    raise RuntimeError(
+        "CRITICAL SECURITY CONFIGURATION ERROR: SECRET_KEY environment variable is required in production! "
+        "Please configure SECRET_KEY in your Render dashboard environment variables."
+    )
+app.secret_key = secret_key_env or "rehabopt-ar-dev-fallback-secret-key-2026"
 
 # ProxyFix for Render/reverse proxy (ensures correct scheme detection for secure cookies)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
-
-# Detect production (Render sets RENDER=true, or check for DATABASE_URL)
-_IS_PRODUCTION = bool(os.environ.get("RENDER") or os.environ.get("DATABASE_URL"))
 
 app.config.update(
     SESSION_COOKIE_HTTPONLY=True,
@@ -117,6 +127,19 @@ def add_security_headers(response):
     if request.path.startswith("/static/"):
         response.headers["Cache-Control"] = "public, max-age=86400"
     return response
+
+
+# ---------------------------------------------------------------------------
+# Route Security & Protection (All /api/admin/... routes require owner role)
+# ---------------------------------------------------------------------------
+@app.before_request
+def enforce_admin_route_protection():
+    if request.path.startswith("/api/admin"):
+        if "patient_id" not in session:
+            return jsonify({"status": "error", "message": "Authentication required. Please sign in."}), 401
+        is_owner = (session.get("role") == "owner" or session.get("patient_id") == "SP_OWNER_1")
+        if not is_owner:
+            return jsonify({"status": "error", "message": "Access denied. Controller privileges required."}), 403
 
 
 @app.context_processor
@@ -329,10 +352,14 @@ class PostgresConnectionWrapper:
 _schema_initialized = False
 
 def seed_or_update_owner(db):
-    """Seed or update fixed Controller / Owner account (SP_OWNER_1 / Athul@2007) and default demo patient."""
+    """Seed or update fixed Controller / Owner account (SP_OWNER_1) using OWNER_PASSWORD env var."""
     try:
-        owner_pass = os.environ.get("OWNER_PASSWORD", "Athul@2007")
-        owner_hash = generate_password_hash(owner_pass, method="scrypt")
+        owner_pass = os.environ.get("OWNER_PASSWORD")
+        if not owner_pass:
+            print("[WARN] OWNER_PASSWORD environment variable is not set. Controller account SP_OWNER_1 will not be created or updated.")
+            return
+
+        owner_hash = generate_password_hash(owner_pass.strip(), method="scrypt")
         existing_owner = db.execute("SELECT id FROM patients WHERE UPPER(patient_id) = 'SP_OWNER_1'").fetchone()
         if existing_owner:
             db.execute(
@@ -341,7 +368,7 @@ def seed_or_update_owner(db):
                    role = 'owner',
                    username = 'owner',
                    email = 'owner@rehabopt.com',
-                   patient_name = 'App Controller (Athul)',
+                   patient_name = 'App Controller',
                    onboarding_done = 1
                    WHERE UPPER(patient_id) = 'SP_OWNER_1'""",
                 (owner_hash,),
@@ -352,11 +379,17 @@ def seed_or_update_owner(db):
                    (patient_id, username, email, password_hash, role, patient_name,
                     selected_condition, current_streak, onboarding_done)
                    VALUES ('SP_OWNER_1', 'owner', 'owner@rehabopt.com', ?, 'owner',
-                           'App Controller (Athul)', 'Hemiparesis', 10, 1)""",
+                           'App Controller', 'Hemiparesis', 10, 1)""",
                 (owner_hash,),
             )
+        db.commit()
+    except Exception as e:
+        print(f"[WARN] seed_or_update_owner: {e}")
 
-        # Seed initial demo patient SP_00001 if not present
+
+def seed_demo_patient(db):
+    """Seed initial demo patient SP_00001 if not present."""
+    try:
         existing_sp1 = db.execute("SELECT id FROM patients WHERE UPPER(patient_id) = 'SP_00001'").fetchone()
         if not existing_sp1:
             demo_hash = generate_password_hash("PatientDemo@123", method="scrypt")
@@ -368,9 +401,10 @@ def seed_or_update_owner(db):
                            'Demo Recovery Patient', 'Hemiparesis', 5, '2026-09-03', 1)""",
                 (demo_hash,),
             )
-        db.commit()
+            db.commit()
     except Exception as e:
-        print(f"[WARN] seed_or_update_owner: {e}")
+        print(f"[WARN] seed_demo_patient: {e}")
+
 
 def init_db_schema_once(db):
     global _schema_initialized
@@ -378,6 +412,7 @@ def init_db_schema_once(db):
         db.executescript(SCHEMA_SQL)
         ensure_schema_columns(db)
         seed_or_update_owner(db)
+        seed_demo_patient(db)
         _schema_initialized = True
 
 def get_db():
@@ -562,7 +597,7 @@ def onboarding_required(f):
     def decorated_function(*args, **kwargs):
         if "patient_id" not in session:
             return redirect(url_for("auth_portal"))
-        if session.get("is_owner") or session.get("patient_id") == "SP_OWNER_1":
+        if session.get("role") == "owner" or session.get("patient_id") == "SP_OWNER_1":
             return f(*args, **kwargs)
         db = get_db()
         row = db.execute(
@@ -638,6 +673,15 @@ def update_streak(db, patient_id):
 @app.route("/")
 def index():
     if "patient_id" in session:
+        if session.get("role") == "owner" or session.get("patient_id") == "SP_OWNER_1":
+            return redirect(url_for("dashboard"))
+        db = get_db()
+        row = db.execute(
+            "SELECT onboarding_done FROM patients WHERE patient_id = ?",
+            (session["patient_id"],),
+        ).fetchone()
+        if not row or not row["onboarding_done"]:
+            return redirect(url_for("onboarding"))
         return redirect(url_for("dashboard"))
     return redirect(url_for("auth_portal"))
 
@@ -646,8 +690,18 @@ def index():
 @app.route("/login")
 def auth_portal():
     if "patient_id" in session:
+        if session.get("role") == "owner" or session.get("patient_id") == "SP_OWNER_1":
+            return redirect(url_for("dashboard"))
+        db = get_db()
+        row = db.execute(
+            "SELECT onboarding_done FROM patients WHERE patient_id = ?",
+            (session["patient_id"],),
+        ).fetchone()
+        if not row or not row["onboarding_done"]:
+            return redirect(url_for("onboarding"))
         return redirect(url_for("dashboard"))
-    return render_template("auth.html", is_production=_IS_PRODUCTION)
+    allow_demo_logins = bool(os.environ.get("ALLOW_DEMO_LOGINS") == "1")
+    return render_template("auth.html", is_production=_IS_PRODUCTION, allow_demo_logins=allow_demo_logins)
 
 
 @app.route("/logout")
@@ -660,6 +714,8 @@ def logout():
 @login_required
 def onboarding():
     """New-patient questionnaire: stroke type → how it happened."""
+    if session.get("role") == "owner" or session.get("patient_id") == "SP_OWNER_1":
+        return redirect(url_for("dashboard"))
     if request.args.get("edit") != "1":
         db = get_db()
         row = db.execute(
@@ -675,7 +731,7 @@ def onboarding():
 @login_required
 @onboarding_required
 def dashboard():
-    is_owner = bool(session.get("is_owner") or session.get("patient_id") == "SP_OWNER_1")
+    is_owner = bool(session.get("role") == "owner" or session.get("patient_id") == "SP_OWNER_1")
     return render_template("dashboard.html", is_owner=is_owner)
 
 
@@ -736,14 +792,6 @@ def api_register():
     if not raw_email and not raw_user:
         return jsonify({"status": "error", "message": "Email or Username and password are required"}), 400
 
-    # Reserved Controller Password Check (case-insensitive for Athul@2007 or OWNER_PASSWORD)
-    owner_env_pass = os.environ.get("OWNER_PASSWORD", "Athul@2007").strip().lower()
-    if password.strip().lower() in ("athul@2007", owner_env_pass):
-        return jsonify({
-            "status": "error",
-            "message": "Not possible: This password is reserved for the app controller/owner. Please choose a different password."
-        }), 400
-
     if "@" in raw_email:
         email = raw_email.lower()
         username = raw_user.lower() if raw_user else email.split("@")[0]
@@ -759,18 +807,20 @@ def api_register():
     if not is_email or not is_username:
         return jsonify({"status": "error", "message": "Please enter a valid email or username (e.g. u1, user@hospital.org)"}), 400
 
-    if len(password) < 6:
-        return jsonify({"status": "error", "message": "Password must be at least 6 characters"}), 400
+    if len(password) < 8:
+        return jsonify({"status": "error", "message": "Password must be at least 8 characters"}), 400
 
     db = get_db()
 
-    # Check duplicate email or username
-    existing = db.execute(
-        "SELECT id FROM patients WHERE LOWER(email) = ? OR (username != '' AND LOWER(username) = ?)",
-        (email, username),
-    ).fetchone()
-    if existing:
-        return jsonify({"status": "error", "message": "This email/username is already registered. Please sign in."}), 409
+    # Check duplicate email or username with friendly message
+    existing_email = db.execute("SELECT id FROM patients WHERE LOWER(email) = ?", (email,)).fetchone()
+    if existing_email:
+        return jsonify({"status": "error", "message": "This email is already registered. Please sign in to your account."}), 409
+
+    if username:
+        existing_user = db.execute("SELECT id FROM patients WHERE username != '' AND LOWER(username) = ?", (username,)).fetchone()
+        if existing_user:
+            return jsonify({"status": "error", "message": "This username is already taken. Please choose another username or sign in."}), 409
 
     patient_id = generate_next_patient_id(db)
     password_hash = generate_password_hash(password, method="scrypt")
@@ -807,10 +857,8 @@ def api_register():
         return jsonify({"status": "error", "message": "Registration failed due to high traffic. Please try again."}), 500
 
     session.permanent = True
+    session.clear()
     session["patient_id"] = patient_id
-    session["email"] = email
-    session["patient_name"] = name
-    session["is_owner"] = False
     session["role"] = "patient"
 
     return jsonify({
@@ -888,10 +936,8 @@ def api_login():
     is_owner = (user["patient_id"].upper() == "SP_OWNER_1" or (user["role"] if "role" in user.keys() else "") == "owner")
     clear_login_attempts(raw_ident)
     session.permanent = True
+    session.clear()
     session["patient_id"] = user["patient_id"]
-    session["email"] = user["email"]
-    session["patient_name"] = user["patient_name"]
-    session["is_owner"] = is_owner
     session["role"] = "owner" if is_owner else "patient"
 
     return jsonify({
@@ -912,14 +958,8 @@ def api_profile_password():
     data = request.get_json() or {}
     new_password = (data.get("password") or data.get("new_password") or "").strip()
 
-    if new_password.lower() == "athul@2007":
-        return jsonify({
-            "status": "error",
-            "message": "Not possible: This password is reserved for the app controller/owner. Please choose a different password."
-        }), 400
-
-    if len(new_password) < 6:
-        return jsonify({"status": "error", "message": "Password must be at least 6 characters"}), 400
+    if len(new_password) < 8:
+        return jsonify({"status": "error", "message": "Password must be at least 8 characters"}), 400
 
     db = get_db()
     new_hash = generate_password_hash(new_password, method="scrypt")
@@ -1212,7 +1252,7 @@ def api_log_telemetry():
 @app.route("/api/admin/patients", methods=["GET"])
 @login_required
 def api_admin_patients():
-    if not session.get("is_owner") and session.get("patient_id") != "SP_OWNER_1":
+    if session.get("role") != "owner" and session.get("patient_id") != "SP_OWNER_1":
         return jsonify({"status": "error", "message": "Access denied. Controller privileges required."}), 403
 
     db = get_db()
@@ -1290,7 +1330,7 @@ def api_rqi():
     db = get_db()
     pid = session["patient_id"]
     target_pid = request.args.get("patient_id")
-    if target_pid and (session.get("is_owner") or session.get("patient_id") == "SP_OWNER_1"):
+    if target_pid and (session.get("role") == "owner" or session.get("patient_id") == "SP_OWNER_1"):
         pid = target_pid.strip()
 
     user = db.execute(
@@ -1333,7 +1373,7 @@ def api_rqi():
         tier_label = "Starting Out"
         tier_emoji = "🌱"
 
-    is_owner = session.get("is_owner") or session.get("patient_id") == "SP_OWNER_1"
+    is_owner = (session.get("role") == "owner" or session.get("patient_id") == "SP_OWNER_1")
     result = {
         "status": "success",
         "tier": tier,
@@ -1359,7 +1399,7 @@ def api_telemetry_history():
     db = get_db()
     pid = session["patient_id"]
     target_pid = request.args.get("patient_id")
-    if target_pid and (session.get("is_owner") or session.get("patient_id") == "SP_OWNER_1"):
+    if target_pid and (session.get("role") == "owner" or session.get("patient_id") == "SP_OWNER_1"):
         pid = target_pid.strip()
 
     rows = db.execute(
@@ -1380,7 +1420,7 @@ def api_report_stats():
     db = get_db()
     pid = session["patient_id"]
     target_pid = request.args.get("patient_id")
-    if target_pid and (session.get("is_owner") or session.get("patient_id") == "SP_OWNER_1"):
+    if target_pid and (session.get("role") == "owner" or session.get("patient_id") == "SP_OWNER_1"):
         pid = target_pid.strip()
 
     user = db.execute(
@@ -1406,7 +1446,7 @@ def api_report_stats():
         except (IndexError, KeyError):
             pname = ""
 
-    is_owner = session.get("is_owner") or session.get("patient_id") == "SP_OWNER_1"
+    is_owner = (session.get("role") == "owner" or session.get("patient_id") == "SP_OWNER_1")
     response_data = {
         "status": "success",
         "stats": {
@@ -1634,7 +1674,7 @@ def generate_soap():
     data = request.get_json() or {}
     patient_id = session.get("patient_id", "SP_00001")
     target_pid = request.args.get("patient_id") or data.get("patient_id")
-    if target_pid and (session.get("is_owner") or session.get("patient_id") == "SP_OWNER_1"):
+    if target_pid and (session.get("role") == "owner" or session.get("patient_id") == "SP_OWNER_1"):
         patient_id = target_pid.strip()
     condition = data.get("condition", "Hemiparesis")
     streak = data.get("streak", 1)

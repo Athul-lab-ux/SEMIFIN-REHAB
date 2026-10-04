@@ -66,10 +66,10 @@
             New patient or don't have an ID?
             <a href="#" id="go-register">Create an account here ➜</a>
           </p>
+          {% if allow_demo_logins %}
           <button id="demo-btn" class="btn-demo" title="1-Click Patient Demo Login">
             <span>⚡</span> Quick Demo Patient Login (SP_00001)
           </button>
-          {% if not is_production %}
           <button type="button" id="owner-fill-btn" class="btn-demo" style="margin-top:8px; background:rgba(245, 158, 11, 0.12); border-color:#F59E0B; color:#B45309;" title="Quick Controller Login">
             <span>👑</span> App Controller Login (SP_OWNER_1)
           </button>
@@ -97,7 +97,7 @@
               <label for="reg-password"><span class="lbl-sym">🔒</span> Create Password</label>
               <div class="input-icon-wrap pw-field">
                 <span class="input-icon" aria-hidden="true">🔑</span>
-                <input type="password" id="reg-password" placeholder="Min 6 characters" autocomplete="new-password" required minlength="6" />
+                <input type="password" id="reg-password" placeholder="Min 8 characters" autocomplete="new-password" required minlength="8" />
                 <button type="button" class="toggle-pw" aria-label="Show password" title="Toggle password visibility">👁️</button>
               </div>
             </div>
@@ -105,7 +105,7 @@
               <label for="reg-password2"><span class="lbl-sym">🛡️</span> Confirm Password</label>
               <div class="input-icon-wrap pw-field">
                 <span class="input-icon" aria-hidden="true">✅</span>
-                <input type="password" id="reg-password2" placeholder="Repeat password" autocomplete="new-password" required minlength="6" />
+                <input type="password" id="reg-password2" placeholder="Repeat password" autocomplete="new-password" required minlength="8" />
                 <button type="button" class="toggle-pw" aria-label="Show password" title="Toggle password visibility">👁️</button>
               </div>
             </div>

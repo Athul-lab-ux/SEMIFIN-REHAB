@@ -124,19 +124,13 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    // Reserved Controller Password check (case-insensitive)
-    if (pw.trim().toLowerCase() === "athul@2007") {
-      showToast("❌ Not possible: This password is reserved for the app controller/owner. Please choose a different password.", "error");
-      return;
-    }
-
     if (pw !== pw2) {
       showToast("❌ Passwords do not match", "error");
       return;
     }
 
-    if (pw.length < 6) {
-      showToast("❌ Password must be at least 6 characters", "error");
+    if (pw.length < 8) {
+      showToast("❌ Password must be at least 8 characters", "error");
       return;
     }
 
@@ -196,11 +190,10 @@ document.addEventListener("DOMContentLoaded", () => {
   if (ownerBtn) {
     ownerBtn.addEventListener("click", () => {
       document.getElementById("si-patient-id").value = "SP_OWNER_1";
-      document.getElementById("si-password").value = "Athul@2007";
-      showToast("👑 Logging into App Controller account…", "info");
-      setTimeout(() => {
-        signInForm.requestSubmit();
-      }, 300);
+      const pwInput = document.getElementById("si-password");
+      pwInput.value = "";
+      pwInput.focus();
+      showToast("👑 Controller ID entered. Please enter your OWNER_PASSWORD.", "info");
     });
   }
 
