@@ -222,8 +222,21 @@ document.addEventListener("DOMContentLoaded", async () => {
           );
           const avgDist = tipDists.reduce((a, b) => a + b, 0) / tipDists.length;
           this.openness = avgDist / handSize;
-          this.isClosed = this.openness < 1.18;
-          this.isOpen = this.openness > 1.42;
+
+          // MCP-to-tip curl distances (direct finger flexion check matching MediaPipe screenshots)
+          const curlDists = [
+            hand[8] && hand[5] ? Math.hypot(hand[8].x - hand[5].x, hand[8].y - hand[5].y) : handSize,
+            hand[12] && hand[9] ? Math.hypot(hand[12].x - hand[9].x, hand[12].y - hand[9].y) : handSize,
+            hand[16] && hand[13] ? Math.hypot(hand[16].x - hand[13].x, hand[16].y - hand[13].y) : handSize,
+            hand[20] && hand[17] ? Math.hypot(hand[20].x - hand[17].x, hand[20].y - hand[17].y) : handSize,
+          ];
+          const avgCurl = curlDists.reduce((a, b) => a + b, 0) / curlDists.length;
+          const curlRatio = avgCurl / handSize;
+
+          // Closed if either tip-to-wrist drops or individual fingers curl inwards (Screenshot 2026-10-04 204125)
+          this.isClosed = this.openness < 1.25 || curlRatio < 0.55;
+          // Open when extended away (Screenshot 2026-10-04 204113)
+          this.isOpen = this.openness > 1.35 && curlRatio > 0.62;
         } else if (engine.tip) {
           this.palmCenter = { x: engine.tip.x * W, y: engine.tip.y * H };
           this.isClosed = false;
@@ -261,12 +274,12 @@ document.addEventListener("DOMContentLoaded", async () => {
           b.wobble += 0.05;
 
           const dist = Math.hypot(b.x - this.palmCenter.x, b.y - this.palmCenter.y);
-          const inZone = dist < b.r + 40;
+          const inZone = dist < b.r + 52;
 
-          // When in center and user clenches fist (Image 2)
+          // When in center and user clenches fist (Image 2 & Screenshot 204125)
           if (inZone && this.readyToGrasp && this.isClosed && !b.popped) {
             b.popped = true;
-            this.readyToGrasp = false; // Must open to re-arm (Image 3)
+            this.readyToGrasp = false; // Must open to re-arm (Image 3 & Screenshot 204113)
             this.$engine.addScore(10);
             spawnParticles(b.x, b.y, b.color, 24);
             addScorePopup(this.palmCenter.x, this.palmCenter.y - 30, "+10 🫧 GRASP POP!", b.color);
@@ -282,7 +295,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         for (const b of this.bubbles) {
           ctx.save();
           const dist = Math.hypot(b.x - this.palmCenter.x, b.y - this.palmCenter.y);
-          const inZone = dist < b.r + 40;
+          const inZone = dist < b.r + 52;
 
           ctx.beginPath();
           ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
