@@ -18,10 +18,11 @@
         <button id="btn-pause" class="c-ctrl-btn" title="Pause game" style="display:none;">⏸ Pause</button>
         <button id="btn-resume" class="c-ctrl-btn primary" title="Resume game with 4s countdown" style="display:none;">▶ Resume (4s)</button>
         <button id="btn-stop" class="c-ctrl-btn danger" title="Stop game" style="display:none;">⏹ Stop</button>
-        <div class="speed-pill" title="Game speed adjustment">
-          <button id="btn-slower" class="sp-btn" title="Slow the game down">🐢</button>
-          <span class="ctl-speed" id="speed-display">1.0x</span>
-          <button id="btn-faster" class="sp-btn" title="Speed the game up">🚀</button>
+        <div class="speed-selector" title="Game speed adjustment">
+          <span class="speed-lab">Speed:</span>
+          <button id="btn-speed-s1" class="speed-btn" data-speed="0.7" title="S1: Gentle / Slow (0.7x)">S1</button>
+          <button id="btn-speed-s2" class="speed-btn active" data-speed="1.0" title="S2: Normal (1.0x)">S2</button>
+          <button id="btn-speed-s3" class="speed-btn" data-speed="1.4" title="S3: Fast (1.4x)">S3</button>
         </div>
       </div>
     </div>

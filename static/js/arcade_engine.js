@@ -101,8 +101,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     // 1. Fruit Slash
     fruit: {
       name: "Fruit Slash", emoji: "🍎", trains: "Index finger slicing & reaction speed",
-      guide: "Slice rising fruits with your index fingertip! Watch out: hitting a bomb 💣 means Game Over!",
-      lives: true,
+      guide: "Slice rising fruits with your index fingertip! Avoid bombs 💣 (-15 pts)!",
+      lives: false,
       init() {
         this.fruits = [];
         this.timer = 0;
@@ -122,7 +122,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           const sel = isBomb ? { emoji: "💣", color: "#475569" } : F[(Math.random() * F.length) | 0];
           this.fruits.push({
             x: rand(80, W - 80), y: H + 25,
-            vx: rand(-1.4, 1.4), vy: rand(6.5, 9.5) * this.$speed,
+            vx: rand(-1.6, 1.6), vy: rand(12.5, 16.5) * Math.min(1.2, this.$speed),
             emoji: sel.emoji, color: sel.color,
             bomb: isBomb, rot: 0, vrot: rand(-0.06, 0.06), gone: false,
           });
@@ -139,7 +139,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         for (const f of this.fruits) {
           f.x += f.vx;
           f.y -= f.vy;
-          f.vy -= 0.18; // gravity arc
+          f.vy -= 0.22; // higher gravity arc into middle/upper screen
           f.rot += f.vrot;
 
           if (tip && Math.hypot(tip.x - f.x, tip.y - f.y) < 55) {
@@ -147,9 +147,9 @@ document.addEventListener("DOMContentLoaded", async () => {
             if (f.bomb) {
               spawnParticles(f.x, f.y, "#EF4444", 32);
               if (window.RehabBio) window.RehabBio.playCheatBuzz();
-              showToast("💥 BOMB DETONATED! GAME OVER!", "error");
-              setTimeout(() => stopGame("Game Over: Bomb Detonated"), 1200);
-              return;
+              showToast("💣 BOMB HIT! −15 POINTS", "error");
+              addScorePopup(f.x, f.y, "−15 💣 BOMB!", "#EF4444");
+              this.$engine.deductScore(15);
             } else {
               this.$engine.addScore(10);
               spawnParticles(f.x, f.y, f.color, 16);
@@ -188,109 +188,162 @@ document.addEventListener("DOMContentLoaded", async () => {
       },
     },
 
-    // 2. Wrist Hammer Smash
-    hammer: {
-      name: "Wrist Hammer", emoji: "🔨", trains: "Horizontal wrist UP / DOWN extension",
-      guide: "Hold forearm horizontally! Tilt wrist UP to smash high bubbles, tilt wrist DOWN to smash low bubbles!",
-      lives: true,
+    // 2. Bubble Pop 2.0 (Wrist / Palm Grasp & Release Spasticity Game)
+    bubblepop2: {
+      name: "Bubble Pop 2.0", emoji: "🫧", trains: "Wrist & palm grasp-to-pop spasticity release",
+      guide: "Align your open hand over a bubble, then CLENCH FIST ✊ to pop! Open hand 🖐️ to reload.",
+      lives: false,
       init() {
         this.bubbles = [];
         this.timer = 0;
+        this.readyToGrasp = true;
+        this.palmCenter = { x: 0.5, y: 0.5 };
+        this.openness = 1.0;
+        this.isClosed = false;
+        this.isOpen = true;
       },
       update(res, W, H) {
-        const pitch = engine.wristPitch || 0;
-        const wristUp = pitch >= 13 || engine.vy < -0.45;
-        const wristDown = pitch <= -8 || engine.vy > 0.45;
-        const isSwinging = wristUp || wristDown;
+        // Calculate palm center and openness
+        const hand = (res && res.hand) || (engine.lastRes && engine.lastRes.hand);
+        if (hand && hand[0]) {
+          const pIndices = [0, 5, 9, 13, 17];
+          let cx = 0, cy = 0, count = 0;
+          pIndices.forEach((idx) => {
+            if (hand[idx]) { cx += hand[idx].x; cy += hand[idx].y; count++; }
+          });
+          this.palmCenter = {
+            x: (cx / (count || 1)) * W,
+            y: (cy / (count || 1)) * H,
+          };
 
-        if (++this.timer > Math.max(18, 42 / this.$speed) && this.bubbles.length < 8) {
+          const handSize = Math.hypot(hand[9].x - hand[0].x, hand[9].y - hand[0].y) || 0.1;
+          const tipDists = [8, 12, 16, 20].map((tip) =>
+            hand[tip] ? Math.hypot(hand[tip].x - hand[0].x, hand[tip].y - hand[0].y) : handSize * 1.3
+          );
+          const avgDist = tipDists.reduce((a, b) => a + b, 0) / tipDists.length;
+          this.openness = avgDist / handSize;
+          this.isClosed = this.openness < 1.18;
+          this.isOpen = this.openness > 1.42;
+        } else if (engine.tip) {
+          this.palmCenter = { x: engine.tip.x * W, y: engine.tip.y * H };
+          this.isClosed = false;
+          this.isOpen = true;
+        }
+
+        // Grasp state machine: if popped, must open hand to reload
+        if (!this.readyToGrasp && this.isOpen) {
+          this.readyToGrasp = true;
+          if (window.RehabBio && typeof window.RehabBio.playBeep === "function") {
+            window.RehabBio.playBeep(640, 0.04, 0.15);
+          }
+        }
+
+        // Spawn bubbles slowly
+        if (++this.timer > Math.max(35, 75 / this.$speed) && this.bubbles.length < 6) {
           this.timer = 0;
+          const colors = ["#38BDF8", "#34D399", "#F472B6", "#FBBF24", "#A78BFA"];
           this.bubbles.push({
             x: rand(0.15, 0.85) * W,
-            y: rand(0.2, 0.8) * H,
-            vy: rand(-0.5, 0.5),
-            r: 28,
-            hit: false,
+            y: H + 30,
+            vx: rand(-0.7, 0.7),
+            vy: rand(1.4, 2.4) * this.$speed,
+            r: rand(38, 48),
+            color: colors[(Math.random() * colors.length) | 0],
+            wobble: rand(0, Math.PI * 2),
+            popped: false,
           });
         }
 
-        const hand = (res && res.hand) || (engine.lastRes && engine.lastRes.hand);
-        const wrist = hand && hand[0] ? { x: hand[0].x * W, y: hand[0].y * H } : (engine.tip ? { x: engine.tip.x * W, y: engine.tip.y * H } : { x: W / 2, y: H / 2 });
-
+        // Update bubbles
         for (const b of this.bubbles) {
-          b.y += b.vy;
-          const distToHand = Math.hypot(b.x - wrist.x, b.y - wrist.y);
-          const hitByUp = wristUp && (b.y < wrist.y || distToHand < 120);
-          const hitByDown = wristDown && (b.y > wrist.y || distToHand < 120);
+          b.x += b.vx + Math.sin(b.wobble) * 0.5;
+          b.y -= b.vy;
+          b.wobble += 0.05;
 
-          if ((hitByUp || hitByDown || distToHand < b.r + 40) && !b.hit && isSwinging) {
-            b.hit = true;
+          const dist = Math.hypot(b.x - this.palmCenter.x, b.y - this.palmCenter.y);
+          const inZone = dist < b.r + 40;
+
+          // When in center and user clenches fist (Image 2)
+          if (inZone && this.readyToGrasp && this.isClosed && !b.popped) {
+            b.popped = true;
+            this.readyToGrasp = false; // Must open to re-arm (Image 3)
             this.$engine.addScore(10);
-            spawnParticles(b.x, b.y, "#F59E0B", 20);
-            addScorePopup(b.x, b.y - 15, wristUp ? "+10 🔨 UP SMASH!" : "+10 🔨 DOWN SMASH!", "#F59E0B");
+            spawnParticles(b.x, b.y, b.color, 24);
+            addScorePopup(this.palmCenter.x, this.palmCenter.y - 30, "+10 🫧 GRASP POP!", b.color);
             if (window.RehabBio && typeof window.RehabBio.playBeep === "function") {
-              window.RehabBio.playBeep(940, 0.08, 0.3);
+              window.RehabBio.playBeep(1120, 0.08, 0.35);
             }
           }
         }
-        this.bubbles = this.bubbles.filter((b) => !b.hit);
+        this.bubbles = this.bubbles.filter((b) => !b.popped && b.y > -60);
       },
       draw(ctx, W, H) {
-        ctx.save();
-        ctx.strokeStyle = "rgba(245, 158, 11, 0.35)";
-        ctx.lineWidth = 1.5;
-        ctx.setLineDash([6, 6]);
-        ctx.beginPath();
-        ctx.moveTo(0, H * 0.5);
-        ctx.lineTo(W, H * 0.5);
-        ctx.stroke();
-
-        ctx.fillStyle = "rgba(245, 158, 11, 0.85)";
-        ctx.font = "bold 12px Segoe UI, sans-serif";
-        ctx.fillText("⬆️ WRIST UP SECTOR", 18, H * 0.5 - 12);
-        ctx.fillText("⬇️ WRIST DOWN SECTOR", 18, H * 0.5 + 24);
-        ctx.restore();
-
+        // Draw bubbles with glossy shading
         for (const b of this.bubbles) {
           ctx.save();
-          ctx.fillStyle = "rgba(245, 158, 11, 0.4)";
+          const dist = Math.hypot(b.x - this.palmCenter.x, b.y - this.palmCenter.y);
+          const inZone = dist < b.r + 40;
+
           ctx.beginPath();
           ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+          ctx.fillStyle = inZone ? "rgba(251, 191, 36, 0.35)" : "rgba(56, 189, 248, 0.25)";
           ctx.fill();
-          ctx.strokeStyle = "#FDE68A";
-          ctx.lineWidth = 2.5;
+          ctx.lineWidth = inZone ? 3.5 : 2;
+          ctx.strokeStyle = inZone ? "#FBBF24" : b.color;
           ctx.stroke();
-          ctx.font = "20px Segoe UI Emoji, sans-serif";
+
+          // Bubble highlight sheen
+          ctx.beginPath();
+          ctx.arc(b.x - b.r * 0.35, b.y - b.r * 0.35, b.r * 0.22, 0, Math.PI * 2);
+          ctx.fillStyle = "rgba(255, 255, 255, 0.75)";
+          ctx.fill();
+
+          ctx.font = "24px Segoe UI Emoji, sans-serif";
           ctx.textAlign = "center";
           ctx.textBaseline = "middle";
           ctx.fillText("🫧", b.x, b.y);
           ctx.restore();
         }
 
-        // Draw animated 🔨 Hammer symbol anchored at user's wrist/hand
-        const hand = (res && res.hand) || (engine.lastRes && engine.lastRes.hand);
-        const wrist = hand && hand[0] ? { x: hand[0].x * W, y: hand[0].y * H } : (engine.tip ? { x: engine.tip.x * W, y: engine.tip.y * H } : { x: W * 0.5, y: H * 0.5 });
-        const pitch = engine.wristPitch || 0;
-        const hammerAngle = -clamp(pitch, -45, 45) * (Math.PI / 180);
-
+        // Draw Player Palm Target Zone (The Wrist / Palm Center)
         ctx.save();
-        ctx.translate(wrist.x, wrist.y);
-        ctx.rotate(hammerAngle);
-        ctx.font = "52px Segoe UI Emoji, sans-serif";
+        const px = this.palmCenter.x;
+        const py = this.palmCenter.y;
+
+        // Outer Aura
+        ctx.beginPath();
+        ctx.arc(px, py, 48, 0, Math.PI * 2);
+        if (!this.readyToGrasp) {
+          ctx.strokeStyle = "rgba(249, 115, 22, 0.7)"; // Orange: waiting to open hand
+          ctx.setLineDash([6, 6]);
+          ctx.lineWidth = 2.5;
+          ctx.stroke();
+        } else if (this.isClosed) {
+          ctx.strokeStyle = "rgba(16, 185, 129, 0.95)"; // Green: Fist clenched!
+          ctx.lineWidth = 4;
+          ctx.stroke();
+        } else {
+          ctx.strokeStyle = "rgba(56, 189, 248, 0.85)"; // Cyan: Open & Ready!
+          ctx.lineWidth = 3;
+          ctx.stroke();
+        }
+
+        // Center hand status icon
+        ctx.font = "26px Segoe UI Emoji, sans-serif";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        ctx.shadowColor = pitch >= 13 ? "rgba(16, 185, 129, 0.8)" : (pitch <= -8 ? "rgba(59, 130, 246, 0.8)" : "rgba(245, 158, 11, 0.4)");
-        ctx.shadowBlur = 14;
-        ctx.fillText("🔨", 24, -24);
-        ctx.restore();
+        ctx.fillText(this.isClosed ? "✊" : "🖐️", px, py);
 
-        // Directional Status Badge near wrist
-        ctx.save();
-        ctx.fillStyle = pitch >= 13 ? "#10B981" : (pitch <= -8 ? "#3B82F6" : "rgba(255, 255, 255, 0.7)");
+        // Feedback prompt below hand
         ctx.font = "bold 13px Segoe UI, sans-serif";
         ctx.textAlign = "center";
-        const stateText = pitch >= 13 ? "⬆️ UP SMASH!" : (pitch <= -8 ? "⬇️ DOWN SMASH!" : "↔️ HORIZONTAL READY");
-        ctx.fillText(stateText, wrist.x, wrist.y + 40);
+        if (!this.readyToGrasp) {
+          ctx.fillStyle = "#F97316";
+          ctx.fillText("🖐️ Open hand to reload!", px, py + 48);
+        } else {
+          ctx.fillStyle = "#10B981";
+          ctx.fillText("Catch bubble & Squeeze ✊", px, py + 48);
+        }
         ctx.restore();
       },
     },
@@ -299,7 +352,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     starcatch: {
       name: "Sky Pop", emoji: "⭐", trains: "Target interception & pointing",
       guide: "Things fall from top to bottom! Pop falling stars ⭐ and gems 💎 with your index finger!",
-      lives: true,
+      lives: false,
       init() {
         this.items = [];
         this.timer = 0;
@@ -332,10 +385,8 @@ document.addEventListener("DOMContentLoaded", async () => {
               window.RehabBio.playBeep(1050, 0.06, 0.25);
             }
           }
-          if (it.y > H + 30 && !it.popped) {
+          if (it.y > H + 30) {
             it.popped = true;
-            this.$engine.loseLife();
-            showToast("Item reached bottom! −1 ❤️", "error");
           }
         }
         this.items = this.items.filter((it) => !it.popped);
@@ -505,7 +556,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     laserblast: {
       name: "Laser Blast", emoji: "⚡", trains: "Target pointing & rapid reactions",
       guide: "Cosmic targets light up! Point your index finger to shoot precision laser beams!",
-      lives: true,
+      lives: false,
       init() {
         this.targets = [];
         this.timer = 0;
@@ -538,10 +589,8 @@ document.addEventListener("DOMContentLoaded", async () => {
               window.RehabBio.playBeep(1200, 0.08, 0.35);
             }
           }
-          if (t.timeOut <= 0 && !t.destroyed) {
+          if (t.timeOut <= 0) {
             t.destroyed = true;
-            this.$engine.loseLife();
-            showToast("Target timed out! −1 ❤️", "error");
           }
         }
         this.targets = this.targets.filter((t) => !t.destroyed);
@@ -582,104 +631,116 @@ document.addEventListener("DOMContentLoaded", async () => {
       },
     },
 
-    // 7. Paddle Pong Smash
-    paddlepong: {
-      name: "Paddle Pong", emoji: "🏓", trains: "Planar tracking & trajectory anticipation",
-      guide: "Control the neon paddle with your index finger. Bounce the ball to smash floating bubbles!",
-      lives: true,
+    // 7. Finger Count (Open & Close Finger Isolation Game)
+    fingercount: {
+      name: "Finger Count", emoji: "🖐️", trains: "Individual finger extension & count coordination",
+      guide: "Look at the screen: show the exact number of fingers prompted (1 to 5) and hold steady!",
+      lives: false,
       init() {
-        this.paddleX = 0.5;
-        this.ball = { x: 0.5, y: 0.6, vx: 0.005, vy: -0.007, r: 12 };
-        this.bricks = [];
-        for (let r = 0; r < 3; r++) {
-          for (let c = 0; c < 6; c++) {
-            this.bricks.push({
-              x: 0.15 + c * 0.14,
-              y: 0.15 + r * 0.08,
-              w: 0.11,
-              h: 0.05,
-              alive: true,
-              color: ["#F43F5E", "#FBBF24", "#38BDF8"][r],
-            });
-          }
-        }
+        this.target = Math.floor(rand(1, 6)); // 1 to 5
+        this.detected = 0;
+        this.matchTime = 0;
+        this.dwellNeeded = 0.45 / this.$speed; // seconds
+        this.lastT = performance.now();
+        this.fingerEmojis = { 1: "☝️", 2: "✌️", 3: "🤟", 4: "🖖", 5: "🖐️" };
       },
       update(res, W, H) {
-        const targetX = engine.tip ? engine.tip.x : 0.5;
-        this.paddleX += (targetX - this.paddleX) * 0.25;
+        const now = performance.now();
+        const dt = Math.max(0.001, (now - this.lastT) / 1000);
+        this.lastT = now;
 
-        const b = this.ball;
-        b.x += b.vx * this.$speed;
-        b.y += b.vy * this.$speed;
+        const hand = (res && res.hand) || (engine.lastRes && engine.lastRes.hand);
+        if (hand && hand[0]) {
+          const handSize = Math.hypot(hand[9].x - hand[0].x, hand[9].y - hand[0].y) || 0.1;
 
-        if (b.x <= 0.05 || b.x >= 0.95) b.vx = -b.vx;
-        if (b.y <= 0.08) b.vy = -b.vy;
+          // Thumb tip (4) vs pinky MCP (17) and thumb MCP (2)
+          const thumbExt = Math.hypot(hand[4].x - hand[17].x, hand[4].y - hand[17].y) >
+                           Math.hypot(hand[3].x - hand[17].x, hand[3].y - hand[17].y) * 1.15 &&
+                           Math.hypot(hand[4].x - hand[2].x, hand[4].y - hand[2].y) > handSize * 0.42;
 
-        const pW = 0.22;
-        const pLeft = this.paddleX - pW / 2;
-        const pRight = this.paddleX + pW / 2;
-        if (b.y >= 0.86 && b.y <= 0.90 && b.x >= pLeft && b.x <= pRight && b.vy > 0) {
-          b.vy = -Math.abs(b.vy);
-          b.vx = ((b.x - this.paddleX) / (pW / 2)) * 0.008;
-          spawnParticles(b.x * W, b.y * H, "#10B981", 10);
+          // 4 Fingers: Tip dist to wrist > PIP dist to wrist * 1.18
+          const indexExt = hand[8] && hand[6] && Math.hypot(hand[8].x - hand[0].x, hand[8].y - hand[0].y) > Math.hypot(hand[6].x - hand[0].x, hand[6].y - hand[0].y) * 1.18;
+          const middleExt = hand[12] && hand[10] && Math.hypot(hand[12].x - hand[0].x, hand[12].y - hand[0].y) > Math.hypot(hand[10].x - hand[0].x, hand[10].y - hand[0].y) * 1.18;
+          const ringExt = hand[16] && hand[14] && Math.hypot(hand[16].x - hand[0].x, hand[16].y - hand[0].y) > Math.hypot(hand[14].x - hand[0].x, hand[14].y - hand[0].y) * 1.18;
+          const pinkyExt = hand[20] && hand[18] && Math.hypot(hand[20].x - hand[0].x, hand[20].y - hand[0].y) > Math.hypot(hand[18].x - hand[0].x, hand[18].y - hand[0].y) * 1.18;
+
+          this.detected = (thumbExt ? 1 : 0) + (indexExt ? 1 : 0) + (middleExt ? 1 : 0) + (ringExt ? 1 : 0) + (pinkyExt ? 1 : 0);
+        } else {
+          this.detected = 0;
         }
 
-        if (b.y > 1.02) {
-          this.$engine.loseLife();
-          showToast("Ball dropped! −1 ❤️", "error");
-          b.x = 0.5; b.y = 0.55; b.vx = 0.005; b.vy = -0.007;
-        }
-
-        for (const bk of this.bricks) {
-          if (!bk.alive) continue;
-          if (b.x >= bk.x - bk.w / 2 && b.x <= bk.x + bk.w / 2 &&
-              b.y >= bk.y - bk.h / 2 && b.y <= bk.y + bk.h / 2) {
-            bk.alive = false;
-            b.vy = -b.vy;
+        // Match validation with dwell timer
+        if (this.detected === this.target) {
+          this.matchTime += dt;
+          if (this.matchTime >= this.dwellNeeded) {
+            this.matchTime = 0;
             this.$engine.addScore(15);
-            spawnParticles(bk.x * W, bk.y * H, bk.color, 16);
-            addScorePopup(bk.x * W, bk.y * H, "+15 🏓 SMASH!", bk.color);
-            break;
+            spawnParticles(W / 2, H * 0.35, "#10B981", 24);
+            addScorePopup(W / 2, H * 0.35, `+15 🎯 ${this.target} FINGERS!`, "#10B981");
+            if (window.RehabBio && typeof window.RehabBio.playBeep === "function") {
+              window.RehabBio.playBeep(880, 0.08, 0.3);
+            }
+            // Pick new target different from current
+            let nextTarget = Math.floor(rand(1, 6));
+            while (nextTarget === this.target) {
+              nextTarget = Math.floor(rand(1, 6));
+            }
+            this.target = nextTarget;
           }
+        } else {
+          this.matchTime = Math.max(0, this.matchTime - dt * 1.5);
         }
       },
       draw(ctx, W, H) {
-        const pw = W * 0.22;
-        const px = this.paddleX * W - pw / 2;
-        const py = H * 0.88;
         ctx.save();
-        ctx.fillStyle = "#10B981";
+        // Central Challenge Display Card
+        const cardW = 340;
+        const cardH = 210;
+        const cardX = (W - cardW) / 2;
+        const cardY = H * 0.16;
+
+        ctx.fillStyle = "rgba(15, 23, 42, 0.85)";
         ctx.beginPath();
-        ctx.roundRect(px, py, pw, 18, 6);
+        ctx.roundRect(cardX, cardY, cardW, cardH, 16);
         ctx.fill();
-        ctx.strokeStyle = "#6EE7B7";
-        ctx.lineWidth = 2.5;
+        ctx.strokeStyle = this.detected === this.target ? "#10B981" : "rgba(255, 255, 255, 0.18)";
+        ctx.lineWidth = 3;
         ctx.stroke();
-        ctx.restore();
 
-        const b = this.ball;
-        ctx.save();
+        // Target Prompt
+        ctx.fillStyle = "#94A3B8";
+        ctx.font = "bold 13px Segoe UI, sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText("TARGET CHALLENGE", W / 2, cardY + 28);
+
+        // Big Target Number & Emoji
         ctx.fillStyle = "#FFFFFF";
-        ctx.shadowColor = "#38BDF8";
-        ctx.shadowBlur = 12;
-        ctx.beginPath();
-        ctx.arc(b.x * W, b.y * H, b.r, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
+        ctx.font = "bold 36px Segoe UI, sans-serif";
+        const emoji = this.fingerEmojis[this.target] || "🖐️";
+        ctx.fillText(`SHOW ${this.target} ${emoji}`, W / 2, cardY + 74);
 
-        for (const bk of this.bricks) {
-          if (!bk.alive) continue;
-          ctx.save();
-          ctx.fillStyle = bk.color;
-          ctx.globalAlpha = 0.85;
+        // Dwell Progress Ring if matching
+        if (this.detected === this.target) {
+          const progress = Math.min(1.0, this.matchTime / this.dwellNeeded);
           ctx.beginPath();
-          ctx.roundRect((bk.x - bk.w / 2) * W, (bk.y - bk.h / 2) * H, bk.w * W, bk.h * H, 5);
-          ctx.fill();
-          ctx.strokeStyle = "#FFFFFF";
-          ctx.lineWidth = 1.5;
+          ctx.arc(W / 2, cardY + 130, 28, -Math.PI / 2, -Math.PI / 2 + progress * Math.PI * 2);
+          ctx.strokeStyle = "#10B981";
+          ctx.lineWidth = 5;
           ctx.stroke();
-          ctx.restore();
         }
+
+        // Detected Feedback
+        ctx.font = "bold 17px Segoe UI, sans-serif";
+        ctx.fillStyle = this.detected === this.target ? "#10B981" : "#FBBF24";
+        const statusText = this.detected === this.target
+          ? `Holding: ${this.detected} ✅`
+          : `Detected: ${this.detected} (Need ${this.target})`;
+        ctx.fillText(statusText, W / 2, cardY + 135);
+
+        ctx.fillStyle = "#CBD5E1";
+        ctx.font = "12px Segoe UI, sans-serif";
+        ctx.fillText("Hold hand facing camera", W / 2, cardY + 184);
+        ctx.restore();
       },
     },
   };
@@ -696,6 +757,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     score: 0,
     combo: 0,
     lives: 3,
+    duration: 60,
     speed: 1,
     tip: null,
     tipFromCamera: false,
@@ -792,7 +854,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   async function selectGame(id) {
     engine.key = id;
     engine.game = { ...GAMES[id] };
-    engine.game.$engine = { addScore, loseLife, state: engine };
+    engine.game.$engine = { addScore, deductScore, loseLife, state: engine };
     engine.game.$speed = engine.speed;
     setKPI(engine.game);
     placeholder.style.display = "none";
@@ -863,19 +925,35 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (window.RehabBio) window.RehabBio.playBeep(700 + Math.min(400, engine.combo * 15), 0.06, 0.25);
   }
 
+  function deductScore(pts) {
+    engine.score = Math.max(0, engine.score - pts);
+    engine.combo = 0;
+  }
+
   function loseLife() {
     engine.lives -= 1;
     engine.combo = 0;
     if (window.RehabBio) window.RehabBio.playCheatBuzz();
     if (engine.lives <= 0) {
       showToast("💔 Game Over — logging session…", "error");
-      setTimeout(() => stopGame(), 1400);
+      setTimeout(() => stopGame("Game Over: Out of lives"), 1400);
     }
   }
 
   function updateHUD() {
     scoreEl.textContent = engine.score;
-    timerEl.textContent = engine.playing ? fmt(Date.now() - engine.startedAt) : "00:00";
+    if (engine.key === "flappy") {
+      timerEl.textContent = engine.playing ? fmt(Date.now() - engine.startedAt) : "00:00";
+    } else {
+      const elapsedSec = (Date.now() - engine.startedAt) / 1000;
+      const remainingSec = Math.max(0, Math.ceil((engine.duration || 60) - elapsedSec));
+      timerEl.textContent = engine.playing ? fmt(remainingSec * 1000) : fmt((engine.duration || 60) * 1000);
+      if (engine.playing && remainingSec <= 0) {
+        showToast(`⏰ Time's Up! Final Score: ${engine.score}`, "success");
+        stopGame(`Time's Up! Final Score: ${engine.score}`);
+        return;
+      }
+    }
     comboEl.textContent = engine.combo >= 3 ? `⚡${(engine.combo / 3) | 0}x` : "—";
     heartsEl.textContent = "❤️".repeat(Math.max(0, engine.lives)) + "🖤".repeat(Math.max(0, 3 - engine.lives));
   }
@@ -1304,14 +1382,26 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (btnStop) btnStop.addEventListener("click", () => stopGame("Session stopped"));
   if (modalStop) modalStop.addEventListener("click", () => stopGame("Session stopped"));
 
-  document.getElementById("btn-slower").addEventListener("click", () => setSpeed(-0.5));
-  document.getElementById("btn-faster").addEventListener("click", () => setSpeed(0.5));
-
-  function setSpeed(d) {
-    engine.speed = Math.max(0.5, Math.min(3.0, engine.speed + d));
-    speedDisp.textContent = `${engine.speed.toFixed(1)}x`;
+  function setSpeedPreset(speedVal, activeBtnId) {
+    engine.speed = speedVal;
     if (engine.game) engine.game.$speed = engine.speed;
+    document.querySelectorAll(".speed-btn").forEach((b) => b.classList.remove("active"));
+    const btn = document.getElementById(activeBtnId);
+    if (btn) btn.classList.add("active");
+    const speedLabels = {
+      "btn-speed-s1": "S1 (0.7x Gentle)",
+      "btn-speed-s2": "S2 (1.0x Normal)",
+      "btn-speed-s3": "S3 (1.4x Fast)",
+    };
+    showToast(`⚡ Speed set to ${speedLabels[activeBtnId] || speedVal + "x"}`, "info");
   }
+
+  const btnS1 = document.getElementById("btn-speed-s1");
+  const btnS2 = document.getElementById("btn-speed-s2");
+  const btnS3 = document.getElementById("btn-speed-s3");
+  if (btnS1) btnS1.addEventListener("click", () => setSpeedPreset(0.7, "btn-speed-s1"));
+  if (btnS2) btnS2.addEventListener("click", () => setSpeedPreset(1.0, "btn-speed-s2"));
+  if (btnS3) btnS3.addEventListener("click", () => setSpeedPreset(1.4, "btn-speed-s3"));
 
   document.addEventListener("keydown", (e) => {
     if (!engine.playing) return;

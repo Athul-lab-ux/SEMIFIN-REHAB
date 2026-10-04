@@ -93,37 +93,47 @@
   color: #FFFFFF;
 }
 
-.speed-pill {
+.speed-selector {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   height: 38px;
-  padding: 0 8px;
+  padding: 0 6px;
   background: var(--clin-canvas);
   border: 1px solid var(--clin-border);
   border-radius: 8px;
 }
 
-.sp-btn {
+.speed-lab {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--clin-slate);
+  margin-right: 2px;
+  text-transform: uppercase;
+}
+
+.speed-btn {
   background: transparent;
-  border: none;
+  border: 1px solid transparent;
   cursor: pointer;
-  font-size: 14px;
-  padding: 2px 4px;
-  border-radius: 4px;
-  transition: background 0.15s;
-}
-
-.sp-btn:hover {
-  background: rgba(0, 0, 0, 0.08);
-}
-
-.ctl-speed {
   font-size: 12px;
   font-weight: 800;
+  color: var(--clin-navy);
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: all 0.15s ease;
+}
+
+.speed-btn:hover {
+  background: rgba(16, 185, 129, 0.12);
   color: var(--clin-brand);
-  min-width: 30px;
-  text-align: center;
+}
+
+.speed-btn.active {
+  background: var(--clin-brand);
+  color: #FFFFFF;
+  border-color: var(--clin-brand);
+  box-shadow: 0 2px 6px rgba(16, 185, 129, 0.35);
 }
 
 /* ---------------- Horizontal Game Selection Bar (Upside) ---------------- */
