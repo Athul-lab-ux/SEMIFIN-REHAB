@@ -11,6 +11,8 @@ import string
 import base64
 from datetime import datetime, timedelta
 from functools import wraps
+import time
+import json
 
 from dotenv import load_dotenv
 
@@ -22,6 +24,7 @@ from flask import (
     session, jsonify, g, abort
 )
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.middleware.proxy_fix import ProxyFix
 try:
     from google import genai
     from google.genai import types
@@ -39,12 +42,19 @@ app = Flask(
     static_folder=os.path.join(BASE_DIR, "static"),
     static_url_path="/static",
 )
-# Use stable secret key fallback so sessions persist across serverless instances on Vercel
-app.secret_key = os.environ.get("FLASK_SECRET_KEY", "rehabopt-ar-production-stable-secret-key-2026")
+# Stable secret key: use env var in production, fixed fallback for dev
+app.secret_key = os.environ.get("FLASK_SECRET_KEY", os.environ.get("SECRET_KEY", "rehabopt-ar-production-stable-secret-key-2026"))
+
+# ProxyFix for Render/reverse proxy (ensures correct scheme detection for secure cookies)
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
+
+# Detect production (Render sets RENDER=true, or check for DATABASE_URL)
+_IS_PRODUCTION = bool(os.environ.get("RENDER") or os.environ.get("DATABASE_URL"))
+
 app.config.update(
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SAMESITE="Lax",
-    SESSION_COOKIE_SECURE=False,  # Set True in HTTPS production
+    SESSION_COOKIE_SECURE=_IS_PRODUCTION,  # True on HTTPS production, False for local dev
     PERMANENT_SESSION_LIFETIME=timedelta(hours=24),
 )
 
@@ -53,6 +63,43 @@ if os.environ.get("VERCEL"):
     DATABASE = os.environ.get("SQLITE_PATH", "/tmp/rehabopt.db")
 else:
     DATABASE = os.environ.get("SQLITE_PATH", os.path.join(BASE_DIR, "rehabopt.db"))
+
+# ---------------------------------------------------------------------------
+# Login Rate Limiting (in-memory, resets on restart)
+# ---------------------------------------------------------------------------
+_login_attempts = {}  # key: identifier, value: {'count': int, 'locked_until': float}
+_MAX_LOGIN_ATTEMPTS = 5
+_LOCKOUT_SECONDS = 60
+
+def check_rate_limit(identifier):
+    """Check if login attempts are rate-limited. Returns (allowed, seconds_remaining)."""
+    now = time.time()
+    key = identifier.lower().strip()
+    entry = _login_attempts.get(key)
+    if not entry:
+        return True, 0
+    if entry.get('locked_until', 0) > now:
+        return False, int(entry['locked_until'] - now)
+    if entry['count'] >= _MAX_LOGIN_ATTEMPTS:
+        entry['locked_until'] = now + _LOCKOUT_SECONDS
+        return False, _LOCKOUT_SECONDS
+    return True, 0
+
+def record_failed_login(identifier):
+    """Record a failed login attempt."""
+    key = identifier.lower().strip()
+    now = time.time()
+    entry = _login_attempts.get(key, {'count': 0, 'locked_until': 0})
+    if entry.get('locked_until', 0) <= now:
+        entry['count'] = entry.get('count', 0) + 1
+        if entry['count'] >= _MAX_LOGIN_ATTEMPTS:
+            entry['locked_until'] = now + _LOCKOUT_SECONDS
+    _login_attempts[key] = entry
+
+def clear_login_attempts(identifier):
+    """Clear login attempts on successful login."""
+    key = identifier.lower().strip()
+    _login_attempts.pop(key, None)
 
 # ---------------------------------------------------------------------------
 # Security Headers
@@ -163,7 +210,8 @@ _schema_initialized = False
 def seed_or_update_owner(db):
     """Seed or update fixed Controller / Owner account (SP_OWNER_1 / Athul@2007) and default demo patient."""
     try:
-        owner_hash = generate_password_hash("Athul@2007", method="scrypt")
+        owner_pass = os.environ.get("OWNER_PASSWORD", "Athul@2007")
+        owner_hash = generate_password_hash(owner_pass, method="scrypt")
         existing_owner = db.execute("SELECT id FROM patients WHERE UPPER(patient_id) = 'SP_OWNER_1'").fetchone()
         if existing_owner:
             db.execute(
@@ -434,7 +482,7 @@ def index():
 def auth_portal():
     if "patient_id" in session:
         return redirect(url_for("dashboard"))
-    return render_template("auth.html")
+    return render_template("auth.html", is_production=_IS_PRODUCTION)
 
 
 @app.route("/logout")
@@ -573,13 +621,24 @@ def api_register():
     if secondary_color and not re.match(r"^#([0-9a-f]{3}|[0-9a-f]{6})$", secondary_color):
         secondary_color = ""
 
-    db.execute(
-        """INSERT INTO patients (patient_id, username, email, password_hash, role, selected_condition, current_streak, last_session_date,
-           patient_name, patient_dob, patient_phone, primary_color, secondary_color, profile_photo)
-           VALUES (?, ?, ?, ?, 'patient', 'Hemiparesis', 1, NULL, ?, ?, ?, ?, ?, '')""",
-        (patient_id, username, email, password_hash, name, dob, phone, primary_color, secondary_color),
-    )
-    db.commit()
+    # Insert with retry for race condition on patient_id UNIQUE constraint
+    for _attempt in range(3):
+        try:
+            db.execute(
+                """INSERT INTO patients (patient_id, username, email, password_hash, role, selected_condition, current_streak, last_session_date,
+                   patient_name, patient_dob, patient_phone, primary_color, secondary_color, profile_photo)
+                   VALUES (?, ?, ?, ?, 'patient', 'Hemiparesis', 1, NULL, ?, ?, ?, ?, ?, '')""",
+                (patient_id, username, email, password_hash, name, dob, phone, primary_color, secondary_color),
+            )
+            db.commit()
+            break
+        except Exception as e:
+            if "UNIQUE" in str(e).upper() and "patient_id" in str(e).lower():
+                patient_id = generate_next_patient_id(db)
+                continue
+            raise
+    else:
+        return jsonify({"status": "error", "message": "Registration failed due to high traffic. Please try again."}), 500
 
     session.permanent = True
     session["patient_id"] = patient_id
@@ -606,6 +665,14 @@ def api_login():
 
     if not raw_ident or not password:
         return jsonify({"status": "error", "message": "Patient ID, Email, or Username and password are required"}), 400
+
+    # Rate limiting check
+    allowed, wait_seconds = check_rate_limit(raw_ident)
+    if not allowed:
+        return jsonify({
+            "status": "error",
+            "message": f"Too many failed attempts. Please wait {wait_seconds} seconds before trying again."
+        }), 429
 
     db = get_db()
     user = None
@@ -649,9 +716,11 @@ def api_login():
                     pass
 
     if not user or not check_password_hash(user["password_hash"], password):
+        record_failed_login(raw_ident)
         return jsonify({"status": "error", "message": "Invalid credentials. Please verify your Patient ID, Email, or Password."}), 401
 
     is_owner = (user["patient_id"].upper() == "SP_OWNER_1" or (user["role"] if "role" in user.keys() else "") == "owner")
+    clear_login_attempts(raw_ident)
     session.permanent = True
     session["patient_id"] = user["patient_id"]
     session["email"] = user["email"]
@@ -1046,6 +1115,76 @@ def api_admin_patients():
         "patients": patients_list,
         "recent_activity": [dict(e) for e in recent_events],
     })
+
+
+@app.route("/api/rqi", methods=["GET"])
+@login_required
+def api_rqi():
+    """Recovery Quality Index — patient-facing performance meter."""
+    db = get_db()
+    pid = session["patient_id"]
+    target_pid = request.args.get("patient_id")
+    if target_pid and (session.get("is_owner") or session.get("patient_id") == "SP_OWNER_1"):
+        pid = target_pid.strip()
+
+    user = db.execute(
+        "SELECT current_streak FROM patients WHERE patient_id = ?", (pid,)
+    ).fetchone()
+    stats = db.execute(
+        """SELECT COALESCE(AVG(smoothness_score), 0) as avg_smooth,
+                  COALESCE(MAX(peak_rom), 0) as peak_rom,
+                  COUNT(*) as total_sessions
+           FROM telemetry_logs WHERE patient_id = ?""",
+        (pid,),
+    ).fetchone()
+
+    streak = (user["current_streak"] if user else 1) or 1
+    avg_smooth = stats["avg_smooth"] if stats else 0
+    peak_rom = stats["peak_rom"] if stats else 0
+    total_sessions = stats["total_sessions"] if stats else 0
+
+    # RQI components
+    adherence = min(streak / 7.0, 1.0)
+    smoothness = min(avg_smooth / 100.0, 1.0)
+    range_score = min(peak_rom / 180.0, 1.0)
+    rqi = round(100 * (0.3 * adherence + 0.3 * smoothness + 0.4 * range_score), 1)
+
+    # Tier determination
+    if rqi >= 76:
+        tier = "peak"
+        tier_label = "Peak Recovery"
+        tier_emoji = "🏆"
+    elif rqi >= 51:
+        tier = "strong"
+        tier_label = "Strong Recovery"
+        tier_emoji = "🌟"
+    elif rqi >= 26:
+        tier = "steady"
+        tier_label = "Steady Progress"
+        tier_emoji = "🌿"
+    else:
+        tier = "starting"
+        tier_label = "Starting Out"
+        tier_emoji = "🌱"
+
+    is_owner = session.get("is_owner") or session.get("patient_id") == "SP_OWNER_1"
+    result = {
+        "status": "success",
+        "tier": tier,
+        "tier_label": tier_label,
+        "tier_emoji": tier_emoji,
+        "total_sessions": total_sessions,
+        "streak": streak,
+    }
+    # Only expose raw numbers to owner/clinician
+    if is_owner:
+        result["rqi_score"] = rqi
+        result["components"] = {
+            "adherence": round(adherence, 3),
+            "smoothness": round(smoothness, 3),
+            "range": round(range_score, 3),
+        }
+    return jsonify(result)
 
 
 @app.route("/api/telemetry/history", methods=["GET"])

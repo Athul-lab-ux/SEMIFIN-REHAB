@@ -36,8 +36,11 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       // Stats
       document.getElementById("stat-sessions").textContent = p.total_sessions || 0;
-      document.getElementById("stat-minutes").textContent = p.total_minutes || 0;
-      document.getElementById("stat-rom").textContent = `${p.best_rom || 0}°`;
+      const romVal = p.best_rom || 0;
+      let romText = "Getting started";
+      if (romVal >= 110) romText = "Strong";
+      else if (romVal >= 60) romText = "Improving";
+      document.getElementById("stat-rom").textContent = romText;
 
       // Avatar
       const imgEl = document.getElementById("avatar-img");

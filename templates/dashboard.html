@@ -16,6 +16,20 @@
     <a href="/therapy" class="clin-btn clin-btn-primary">▶ Resume Exercise</a>
   </section>
 
+    <!-- Recovery Performance Meter -->
+    <div class="ds-card" id="rqi-widget" style="text-align:center; margin-bottom:24px;">
+      <h3 style="margin-bottom:4px;">Your Recovery Progress</h3>
+      <div class="rqi-gauge" id="rqi-gauge">
+        <svg viewBox="0 0 200 120">
+          <path class="gauge-bg" d="M 20 100 A 80 80 0 0 1 180 100" />
+          <path class="gauge-fill" id="rqi-arc" d="M 20 100 A 80 80 0 0 1 180 100" 
+                stroke-dasharray="251" stroke-dashoffset="251" />
+        </svg>
+        <div class="gauge-label" id="rqi-label">Loading...</div>
+      </div>
+      <div id="rqi-tier" class="ds-tier starting" style="margin-top:12px;">🌱 Starting Out</div>
+    </div>
+
   <!-- Recovery snapshot -->
   <section class="snap-grid" aria-label="Recovery snapshot">
     <div class="snap-card">
@@ -34,16 +48,17 @@
     </div>
     <div class="snap-card">
       <span class="snap-ico">🦾</span>
-      <div>
-        <div class="snap-val" id="snap-rom">0°</div>
-        <div class="snap-lab">Peak Active ROM</div>
+      <div style="flex:1;">
+        <div class="snap-val" id="snap-rom" style="font-size:18px;">Getting started</div>
+        <div class="ds-progress" style="margin-top:6px;"><div class="ds-progress-fill" id="snap-rom-bar" style="width:25%;"></div></div>
+        <div class="snap-lab" style="margin-top:4px;">How far you can move</div>
       </div>
     </div>
     <div class="snap-card">
-      <span class="snap-ico">〰️</span>
+      <span class="snap-ico">✨</span>
       <div>
-        <div class="snap-val" id="snap-smooth">0<span class="unit">/100</span></div>
-        <div class="snap-lab">Movement Fluidity</div>
+        <div class="snap-val ds-stars" id="snap-smooth" style="font-size:22px;">⭐⭐⭐</div>
+        <div class="snap-lab">Smoothness</div>
       </div>
     </div>
   </section>

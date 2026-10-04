@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS patients (
     username TEXT DEFAULT '',
     email TEXT UNIQUE NOT NULL,
     password_hash TEXT NOT NULL,
+    role TEXT DEFAULT 'patient',
     selected_condition TEXT DEFAULT 'Hemiparesis',
     current_streak INTEGER DEFAULT 1,
     last_session_date TEXT,

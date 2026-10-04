@@ -70,8 +70,33 @@ document.addEventListener("DOMContentLoaded", async () => {
       const s = data.stats;
       snapStreak.textContent = s.streak;
       snapSessions.textContent = s.total_sessions;
-      snapRom.textContent = `${Math.round(s.peak_rom)}°`;
-      snapSmooth.innerHTML = `${Math.round(s.avg_smoothness)}<span class="unit">/100</span>`;
+      // ROM to "How far you can move"
+      const romVal = s.peak_rom || 0;
+      let romText = "Getting started";
+      let romPct = 25;
+      if (romVal >= 110) {
+        romText = "Strong";
+        romPct = 95;
+      } else if (romVal >= 60) {
+        romText = "Improving";
+        romPct = 60;
+      }
+      snapRom.textContent = romText;
+      const romBar = document.getElementById("snap-rom-bar");
+      if (romBar) romBar.style.width = `${romPct}%`;
+
+      // Smoothness to 1-5 stars
+      const smoothVal = s.avg_smoothness || 0;
+      let starCount = 1;
+      if (smoothVal >= 80) starCount = 5;
+      else if (smoothVal >= 65) starCount = 4;
+      else if (smoothVal >= 50) starCount = 3;
+      else if (smoothVal >= 30) starCount = 2;
+      let starsHtml = "";
+      for (let i = 0; i < 5; i++) {
+        starsHtml += `<span class="${i < starCount ? 'star-filled' : 'star-empty'}">★</span>`;
+      }
+      snapSmooth.innerHTML = starsHtml;
       localStorage.setItem("currentStreak", s.streak);
       // Sync the streak chip in the top bar once profile data arrives too
       const tbStreak = document.getElementById("tb-streak");
@@ -216,5 +241,40 @@ document.addEventListener("DOMContentLoaded", async () => {
     await loadControllerActivities();
   }
 
+// --- Recovery Quality Index (Performance Meter) ---
+async function loadRQI() {
+  try {
+    const res = await fetch('/api/rqi');
+    const data = await res.json();
+    if (data.status !== 'success') return;
+    
+    const tierEl = document.getElementById('rqi-tier');
+    const labelEl = document.getElementById('rqi-label');
+    const arcEl = document.getElementById('rqi-arc');
+    
+    if (tierEl) {
+      tierEl.className = 'ds-tier ' + data.tier;
+      tierEl.textContent = data.tier_emoji + ' ' + data.tier_label;
+    }
+    if (labelEl) {
+      labelEl.textContent = data.tier_label;
+    }
+    if (arcEl) {
+      // Arc length is ~251px (half circle). Calculate fill based on tier.
+      const tierPercent = {starting: 15, steady: 40, strong: 65, peak: 90};
+      const pct = tierPercent[data.tier] || 15;
+      const offset = 251 - (251 * pct / 100);
+      arcEl.style.strokeDashoffset = offset;
+      
+      // Color by tier
+      const tierColors = {starting: '#66bb6a', steady: '#42a5f5', strong: '#fdd835', peak: '#ec407a'};
+      arcEl.style.stroke = tierColors[data.tier] || '#10B981';
+    }
+  } catch(e) {
+    console.warn('RQI load failed:', e);
+  }
+}
+
   await loadSnapshot();
+  await loadRQI();
 });
