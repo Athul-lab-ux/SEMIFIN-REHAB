@@ -250,6 +250,69 @@ test("Task 4 (PIN Pad): Fake Tremor Jitter Tolerance via Smoothing & Sticky Hit 
   assert.strictEqual(dwellMaintained, true, "Smoothed cursor with 20% sticky box must resist tremor jitter");
 });
 
+// --- TEST 8: TASK 6 (CUP SHELF LIFT): GRASP, LIFT, AND PLACE ---
+test("Task 6 (Cup Shelf Lift): Grasp, Anti-Gravity Elevation, and Shelf Placement", () => {
+  const counterMugPos = { x: 0.25, y: 0.75 };
+  const shelfTargetPos = { x: 0.70, y: 0.25 };
+
+  // 1. Hand reaches counter, still open: should not grasp yet
+  let state = AdlKinematics.calculateCupGraspAndPlace(
+    { x: 0.25, y: 0.75 },
+    counterMugPos,
+    shelfTargetPos,
+    /* isOpen */ true,
+    /* isClosed */ false,
+    /* isGrasped */ false
+  );
+  assert.strictEqual(state.isGrasped, false, "Open hand hovering over mug must not grasp");
+
+  // 2. Hand clenches fist over mug: must grasp!
+  state = AdlKinematics.calculateCupGraspAndPlace(
+    { x: 0.25, y: 0.75 },
+    counterMugPos,
+    shelfTargetPos,
+    /* isOpen */ false,
+    /* isClosed */ true,
+    /* isGrasped */ false
+  );
+  assert.strictEqual(state.isGrasped, true, "Clenched fist over mug must grasp mug");
+
+  // 3. User lifts arm upward towards shelf with fist kept clenched
+  state = AdlKinematics.calculateCupGraspAndPlace(
+    { x: 0.45, y: 0.50 }, // mid-elevation
+    { x: 0.45, y: 0.50 },
+    shelfTargetPos,
+    /* isOpen */ false,
+    /* isClosed */ true,
+    /* isGrasped */ true
+  );
+  assert.strictEqual(state.isGrasped, true, "Mug must remain grasped during elevation");
+  assert.strictEqual(state.placed, false, "Mug not placed yet in mid-air");
+
+  // 4. User reaches shelf target and opens hand: must place!
+  state = AdlKinematics.calculateCupGraspAndPlace(
+    { x: 0.70, y: 0.25 }, // at shelf target
+    { x: 0.70, y: 0.25 },
+    shelfTargetPos,
+    /* isOpen */ true,
+    /* isClosed */ false,
+    /* isGrasped */ true
+  );
+  assert.strictEqual(state.isGrasped, false, "Hand opened at shelf must release mug");
+  assert.strictEqual(state.placed, true, "Mug must be recorded as placed on shelf");
+
+  // 5. Early mid-air release check (dropped mug)
+  state = AdlKinematics.calculateCupGraspAndPlace(
+    { x: 0.35, y: 0.50 }, // far from shelf
+    { x: 0.35, y: 0.50 },
+    shelfTargetPos,
+    /* isOpen */ true,
+    /* isClosed */ false,
+    /* isGrasped */ true
+  );
+  assert.strictEqual(state.dropped, true, "Opening hand far from shelf must record drop");
+});
+
 console.log("\n-------------------------------------------------");
 console.log(`SUMMARY: ${passed} / ${total} TESTS PASSED (${Math.round((passed / total) * 100)}%)`);
 console.log("-------------------------------------------------");

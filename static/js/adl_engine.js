@@ -126,6 +126,15 @@ if (typeof document !== "undefined") {
   let patientMaxFlow = 0.35; // 35% fill per second at full tilt (patient-adjustable)
   let taskPeakRom = 0;
 
+  // 6. ☕ Cup Shelf Lift States (Anti-Gravity Shoulder Elevation & ARAT Pick & Place)
+  let shelfCupGrasped = false;
+  let shelfCupPlaced = false;
+  let shelfCupPlacedTime = 0;
+  let shelfCupPos = null; // { x, y }
+  let shelfParticles = [];
+  let shelfSteamTime = 0;
+  let shelfDropAlerted = false;
+
   // Randomized 4-digit PIN generator for cognitive-motor index finger tapping
   function generateRandomPin() {
     const digits = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
@@ -226,6 +235,17 @@ if (typeof document !== "undefined") {
         { name: "Pour Water Stream", desc: "Hold tilt as water fills the glass" },
         { name: "Fill Target Zone", desc: "Fill glass into green zone (75-95%)" },
         { name: "Rotate Upright", desc: "Level hand upright to stop pouring" },
+      ],
+    },
+    cupshelf: {
+      name: "☕ Cup Shelf Lift",
+      steps: [
+        { name: "Neutral Rest", desc: "Hand poised at counter ready base" },
+        { name: "Reach to Cup", desc: "Lower hand down towards the mug" },
+        { name: "Clench to Grasp", desc: "Squeeze tight fist over the mug" },
+        { name: "Anti-Gravity Lift", desc: "Lift arm upward toward upper shelf" },
+        { name: "Align at Shelf", desc: "Hold mug steady inside the shelf slot" },
+        { name: "Release to Place", desc: "Open hand wide to set mug on shelf" },
       ],
     },
   };
@@ -464,6 +484,62 @@ if (typeof document !== "undefined") {
           `;
           break;
       }
+    } else if (taskKey === "cupshelf") {
+      switch (stepIndex) {
+        case 0:
+          body = `
+            <line x1="15" y1="65" x2="85" y2="65" stroke="#475569" stroke-width="2"/>
+            <rect x="25" y="48" width="16" height="17" rx="3" fill="#0284C7" stroke="${lines}" stroke-width="1.5"/>
+            <path d="M 41 53 A 4 4 0 0 1 41 61" stroke="${lines}" stroke-width="1.5" fill="none"/>
+            <circle cx="65" cy="55" r="5" fill="${dots}"/>
+          `;
+          break;
+        case 1:
+          body = `
+            <line x1="15" y1="65" x2="85" y2="65" stroke="#475569" stroke-width="2"/>
+            <rect x="25" y="48" width="16" height="17" rx="3" fill="#0284C7" stroke="${lines}" stroke-width="1.5"/>
+            <path d="M 41 53 A 4 4 0 0 1 41 61" stroke="${lines}" stroke-width="1.5" fill="none"/>
+            <path d="M 65 30 Q 50 40 33 46" stroke="${lines}" stroke-width="2" stroke-dasharray="3,3" fill="none"/>
+            <circle cx="33" cy="46" r="5" fill="${dots}"/>
+          `;
+          break;
+        case 2:
+          body = `
+            <line x1="15" y1="65" x2="85" y2="65" stroke="#475569" stroke-width="2"/>
+            <rect x="35" y="48" width="16" height="17" rx="3" fill="#0284C7" stroke="${lines}" stroke-width="1.5"/>
+            <path d="M 51 53 A 4 4 0 0 1 51 61" stroke="${lines}" stroke-width="1.5" fill="none"/>
+            <circle cx="43" cy="48" r="8" fill="${green}" opacity="0.4"/>
+            <circle cx="43" cy="48" r="5" fill="${green}"/>
+            <text x="43" y="42" font-size="8" fill="#FFF" text-anchor="middle">✊</text>
+          `;
+          break;
+        case 3:
+          body = `
+            <line x1="50" y1="25" x2="90" y2="25" stroke="#475569" stroke-width="2"/>
+            <path d="M 35 60 Q 42 40 55 35" stroke="${amber}" stroke-width="2.5" fill="none"/>
+            <polygon points="55,30 60,36 53,38" fill="${amber}"/>
+            <rect x="47" y="35" width="16" height="17" rx="3" fill="#0284C7" stroke="${lines}" stroke-width="1.5"/>
+            <text x="55" y="30" font-size="8" fill="${amber}" text-anchor="middle">⬆️ LIFT</text>
+          `;
+          break;
+        case 4:
+          body = `
+            <line x1="45" y1="28" x2="92" y2="28" stroke="#475569" stroke-width="2"/>
+            <rect x="62" y="11" width="18" height="17" rx="3" fill="none" stroke="${green}" stroke-dasharray="3,3" stroke-width="2"/>
+            <rect x="60" y="13" width="16" height="15" rx="2" fill="#0284C7" stroke="${lines}" stroke-width="1.5"/>
+            <text x="70" y="8" font-size="7" font-weight="bold" fill="${green}" text-anchor="middle">TARGET</text>
+          `;
+          break;
+        case 5:
+          body = `
+            <line x1="45" y1="28" x2="92" y2="28" stroke="#475569" stroke-width="2"/>
+            <rect x="62" y="11" width="16" height="17" rx="3" fill="#0284C7" stroke="${green}" stroke-width="1.5"/>
+            <path d="M 78 16 A 4 4 0 0 1 78 24" stroke="${green}" stroke-width="1.5" fill="none"/>
+            <circle cx="60" cy="18" r="6" fill="${dots}"/>
+            <text x="70" y="45" font-size="9" fill="${green}" text-anchor="middle">✓ PLACED</text>
+          `;
+          break;
+      }
     }
 
     return `<svg viewBox="0 0 100 80" xmlns="http://www.w3.org/2000/svg" style="background:${bg}; border-radius:6px; display:block;">
@@ -521,6 +597,18 @@ if (typeof document !== "undefined") {
         stepEl.textContent = `Step ${currentStepIndex + 1}: Shut Filling Tank ${activeTankIndex + 1}!`;
       } else if (currentTask === "balloon" && currentStepIndex === 4) {
         stepEl.textContent = `Step 5: ⚠️ CAUTION: Hold Steady 5s (DO NOT PUMP!)`;
+      } else if (currentTask === "cupshelf") {
+        if (currentStepIndex === 1) {
+          stepEl.textContent = `Step 2: Reach down towards the coffee mug`;
+        } else if (currentStepIndex === 2) {
+          stepEl.textContent = `Step 3: Clench fist ✊ to grasp the mug`;
+        } else if (currentStepIndex === 3) {
+          stepEl.textContent = `Step 4: Lift arm upward ⬆️ toward top shelf`;
+        } else if (currentStepIndex === 4 || currentStepIndex === 5) {
+          stepEl.textContent = `Step 5/6: Align inside shelf target & open hand 🖐️`;
+        } else {
+          stepEl.textContent = `Step ${currentStepIndex + 1}: ${taskInfo.steps[currentStepIndex].name}`;
+        }
       } else {
         stepEl.textContent = `Step ${currentStepIndex + 1}: ${taskInfo.steps[currentStepIndex].name}`;
       }
@@ -609,9 +697,17 @@ if (typeof document !== "undefined") {
     pourSpillAlerted = false;
     smoothedPourTilt = 0;
     taskPeakRom = 0;
+
+    // Cup Shelf Lift reset
+    shelfCupGrasped = false;
+    shelfCupPlaced = false;
+    shelfCupPlacedTime = 0;
+    shelfCupPos = null;
+    shelfParticles = [];
+    shelfDropAlerted = false;
   }
 
-  // --- Guidance Popup Content & 10s Inactivity Re-trigger (5 Clinical Tasks) ---
+  // --- Guidance Popup Content & 10s Inactivity Re-trigger (6 Clinical Tasks) ---
   const ADL_GUIDES = {
     balloon: {
       title: "🎈 Balloon Air Pump",
@@ -642,6 +738,12 @@ if (typeof document !== "undefined") {
       what: "Tilt your hand to pour water from the pitcher into the target glass, then return upright.",
       how: "Hold the pitcher upright, position it above the glass, rotate your forearm (pronation) to tilt and pour until the glass fills to the green mark, then rotate back upright.",
       tip: "Retrains forearm pronation and supination rotation, essential for eating, drinking, and turning door handles.",
+    },
+    cupshelf: {
+      title: "☕ Cup Shelf Lift",
+      what: "Pick up the mug from the table, lift it up to the cupboard shelf, and release it.",
+      how: "1. Reach hand down over the mug and clench into a fist ✊ to grasp.\n2. Smoothly lift your arm upward against gravity toward the upper shelf.\n3. Align the cup into the glowing shelf target slot.\n4. Open your hand wide 🖐️ to place it securely on the shelf.",
+      tip: "Retrains anti-gravity shoulder elevation, elbow flexion/extension, and coordinated grasp-to-release (ARAT protocol).",
     },
   };
 
@@ -1453,6 +1555,9 @@ if (typeof document !== "undefined") {
         break;
       case "pour":
         drawPourTask(hx, hy);
+        break;
+      case "cupshelf":
+        drawCupShelfTask(hx, hy);
         break;
     }
   }
@@ -2284,6 +2389,304 @@ if (typeof document !== "undefined") {
     gCtx.textAlign = "start";
   }
 
+  // 6. ☕ Cup Shelf Lift Task (Anti-Gravity Elevation & ARAT Pick-and-Place)
+  function drawCupShelfTask(hx, hy) {
+    const w = gameCanvas.width, h = gameCanvas.height;
+    const now = performance.now();
+
+    // Scene geometry
+    const tableY = h * 0.76;
+    const shelfY = h * 0.26;
+    const shelfX = w * 0.52;
+    const shelfW = w * 0.42;
+    const shelfTargetX = shelfX + shelfW * 0.50;
+    const shelfTargetY = shelfY - 36;
+
+    const cupInitX = w * 0.24;
+    const cupInitY = tableY - 36;
+
+    if (!shelfCupPos) {
+      shelfCupPos = { x: cupInitX, y: cupInitY };
+    }
+
+    // 1. Draw Kitchen Environment
+    // Bottom Countertop
+    gCtx.save();
+    gCtx.fillStyle = "#1E293B";
+    gCtx.fillRect(0, tableY, w, h - tableY);
+    // Countertop wood trim edge
+    gCtx.fillStyle = "#334155";
+    gCtx.fillRect(0, tableY, w, 12);
+    gCtx.fillStyle = "#64748B";
+    gCtx.font = "bold 11px Inter, sans-serif";
+    gCtx.fillText("🪵 LOWER COUNTERTOP", 24, tableY + 30);
+
+    // Top Cupboard Shelf
+    gCtx.fillStyle = "#0F172A";
+    gCtx.roundRect(shelfX, shelfY, shelfW, 14, [4, 4, 4, 4]);
+    gCtx.fill();
+    gCtx.fillStyle = "#38BDF8";
+    gCtx.fillRect(shelfX, shelfY, shelfW, 3);
+    gCtx.fillStyle = "#94A3B8";
+    gCtx.font = "bold 11px Inter, sans-serif";
+    gCtx.textAlign = "center";
+    gCtx.fillText("🗄️ UPPER CUPBOARD SHELF", shelfTargetX, shelfY + 28);
+    gCtx.textAlign = "start";
+
+    // 2. Draw Target Shelf Slot (Dashed outline of the cup)
+    const distToTarget = Math.hypot(shelfCupPos.x - shelfTargetX, shelfCupPos.y - shelfTargetY);
+    const inTargetSlot = distToTarget < 58;
+
+    gCtx.save();
+    gCtx.beginPath();
+    gCtx.roundRect(shelfTargetX - 24, shelfTargetY - 26, 48, 52, 10);
+    if (inTargetSlot && shelfCupGrasped) {
+      gCtx.fillStyle = "rgba(16, 185, 129, 0.35)";
+      gCtx.fill();
+      gCtx.strokeStyle = "#10B981";
+      gCtx.lineWidth = 3.5;
+      gCtx.setLineDash([6, 4]);
+    } else {
+      gCtx.fillStyle = "rgba(56, 189, 248, 0.12)";
+      gCtx.fill();
+      gCtx.strokeStyle = "#38BDF8";
+      gCtx.lineWidth = 2;
+      gCtx.setLineDash([5, 5]);
+    }
+    gCtx.stroke();
+    gCtx.setLineDash([]);
+
+    // Target Label
+    gCtx.font = "bold 10px Inter, sans-serif";
+    gCtx.textAlign = "center";
+    gCtx.fillStyle = inTargetSlot ? "#34D399" : "#38BDF8";
+    gCtx.fillText(inTargetSlot ? "✨ OPEN HAND 🖐️" : "PLACE HERE 🎯", shelfTargetX, shelfTargetY - 32);
+    gCtx.restore();
+
+    // 3. Hand Interaction & Gesture Detection
+    // Distance from player hand to cup
+    const distHandToCup = Math.hypot(hx - shelfCupPos.x, hy - shelfCupPos.y);
+
+    // Compute hand grasp status using MediaPipe openness
+    let isHandGrasping = false;
+    let isHandOpening = false;
+    if (wristData && wristData.openness !== undefined) {
+      isHandGrasping = wristData.openness < closeThreshold;
+      isHandOpening = wristData.openness > openThreshold;
+    }
+
+    // STATE: Not grasped, sitting on counter or in transit
+    if (!shelfCupGrasped && !shelfCupPlaced) {
+      if (distHandToCup < 55) {
+        if (currentStepIndex === 1) advanceStep(); // Advances to Step 3: Clench to grasp
+        if (isHandGrasping) {
+          shelfCupGrasped = true;
+          shelfDropAlerted = false;
+          if (currentStepIndex === 2) advanceStep(); // Advances to Step 4: Anti-gravity lift
+          if (window.RehabBio) {
+            window.RehabBio.playBeep(520, 0.08, 0.3);
+            window.RehabBio.speak("Mug grasped! Lift upward against gravity.");
+          }
+          showToast("✊ Mug grasped! Now lift upward toward the shelf.", "info");
+        }
+      }
+    }
+
+    // STATE: Grasped and lifting
+    if (shelfCupGrasped) {
+      // Cup tracks hand smoothly
+      shelfCupPos.x = hx;
+      shelfCupPos.y = hy;
+
+      // Draw lift trajectory dashed guide
+      gCtx.save();
+      gCtx.beginPath();
+      gCtx.moveTo(shelfCupPos.x, shelfCupPos.y - 30);
+      gCtx.lineTo(shelfTargetX, shelfTargetY + 30);
+      gCtx.strokeStyle = "rgba(251, 191, 36, 0.6)";
+      gCtx.lineWidth = 2.5;
+      gCtx.setLineDash([6, 6]);
+      gCtx.stroke();
+      gCtx.restore();
+
+      // Check elevation progress
+      if (hy < h * 0.52 && currentStepIndex === 3) {
+        advanceStep(); // Advances to Step 5: Align at Shelf
+      }
+
+      // Check shelf target arrival
+      if (inTargetSlot) {
+        if (currentStepIndex === 4) advanceStep(); // Advances to Step 6: Release to Place
+
+        // User opens hand to place the cup
+        if (isHandOpening) {
+          shelfCupGrasped = false;
+          shelfCupPlaced = true;
+          shelfCupPos.x = shelfTargetX;
+          shelfCupPos.y = shelfTargetY;
+          shelfCupPlacedTime = performance.now();
+
+          // Celebration particles
+          for (let i = 0; i < 28; i++) {
+            shelfParticles.push({
+              x: shelfTargetX,
+              y: shelfTargetY,
+              vx: (Math.random() - 0.5) * 6,
+              vy: -2 - Math.random() * 5,
+              r: 3 + Math.random() * 3,
+              color: ["#FBBF24", "#34D399", "#38BDF8", "#F472B6"][Math.floor(Math.random() * 4)],
+              alpha: 1.0,
+            });
+          }
+
+          if (window.RehabBio) {
+            window.RehabBio.playRepChime();
+            window.RehabBio.speak("Great placement! Cup secured on shelf.");
+          }
+          showToast("🎉 Perfect! Cup safely placed on shelf!", "success");
+          advanceStep(); // Completes 6-step cycle -> rep++
+        }
+      } else if (isHandOpening && hy < tableY - 40 && !inTargetSlot && !shelfDropAlerted) {
+        // Dropped mid-air outside shelf target
+        shelfDropAlerted = true;
+        shelfCupGrasped = false;
+        shelfCupPos = { x: cupInitX, y: cupInitY };
+        if (window.RehabBio) window.RehabBio.playBuzz();
+        showToast("⚠️ Mug dropped! Keep fist clenched until you reach the upper shelf.", "warning");
+        currentStepIndex = 1;
+        updateStepCardsUI();
+      }
+    }
+
+    // STATE: Placed on shelf (1.5s delay then reset)
+    if (shelfCupPlaced) {
+      if (now - shelfCupPlacedTime > 1500) {
+        shelfCupPlaced = false;
+        shelfCupPos = { x: cupInitX, y: cupInitY };
+      }
+    }
+
+    // 4. Draw Celebration Particles
+    shelfParticles.forEach((p) => {
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vy += 0.15;
+      p.alpha -= 0.02;
+    });
+    shelfParticles = shelfParticles.filter((p) => p.alpha > 0);
+
+    shelfParticles.forEach((p) => {
+      gCtx.save();
+      gCtx.globalAlpha = Math.max(0, p.alpha);
+      gCtx.fillStyle = p.color;
+      gCtx.beginPath();
+      gCtx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      gCtx.fill();
+      gCtx.restore();
+    });
+
+    // 5. Draw the Ceramic Mug ☕
+    const cx = shelfCupPos.x;
+    const cy = shelfCupPos.y;
+    const cw = 44, ch = 48;
+
+    gCtx.save();
+    // Drop shadow
+    gCtx.beginPath();
+    gCtx.ellipse(cx, cy + ch / 2 + 4, cw / 2 + 6, 8, 0, 0, Math.PI * 2);
+    gCtx.fillStyle = "rgba(0, 0, 0, 0.4)";
+    gCtx.fill();
+
+    // Mug body
+    gCtx.beginPath();
+    gCtx.roundRect(cx - cw / 2, cy - ch / 2, cw, ch, [4, 4, 10, 10]);
+    gCtx.fillStyle = shelfCupPlaced ? "#10B981" : (shelfCupGrasped ? "#F59E0B" : "#0284C7");
+    gCtx.fill();
+    gCtx.lineWidth = 2.5;
+    gCtx.strokeStyle = "#FFFFFF";
+    gCtx.stroke();
+
+    // Handle
+    gCtx.beginPath();
+    gCtx.arc(cx + cw / 2 + 5, cy, 11, -Math.PI / 2, Math.PI / 2);
+    gCtx.lineWidth = 4;
+    gCtx.strokeStyle = shelfCupPlaced ? "#10B981" : (shelfCupGrasped ? "#F59E0B" : "#0284C7");
+    gCtx.stroke();
+
+    // Mug Rim Top
+    gCtx.beginPath();
+    gCtx.ellipse(cx, cy - ch / 2, cw / 2, 7, 0, 0, Math.PI * 2);
+    gCtx.fillStyle = "#0F172A"; // dark coffee inside
+    gCtx.fill();
+    gCtx.lineWidth = 1.5;
+    gCtx.strokeStyle = "#FFFFFF";
+    gCtx.stroke();
+
+    // Coffee surface shine
+    gCtx.beginPath();
+    gCtx.ellipse(cx, cy - ch / 2, cw / 2 - 3, 5, 0, 0, Math.PI * 2);
+    gCtx.fillStyle = "#78350F";
+    gCtx.fill();
+
+    // Animated steam rising
+    shelfSteamTime += 0.05;
+    for (let i = 0; i < 2; i++) {
+      const sx = cx - 6 + i * 12 + Math.sin(shelfSteamTime + i) * 4;
+      const sy = cy - ch / 2 - 10 - ((shelfSteamTime * 12 + i * 8) % 22);
+      gCtx.beginPath();
+      gCtx.arc(sx, sy, 3, 0, Math.PI * 2);
+      gCtx.fillStyle = "rgba(255, 255, 255, 0.4)";
+      gCtx.fill();
+    }
+
+    // Mug icon / badge in center
+    gCtx.font = "18px Segoe UI Emoji, sans-serif";
+    gCtx.textAlign = "center";
+    gCtx.textBaseline = "middle";
+    gCtx.fillText("☕", cx, cy + 2);
+    gCtx.restore();
+
+    // 6. Floating Status Badge
+    gCtx.save();
+    gCtx.fillStyle = "rgba(15, 23, 42, 0.88)";
+    gCtx.strokeStyle = "rgba(255, 255, 255, 0.12)";
+    gCtx.lineWidth = 1.5;
+    const bannerW = Math.min(480, w * 0.8);
+    const bannerX = (w - bannerW) / 2;
+    gCtx.beginPath();
+    gCtx.roundRect(bannerX, 16, bannerW, 36, 10);
+    gCtx.fill();
+    gCtx.stroke();
+
+    gCtx.font = "bold 13px Inter, sans-serif";
+    gCtx.textAlign = "center";
+    gCtx.textBaseline = "middle";
+
+    let statusMsg = "Reach down towards the counter and grasp the coffee mug";
+    if (shelfCupPlaced) {
+      gCtx.fillStyle = "#34D399";
+      statusMsg = "🎉 Mug safely placed on upper shelf! Excellent lift!";
+    } else if (shelfCupGrasped) {
+      if (inTargetSlot) {
+        gCtx.fillStyle = "#34D399";
+        statusMsg = "✨ In target shelf slot! OPEN YOUR HAND 🖐️ to place!";
+      } else {
+        gCtx.fillStyle = "#FBBF24";
+        statusMsg = "⬆️ Lift arm upward against gravity towards the upper shelf!";
+      }
+    } else {
+      if (distHandToCup < 55) {
+        gCtx.fillStyle = "#38BDF8";
+        statusMsg = "✊ Close your fist to grasp the coffee mug!";
+      } else {
+        gCtx.fillStyle = "#E2E8F0";
+        statusMsg = "Reach hand towards the coffee mug on the counter";
+      }
+    }
+    gCtx.fillText(statusMsg, w * 0.5, 34);
+    gCtx.restore();
+  }
+
   // No second animation loop: Updates & rendering are driven directly by onHandResults callback.
 
   // Pointer / Touch fallback for interactive testing on laptops, touchpads, and phones
@@ -2337,6 +2740,18 @@ if (typeof document !== "undefined") {
       showToast(`🫗 Water poured: ${Math.round(pourGlassLevel)}%`, "info");
       if (pourGlassLevel >= 75) {
         pourTargetReached = true;
+        advanceStep();
+      }
+    } else if (currentTask === "cupshelf") {
+      if (!shelfCupGrasped && !shelfCupPlaced) {
+        shelfCupGrasped = true;
+        showToast("✊ Mug grasped via tap! Now lift upward.", "info");
+        if (currentStepIndex <= 2) advanceStep();
+      } else if (shelfCupGrasped) {
+        shelfCupGrasped = false;
+        shelfCupPlaced = true;
+        shelfCupPlacedTime = performance.now();
+        showToast("🎉 Mug safely placed on shelf!", "success");
         advanceStep();
       }
     }
@@ -2512,6 +2927,26 @@ const AdlKinematics = {
     const dist = Math.hypot(cursor.x - targetPos.x, cursor.y - targetPos.y);
     const hitRadius = isDwelling ? baseRadius * 1.2 : baseRadius;
     return dist < hitRadius;
+  },
+  calculateCupGraspAndPlace(cursor, cupPos, targetPos, isOpen, isClosed, isGrasped) {
+    const distToCup = Math.hypot(cursor.x - cupPos.x, cursor.y - cupPos.y);
+    const distToTarget = Math.hypot(cursor.x - targetPos.x, cursor.y - targetPos.y);
+    let nextGrasped = isGrasped;
+    let placed = false;
+    let dropped = false;
+
+    if (!isGrasped && distToCup < 0.12 && isClosed) {
+      nextGrasped = true;
+    } else if (isGrasped) {
+      if (distToTarget < 0.12 && isOpen) {
+        nextGrasped = false;
+        placed = true;
+      } else if (isOpen && distToTarget >= 0.12) {
+        nextGrasped = false;
+        dropped = true;
+      }
+    }
+    return { isGrasped: nextGrasped, placed, dropped, distToCup, distToTarget };
   },
 };
 
