@@ -789,7 +789,9 @@ def adl_lab():
 @login_required
 @onboarding_required
 def report():
-    target_pid = request.args.get("patient_id")
+    target_pid = None
+    if session.get("role") == "owner" or session.get("patient_id") == "SP_OWNER_1":
+        target_pid = request.args.get("patient_id")
     return render_template("report.html", target_patient_id=target_pid)
 
 
@@ -797,7 +799,10 @@ def report():
 @login_required
 @onboarding_required
 def profile():
-    return render_template("profile.html")
+    target_pid = None
+    if session.get("role") == "owner" or session.get("patient_id") == "SP_OWNER_1":
+        target_pid = request.args.get("patient_id")
+    return render_template("profile.html", target_patient_id=target_pid)
 
 # ---------------------------------------------------------------------------
 # API Routes — Authentication
@@ -1342,6 +1347,120 @@ def api_admin_patients():
         },
         "patients": patients_list,
         "recent_activity": [dict(e) for e in recent_events],
+    })
+
+
+@app.route("/api/admin/patient/<patient_id>", methods=["GET"])
+@login_required
+def api_admin_patient_dossier(patient_id):
+    """Inspect Everything — full clinical dossier for a specific patient (owner only)."""
+    if session.get("role") != "owner" and session.get("patient_id") != "SP_OWNER_1":
+        return jsonify({"status": "error", "message": "Access denied. Controller privileges required."}), 403
+
+    db = get_db()
+    pid = (patient_id or "").strip()
+    user = db.execute("SELECT * FROM patients WHERE patient_id = ?", (pid,)).fetchone()
+    if not user:
+        return jsonify({"status": "error", "message": "Patient not found"}), 404
+
+    # 1. Intake answers and demographics
+    u = dict(user)
+    u.pop("password_hash", None)
+    intake = {
+        "patient_id": u.get("patient_id"),
+        "patient_name": u.get("patient_name") or u.get("username") or "Patient",
+        "email": u.get("email"),
+        "patient_dob": u.get("patient_dob") or "",
+        "patient_phone": u.get("patient_phone") or "",
+        "selected_condition": u.get("selected_condition") or "Hemiparesis",
+        "stroke_onset": u.get("stroke_onset") or u.get("onset_ago") or "Not specified",
+        "affected_side": u.get("affected_side") or "Not specified",
+        "daily_struggles": u.get("daily_struggles") or "Not specified",
+        "doing_therapy": u.get("doing_therapy") or "Not specified",
+        "pain_level": u.get("pain_level") or "Not specified",
+        "rehab_goal": u.get("rehab_goal") or "Not specified",
+        "goal_note": u.get("goal_note") or "",
+        "created_at": str(u.get("created_at") or ""),
+        "last_session_date": u.get("last_session_date") or "",
+        "current_streak": u.get("current_streak") or 1,
+    }
+
+    # 2. Recovery index breakdown with exact numbers
+    stats = db.execute(
+        """SELECT COALESCE(AVG(smoothness_score), 0) as avg_smooth,
+                  COALESCE(MAX(peak_rom), 0) as peak_rom,
+                  COALESCE(SUM(duration_seconds), 0) as total_seconds,
+                  COUNT(*) as total_sessions
+           FROM telemetry_logs WHERE patient_id = ?""",
+        (pid,),
+    ).fetchone()
+
+    streak = intake["current_streak"]
+    avg_smooth = float(stats["avg_smooth"]) if stats else 0.0
+    peak_rom = float(stats["peak_rom"]) if stats else 0.0
+    total_sessions = int(stats["total_sessions"]) if stats else 0
+    total_seconds = int(stats["total_seconds"]) if stats else 0
+
+    adherence = min(streak / 7.0, 1.0)
+    smoothness = min(avg_smooth / 100.0, 1.0)
+    range_score = min(peak_rom / 180.0, 1.0)
+    rqi = round(100.0 * (0.3 * adherence + 0.3 * smoothness + 0.4 * range_score), 1)
+
+    if rqi >= 76:
+        tier = "peak"
+        tier_label = "Peak Recovery"
+        tier_emoji = "🏆"
+    elif rqi >= 51:
+        tier = "strong"
+        tier_label = "Strong Recovery"
+        tier_emoji = "🌟"
+    elif rqi >= 26:
+        tier = "steady"
+        tier_label = "Steady Progress"
+        tier_emoji = "🌿"
+    else:
+        tier = "starting"
+        tier_label = "Starting Out"
+        tier_emoji = "🌱"
+
+    recovery_index = {
+        "rqi_score": rqi,
+        "tier": tier,
+        "tier_label": tier_label,
+        "tier_emoji": tier_emoji,
+        "total_sessions": total_sessions,
+        "total_exercise_minutes": round(total_seconds / 60.0, 1),
+        "streak": streak,
+        "peak_rom": round(peak_rom, 1),
+        "avg_smoothness": round(avg_smooth, 1),
+        "components": {
+            "adherence": round(adherence, 3),
+            "smoothness": round(smoothness, 3),
+            "range": round(range_score, 3),
+        },
+    }
+
+    # 3. Full telemetry history
+    telemetry_rows = db.execute(
+        """SELECT * FROM telemetry_logs WHERE patient_id = ? ORDER BY id DESC LIMIT 50""",
+        (pid,),
+    ).fetchall()
+    telemetry_history = [dict(r) for r in telemetry_rows]
+
+    # 4. All SOAP reports
+    soap_rows = db.execute(
+        """SELECT * FROM clinical_reports WHERE patient_id = ? ORDER BY id DESC LIMIT 20""",
+        (pid,),
+    ).fetchall()
+    soap_reports = [dict(r) for r in soap_rows]
+
+    return jsonify({
+        "status": "success",
+        "patient": intake,
+        "intake": intake,
+        "recovery_index": recovery_index,
+        "telemetry_history": telemetry_history,
+        "clinical_reports": soap_reports,
     })
 
 

@@ -86,7 +86,7 @@
           <span style="font-size:12px; color:#92400E; font-weight:700;">Account: SP_OWNER_1</span>
         </div>
         <h2 style="font-size:18px; font-weight:800; color:#1E293B; margin:6px 0 2px;">Master Patient Activity Center</h2>
-        <p style="font-size:13px; color:#64748B; margin:0;">Real-time clinical monitoring of all registered stroke patients, adherence streaks, recovery metrics, and telemetry reports.</p>
+        <p style="font-size:13px; color:#64748B; margin:0;">Real-time clinical monitoring of all registered stroke patients, adherence streaks, recovery metrics, and progress reports.</p>
       </div>
       <div style="display:flex; gap:10px;">
         <button type="button" id="btn-refresh-patients" class="clin-btn" style="background:#F1F5F9; color:#334155; font-size:12.5px; padding:7px 12px; border:1px solid #CBD5E1; border-radius:8px; font-weight:700; cursor:pointer;">🔄 Refresh Activity</button>
@@ -142,7 +142,7 @@
             <th style="padding:10px 14px;">STROKE PROFILE</th>
             <th style="padding:10px 14px;">DAILY STREAK</th>
             <th style="padding:10px 14px;">SESSIONS</th>
-            <th style="padding:10px 14px;">PEAK ROM</th>
+            <th style="padding:10px 14px;">RANGE (PEAK)</th>
             <th style="padding:10px 14px;">LAST ACTIVE</th>
             <th style="padding:10px 14px; text-align:center;">CONTROLLER ACTION</th>
           </tr>
@@ -157,12 +157,119 @@
 
     <!-- Recent Exercise Events Stream -->
     <div style="margin-top:20px;">
-      <div style="font-size:13px; font-weight:800; color:#334155; margin-bottom:8px;">📡 Live Patient Telemetry Stream</div>
+      <div style="font-size:13px; font-weight:800; color:#334155; margin-bottom:8px;">📡 Live Patient Activity Stream</div>
       <div id="ctrl-recent-stream" style="display:flex; flex-direction:column; gap:6px; max-height:160px; overflow-y:auto; background:#F8FAFC; border:1px solid #E2E8F0; border-radius:8px; padding:10px;">
         <div style="font-size:12px; color:#94A3B8; text-align:center;">Loading recent activity stream...</div>
       </div>
     </div>
   </section>
+
+  <!-- 🔍 INSPECT EVERYTHING DOSSIER MODAL -->
+  <div id="ctrl-dossier-modal" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.65); z-index:9999; overflow-y:auto; padding:20px; align-items:center; justify-content:center;">
+    <div style="background:#FFFFFF; border-radius:16px; max-width:850px; width:100%; box-shadow:0 20px 50px rgba(0,0,0,0.25); border:1px solid #CBD5E1; overflow:hidden; margin:auto;">
+      <!-- Modal Header -->
+      <div style="background:#0F172A; color:#FFFFFF; padding:18px 24px; display:flex; justify-content:space-between; align-items:center;">
+        <div>
+          <div style="font-size:11px; font-weight:700; color:#F59E0B; text-transform:uppercase; letter-spacing:0.5px;">👑 Comprehensive Clinical Dossier</div>
+          <h2 id="dossier-title" style="font-size:20px; margin:4px 0 0; color:#FFFFFF;">Patient Dossier</h2>
+        </div>
+        <button type="button" id="dossier-close-btn" style="background:transparent; border:none; color:#94A3B8; font-size:24px; cursor:pointer; line-height:1; min-height:auto; padding:4px 8px;">✕</button>
+      </div>
+
+      <div style="padding:24px; max-height:calc(85vh - 70px); overflow-y:auto;">
+        <!-- 1. Intake Answers -->
+        <div style="background:#F8FAFC; border:1px solid #E2E8F0; border-radius:12px; padding:16px; margin-bottom:20px;">
+          <h3 style="font-size:15px; color:#0F2A4A; margin-top:0; margin-bottom:12px; border-bottom:1px solid #E2E8F0; padding-bottom:6px;">📋 Patient Identity &amp; Clinical Intake Answers</h3>
+          <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:12px; font-size:13px;">
+            <div><strong style="color:#64748B;">Patient ID:</strong> <span id="dos-pid" style="font-family:monospace; font-weight:700; color:#0284C7;">—</span></div>
+            <div><strong style="color:#64748B;">Full Name:</strong> <span id="dos-name" style="font-weight:600;">—</span></div>
+            <div><strong style="color:#64748B;">Email:</strong> <span id="dos-email">—</span></div>
+            <div><strong style="color:#64748B;">Phone:</strong> <span id="dos-phone">—</span></div>
+            <div><strong style="color:#64748B;">DOB:</strong> <span id="dos-dob">—</span></div>
+            <div><strong style="color:#64748B;">Deficit Category:</strong> <span id="dos-condition" style="font-weight:600;">—</span></div>
+            <div><strong style="color:#64748B;">Affected Side:</strong> <span id="dos-side">—</span></div>
+            <div><strong style="color:#64748B;">Stroke Onset:</strong> <span id="dos-onset">—</span></div>
+            <div><strong style="color:#64748B;">Pain Level:</strong> <span id="dos-pain">—</span></div>
+            <div><strong style="color:#64748B;">Therapy Type:</strong> <span id="dos-therapy">—</span></div>
+            <div style="grid-column:1 / -1;"><strong style="color:#64748B;">Daily Struggles:</strong> <span id="dos-struggles">—</span></div>
+            <div style="grid-column:1 / -1;"><strong style="color:#64748B;">Recovery Goals:</strong> <span id="dos-goals">—</span></div>
+          </div>
+        </div>
+
+        <!-- 2. Recovery Index Breakdown -->
+        <div style="background:#F0FDF4; border:1px solid #BBF7D0; border-radius:12px; padding:16px; margin-bottom:20px;">
+          <h3 style="font-size:15px; color:#166534; margin-top:0; margin-bottom:12px; border-bottom:1px solid #DCFCE7; padding-bottom:6px;">📈 Recovery Quality Index (RQI) Exact Breakdown</h3>
+          <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:12px; text-align:center;">
+            <div style="background:#FFFFFF; border:1px solid #86EFAC; border-radius:8px; padding:10px;">
+              <div style="font-size:11px; color:#15803D; font-weight:700;">OVERALL RQI</div>
+              <div id="dos-rqi-score" style="font-size:22px; font-weight:900; color:#166534;">0.0</div>
+              <div id="dos-rqi-tier" style="font-size:11px; font-weight:700; color:#15803D;">Starting Out</div>
+            </div>
+            <div style="background:#FFFFFF; border:1px solid #86EFAC; border-radius:8px; padding:10px;">
+              <div style="font-size:11px; color:#15803D; font-weight:700;">ADHERENCE (30%)</div>
+              <div id="dos-rqi-adh" style="font-size:18px; font-weight:800; color:#166534;">0.000</div>
+              <div id="dos-streak-label" style="font-size:11px; color:#64748B;">Streak: 1d</div>
+            </div>
+            <div style="background:#FFFFFF; border:1px solid #86EFAC; border-radius:8px; padding:10px;">
+              <div style="font-size:11px; color:#15803D; font-weight:700;">SMOOTHNESS (30%)</div>
+              <div id="dos-rqi-smooth" style="font-size:18px; font-weight:800; color:#166534;">0.000</div>
+              <div id="dos-smooth-label" style="font-size:11px; color:#64748B;">Avg: 0/100</div>
+            </div>
+            <div style="background:#FFFFFF; border:1px solid #86EFAC; border-radius:8px; padding:10px;">
+              <div style="font-size:11px; color:#15803D; font-weight:700;">RANGE (40%)</div>
+              <div id="dos-rqi-range" style="font-size:18px; font-weight:800; color:#166534;">0.000</div>
+              <div id="dos-range-label" style="font-size:11px; color:#64748B;">Peak: 0°</div>
+            </div>
+            <div style="background:#FFFFFF; border:1px solid #86EFAC; border-radius:8px; padding:10px;">
+              <div style="font-size:11px; color:#15803D; font-weight:700;">SESSIONS / MINS</div>
+              <div id="dos-sessions-val" style="font-size:18px; font-weight:800; color:#166534;">0 / 0m</div>
+              <div style="font-size:11px; color:#64748B;">Total Completed</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. Full Telemetry History -->
+        <div style="margin-bottom:20px;">
+          <h3 style="font-size:15px; color:#0F2A4A; margin-bottom:8px;">📊 Telemetry History</h3>
+          <div style="overflow-x:auto; border:1px solid #E2E8F0; border-radius:8px; max-height:180px; overflow-y:auto;">
+            <table style="width:100%; border-collapse:collapse; font-size:12px; text-align:left;">
+              <thead style="background:#F8FAFC; position:sticky; top:0;">
+                <tr style="border-bottom:1px solid #CBD5E1; color:#475569;">
+                  <th style="padding:6px 10px;">Timestamp</th>
+                  <th style="padding:6px 10px;">Routine</th>
+                  <th style="padding:6px 10px;">Duration</th>
+                  <th style="padding:6px 10px;">Peak ROM</th>
+                  <th style="padding:6px 10px;">Smoothness</th>
+                  <th style="padding:6px 10px;">Score</th>
+                </tr>
+              </thead>
+              <tbody id="dos-telemetry-tbody">
+                <tr><td colspan="6" style="padding:10px; text-align:center; color:#94A3B8;">Loading history...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- 4. Clinical SOAP Reports -->
+        <div>
+          <h3 style="font-size:15px; color:#0F2A4A; margin-bottom:8px;">📝 Clinical SOAP Reports</h3>
+          <div id="dos-soap-list" style="display:flex; flex-direction:column; gap:8px; max-height:180px; overflow-y:auto;">
+            <div style="font-size:12px; color:#94A3B8; text-align:center; padding:10px;">No SOAP notes recorded.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal Footer Actions -->
+      <div style="background:#F8FAFC; border-top:1px solid #E2E8F0; padding:14px 24px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+        <div style="display:flex; gap:10px;">
+          <a id="dos-btn-report" href="#" class="clin-btn" style="background:#0284C7; color:#FFFFFF; text-decoration:none; padding:8px 14px; font-size:13px; border-radius:8px; font-weight:700;">📋 Open Clinical Report</a>
+          <a id="dos-btn-profile" href="#" class="clin-btn" style="background:#475569; color:#FFFFFF; text-decoration:none; padding:8px 14px; font-size:13px; border-radius:8px; font-weight:700;">👤 Open Profile</a>
+        </div>
+        <button type="button" id="dossier-close-footer" class="clin-btn clin-btn-ghost" style="padding:8px 16px; font-size:13px;">Close Dossier</button>
+      </div>
+    </div>
+  </div>
+
   {% endif %}
 
   <!-- Session launch cards -->

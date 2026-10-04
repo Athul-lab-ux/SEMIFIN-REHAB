@@ -182,9 +182,14 @@ document.addEventListener("DOMContentLoaded", async () => {
             ${p.last_session_date || (p.created_at ? p.created_at.split(' ')[0] : 'Today')}
           </td>
           <td style="padding:10px 14px; text-align:center;">
-            <a href="/report?patient_id=${encodeURIComponent(p.patient_id)}" class="clin-btn" style="padding:4px 9px; font-size:11.5px; text-decoration:none; background:#0284C7; color:#FFFFFF; border-radius:6px; font-weight:700; display:inline-block;">
-              📋 View Report ➜
-            </a>
+            <div style="display:flex; gap:6px; justify-content:center; flex-wrap:wrap;">
+              <a href="/report?patient_id=${encodeURIComponent(p.patient_id)}" class="clin-btn" style="padding:4px 8px; font-size:11px; text-decoration:none; background:#0284C7; color:#FFFFFF; border-radius:6px; font-weight:700; display:inline-block;">
+                📋 Report
+              </a>
+              <button type="button" class="clin-btn inspect-btn" data-pid="${p.patient_id}" style="padding:4px 8px; font-size:11px; background:#F59E0B; color:#FFFFFF; border:none; border-radius:6px; font-weight:700; cursor:pointer;">
+                🔍 Inspect
+              </button>
+            </div>
           </td>
         </tr>
       `
@@ -201,18 +206,154 @@ document.addEventListener("DOMContentLoaded", async () => {
       recentStreamEl.innerHTML = events
         .map(
           (e) => `
-        <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px; padding:4px 6px; border-bottom:1px dashed #E2E8F0;">
+        <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px; padding:6px 8px; border-bottom:1px dashed #E2E8F0;">
           <div>
             <strong style="color:#0369A1;">${e.patient_id}</strong> (${e.patient_name || 'Patient'}):
-            <span style="color:#334155; font-weight:600;"> ${e.session_type}</span> · ${e.condition}
+            <span style="color:#334155; font-weight:600;"> ${e.session_type}</span> · ${e.condition || 'General'}
           </div>
-          <div style="color:#64748B; font-size:11px;">
-            ROM: ${Math.round(e.peak_rom)}° · ${e.duration_seconds}s · ${e.created_at || ''}
+          <div style="color:#64748B; font-size:11.5px;">
+            Duration: <strong>${e.duration_seconds || 0}s</strong> · Score: <strong style="color:#10B981;">${Math.round(e.score || 0)}</strong> · ${e.created_at ? e.created_at.slice(0, 16) : ''}
           </div>
         </div>
       `
         )
         .join("");
+    }
+
+    // Inspect Dossier Modal Logic
+    const dossierModal = document.getElementById("ctrl-dossier-modal");
+    const dossierCloseBtn = document.getElementById("dossier-close-btn");
+    const dossierCloseFooter = document.getElementById("dossier-close-footer");
+
+    function closeDossier() {
+      if (dossierModal) dossierModal.style.display = "none";
+    }
+
+    if (dossierCloseBtn) dossierCloseBtn.addEventListener("click", closeDossier);
+    if (dossierCloseFooter) dossierCloseFooter.addEventListener("click", closeDossier);
+    if (dossierModal) {
+      dossierModal.addEventListener("click", (e) => {
+        if (e.target === dossierModal) closeDossier();
+      });
+    }
+
+    async function inspectPatient(pid) {
+      if (!pid) return;
+      try {
+        const res = await fetch(`/api/admin/patient/${encodeURIComponent(pid)}`);
+        if (!res.ok) {
+          alert("Failed to load patient dossier. Ensure you have controller privileges.");
+          return;
+        }
+        const data = await res.json();
+        if (data.status !== "success") return;
+
+        const p = data.patient || {};
+        const rqi = data.recovery_index || {};
+        const comps = rqi.components || {};
+
+        const dTitle = document.getElementById("dossier-title");
+        if (dTitle) dTitle.textContent = `Dossier: ${p.patient_id} (${p.patient_name})`;
+        const dPid = document.getElementById("dos-pid");
+        if (dPid) dPid.textContent = p.patient_id;
+        const dName = document.getElementById("dos-name");
+        if (dName) dName.textContent = p.patient_name;
+        const dEmail = document.getElementById("dos-email");
+        if (dEmail) dEmail.textContent = p.email || "—";
+        const dPhone = document.getElementById("dos-phone");
+        if (dPhone) dPhone.textContent = p.patient_phone || "—";
+        const dDob = document.getElementById("dos-dob");
+        if (dDob) dDob.textContent = p.patient_dob || "—";
+        const dCond = document.getElementById("dos-condition");
+        if (dCond) dCond.textContent = p.selected_condition || "Hemiparesis";
+        const dSide = document.getElementById("dos-side");
+        if (dSide) dSide.textContent = p.affected_side || "—";
+        const dOnset = document.getElementById("dos-onset");
+        if (dOnset) dOnset.textContent = p.stroke_onset || "—";
+        const dPain = document.getElementById("dos-pain");
+        if (dPain) dPain.textContent = p.pain_level || "—";
+        const dTherapy = document.getElementById("dos-therapy");
+        if (dTherapy) dTherapy.textContent = p.doing_therapy || "—";
+        const dStruggles = document.getElementById("dos-struggles");
+        if (dStruggles) dStruggles.textContent = p.daily_struggles || "—";
+        const dGoals = document.getElementById("dos-goals");
+        if (dGoals) dGoals.textContent = `${p.rehab_goal || "—"} ${p.goal_note ? "— " + p.goal_note : ""}`;
+
+        const dRqi = document.getElementById("dos-rqi-score");
+        if (dRqi) dRqi.textContent = rqi.rqi_score != null ? rqi.rqi_score.toFixed(1) : "0.0";
+        const dTier = document.getElementById("dos-rqi-tier");
+        if (dTier) dTier.textContent = `${rqi.tier_emoji || "🌱"} ${rqi.tier_label || "Starting Out"}`;
+        const dAdh = document.getElementById("dos-rqi-adh");
+        if (dAdh) dAdh.textContent = comps.adherence != null ? comps.adherence.toFixed(3) : "0.000";
+        const dStreak = document.getElementById("dos-streak-label");
+        if (dStreak) dStreak.textContent = `Streak: ${rqi.streak || 1}d`;
+        const dSmooth = document.getElementById("dos-rqi-smooth");
+        if (dSmooth) dSmooth.textContent = comps.smoothness != null ? comps.smoothness.toFixed(3) : "0.000";
+        const dSmoothLab = document.getElementById("dos-smooth-label");
+        if (dSmoothLab) dSmoothLab.textContent = `Avg: ${Math.round(rqi.avg_smoothness || 0)}/100`;
+        const dRange = document.getElementById("dos-rqi-range");
+        if (dRange) dRange.textContent = comps.range != null ? comps.range.toFixed(3) : "0.000";
+        const dRangeLab = document.getElementById("dos-range-label");
+        if (dRangeLab) dRangeLab.textContent = `Peak: ${Math.round(rqi.peak_rom || 0)}°`;
+        const dSess = document.getElementById("dos-sessions-val");
+        if (dSess) dSess.textContent = `${rqi.total_sessions || 0} / ${rqi.total_exercise_minutes || 0}m`;
+
+        const tBody = document.getElementById("dos-telemetry-tbody");
+        if (tBody) {
+          const hist = data.telemetry_history || [];
+          if (hist.length === 0) {
+            tBody.innerHTML = `<tr><td colspan="6" style="padding:10px; text-align:center; color:#94A3B8;">No telemetry sessions logged yet.</td></tr>`;
+          } else {
+            tBody.innerHTML = hist.map(r => `
+              <tr style="border-bottom:1px solid #E2E8F0;">
+                <td style="padding:6px 10px;">${(r.created_at || "—").replace("T", " ").slice(0, 16)}</td>
+                <td style="padding:6px 10px;"><strong>${r.session_type || "Exercise"}</strong></td>
+                <td style="padding:6px 10px;">${r.duration_seconds || 0}s</td>
+                <td style="padding:6px 10px;">${Math.round(r.peak_rom || 0)}°</td>
+                <td style="padding:6px 10px;">${Math.round(r.smoothness_score || 0)}/100</td>
+                <td style="padding:6px 10px; font-weight:700; color:#10B981;">${Math.round(r.score || 0)}</td>
+              </tr>
+            `).join("");
+          }
+        }
+
+        const soapList = document.getElementById("dos-soap-list");
+        if (soapList) {
+          const soaps = data.clinical_reports || [];
+          if (soaps.length === 0) {
+            soapList.innerHTML = `<div style="font-size:12px; color:#94A3B8; text-align:center; padding:10px;">No SOAP notes recorded.</div>`;
+          } else {
+            soapList.innerHTML = soaps.map(s => `
+              <div style="background:#F8FAFC; border:1px solid #E2E8F0; border-radius:8px; padding:10px; font-size:12px;">
+                <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                  <strong style="color:#0F2A4A;">${s.report_type || "SOAP"} Report · ${s.status || "SAVED"}</strong>
+                  <span style="color:#64748B;">${(s.created_at || "").slice(0, 16)}</span>
+                </div>
+                <div style="color:#334155; white-space:pre-wrap;">${s.soap_assessment || s.content || "Report generated"}</div>
+              </div>
+            `).join("");
+          }
+        }
+
+        const btnReport = document.getElementById("dos-btn-report");
+        if (btnReport) btnReport.href = `/report?patient_id=${encodeURIComponent(pid)}`;
+        const btnProfile = document.getElementById("dos-btn-profile");
+        if (btnProfile) btnProfile.href = `/profile?patient_id=${encodeURIComponent(pid)}`;
+
+        if (dossierModal) dossierModal.style.display = "flex";
+      } catch (err) {
+        console.error("Dossier load error:", err);
+      }
+    }
+
+    if (patientsTbody) {
+      patientsTbody.addEventListener("click", (e) => {
+        const btn = e.target.closest(".inspect-btn");
+        if (btn) {
+          const pid = btn.getAttribute("data-pid");
+          inspectPatient(pid);
+        }
+      });
     }
 
     async function loadControllerActivities() {
