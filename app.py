@@ -54,13 +54,13 @@ _IS_PRODUCTION = bool(
 )
 
 # Stable secret key: must come from the environment. If missing in production, stop with fatal error.
-secret_key_env = os.environ.get("SECRET_KEY") or os.environ.get("FLASK_SECRET_KEY")
+secret_key_env = os.environ.get("SECRET_KEY")
 if _IS_PRODUCTION and not secret_key_env:
     raise RuntimeError(
         "CRITICAL SECURITY CONFIGURATION ERROR: SECRET_KEY environment variable is required in production! "
         "Please configure SECRET_KEY in your Render dashboard environment variables."
     )
-app.secret_key = secret_key_env or "rehabopt-ar-dev-fallback-secret-key-2026"
+app.secret_key = secret_key_env or os.environ.get("FLASK_SECRET_KEY") or "rehabopt-ar-dev-fallback-secret-key-2026"
 
 # ProxyFix for Render/reverse proxy (ensures correct scheme detection for secure cookies)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
@@ -81,6 +81,7 @@ else:
 
 # ---------------------------------------------------------------------------
 # Login Rate Limiting (in-memory, resets on restart)
+# NOTE: This counter is held in memory and is per-worker process.
 # ---------------------------------------------------------------------------
 _login_attempts = {}  # key: identifier, value: {'count': int, 'locked_until': float}
 _MAX_LOGIN_ATTEMPTS = 5
@@ -127,6 +128,19 @@ def add_security_headers(response):
     if request.path.startswith("/static/"):
         response.headers["Cache-Control"] = "public, max-age=86400"
     return response
+
+
+# ---------------------------------------------------------------------------
+# Health Check Endpoint (A9)
+# ---------------------------------------------------------------------------
+@app.route("/healthz")
+def healthz():
+    """Health check endpoint: returns status OK and database in use without exposing secrets."""
+    db_type = "postgres" if (DATABASE_URL and psycopg2 is not None) else "sqlite"
+    return jsonify({
+        "status": "OK",
+        "database": db_type,
+    }), 200
 
 
 # ---------------------------------------------------------------------------
@@ -276,7 +290,14 @@ class PostgresCursorWrapper:
 
     def execute(self, sql, params=None):
         clean_sql = sql.strip()
-        if clean_sql.upper().startswith("PRAGMA"):
+        if clean_sql.upper().startswith("PRAGMA TABLE_INFO"):
+            match = re.search(r"PRAGMA\s+table_info\((\w+)\)", clean_sql, re.IGNORECASE)
+            if match:
+                tbl = match.group(1).lower()
+                clean_sql = f"SELECT column_name AS name FROM information_schema.columns WHERE lower(table_name) = '{tbl}'"
+            else:
+                return self
+        elif clean_sql.upper().startswith("PRAGMA"):
             return self
         if "INSERT OR IGNORE INTO" in clean_sql:
             clean_sql = clean_sql.replace("INSERT OR IGNORE INTO", "INSERT INTO")
@@ -948,6 +969,7 @@ def api_login():
         "patient_name": user["patient_name"],
         "condition": user["selected_condition"],
         "is_owner": is_owner,
+        "role": "owner" if is_owner else "patient",
         "onboarding_done": True if is_owner else bool(user["onboarding_done"]),
     })
 
@@ -1280,7 +1302,7 @@ def api_admin_patients():
         FROM patients p
         LEFT JOIN telemetry_logs t ON p.patient_id = t.patient_id
         WHERE p.patient_id != 'SP_OWNER_1'
-        GROUP BY p.id
+        GROUP BY p.id, p.patient_id, p.patient_name, p.username, p.email, p.selected_condition, p.current_streak, p.last_session_date, p.onboarding_done, p.affected_side, p.rehab_goal, p.created_at
         ORDER BY p.id DESC"""
     ).fetchall()
 
@@ -1762,7 +1784,7 @@ def chat_usage():
     db = get_db()
     today = datetime.now().strftime("%Y-%m-%d")
     cur = db.execute(
-        "SELECT COUNT(*) as cnt FROM chat_logs WHERE patient_id = ? AND DATE(created_at) = ?",
+        "SELECT COUNT(*) as cnt FROM chat_logs WHERE patient_id = ? AND DATE(created_at) = DATE(?)",
         (session["patient_id"], today),
     )
     row = cur.fetchone()
@@ -1794,7 +1816,7 @@ def ai_chat():
     db = get_db()
     today = datetime.now().strftime("%Y-%m-%d")
     cur = db.execute(
-        "SELECT COUNT(*) as cnt FROM chat_logs WHERE patient_id = ? AND DATE(created_at) = ?",
+        "SELECT COUNT(*) as cnt FROM chat_logs WHERE patient_id = ? AND DATE(created_at) = DATE(?)",
         (patient_id, today),
     )
     used = cur.fetchone()["cnt"]

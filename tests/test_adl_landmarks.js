@@ -1,13 +1,15 @@
-// scratch/test_adl_landmarks.js
+// tests/test_adl_landmarks.js
 /**
  * RehabOpt AR — Phase 2 ADL Kinematics Unit Test Suite
- * Feeds fake MediaPipe landmark arrays into ADL kinematics logic.
+ * Feeds fake MediaPipe landmark arrays into ADL pure kinematic functions.
  * Tests:
  * 1. Fake Open Hand (openness > openThreshold)
  * 2. Fake Closed Hand (openness < closeThreshold -> pump triggers, over-pump pops)
  * 3. Fake Ballistic Flick (palm center rise > 0.08 in 300ms triggers switch)
  * 4. Fake Tilted Hand (forearm roll > 20 deg calculates flow, fills glass, logs peak_rom)
  * 5. Fake Dropped Hand (missing hand detection, pause timers without forward jump)
+ * 6. Touchless PIN Pad 90px key radius & sticky hit box expansion
+ * 7. Fake Tremor Jitter Tolerance on PIN cursor (smoothing + sticky hold)
  */
 
 const assert = require("assert");
@@ -136,14 +138,14 @@ test("Task 3 (Light Switch): Ballistic Palm Center Flick Detection", () => {
   const flickDetected = AdlKinematics.detectFlick(historyFastFlick, 300, 0.08);
   assert.strictEqual(flickDetected, true, "Upward rise > 0.08 in 300ms must trigger flick");
 
-  // Slow / subtle tremor (delta y = 0.03) -> must NOT trigger flick
+  // Slow / subtle movement (delta y = 0.03) -> must NOT trigger flick
   const historySlowMove = [
     { y: 0.60, time: 0 },
     { y: 0.59, time: 100 },
     { y: 0.57, time: 200 },
   ];
   const noFlick = AdlKinematics.detectFlick(historySlowMove, 300, 0.08);
-  assert.strictEqual(noFlick, false, "Tremor or slow movement (rise 0.03 <= 0.08) must NOT trigger flick");
+  assert.strictEqual(noFlick, false, "Slow movement (rise 0.03 <= 0.08) must NOT trigger flick");
 });
 
 // --- TEST 4: FAKE TILTED HAND & WATER POURING ---
@@ -197,7 +199,6 @@ test("Task Shared Setup: Dropped Hand Detection & Timer Freeze", () => {
   let isHandMissing = true;
   let now = 5000; // 4 seconds later hand reappears
 
-  // If hand was missing, lastTankTime was pinned to performance.now()
   if (isHandMissing) {
     lastTankTime = now;
   }
@@ -218,6 +219,35 @@ test("Task 4 (PIN Pad): 90px Key Radius & Sticky Hit Box Expansion", () => {
   // When already dwelling on that key, hit box expands by 20% (0.08 * 1.2 = 0.096)
   const hitSticky = AdlKinematics.calculatePinHit(cursorJustOutside, targetPos, true, baseRadius);
   assert.strictEqual(hitSticky, true, "Cursor at 0.09 MUST remain inside sticky expanded hit box (0.096)");
+});
+
+// --- TEST 7: FAKE TREMOR JITTER ON PIN CURSOR & EXPANDED HIT DWELL ---
+test("Task 4 (PIN Pad): Fake Tremor Jitter Tolerance via Smoothing & Sticky Hit Box", () => {
+  const targetPos = { x: 0.50, y: 0.50 };
+  const baseRadius = 0.08;
+  let smoothedCursor = { x: 0.50, y: 0.50 };
+
+  // Simulate stroke intention tremor oscillations (+/- 0.02 normalized noise at 10Hz)
+  let isDwelling = true;
+  let dwellMaintained = true;
+
+  for (let frame = 0; frame < 30; frame++) {
+    const jitterX = (Math.sin(frame * 1.5) * 0.02);
+    const jitterY = (Math.cos(frame * 1.5) * 0.02);
+    const rawCursor = { x: targetPos.x + jitterX, y: targetPos.y + jitterY };
+
+    // Apply alpha = 0.3 exponential smoothing
+    smoothedCursor.x = 0.3 * rawCursor.x + 0.7 * smoothedCursor.x;
+    smoothedCursor.y = 0.3 * rawCursor.y + 0.7 * smoothedCursor.y;
+
+    const isInside = AdlKinematics.calculatePinHit(smoothedCursor, targetPos, isDwelling, baseRadius);
+    if (!isInside) {
+      dwellMaintained = false;
+      break;
+    }
+  }
+
+  assert.strictEqual(dwellMaintained, true, "Smoothed cursor with 20% sticky box must resist tremor jitter");
 });
 
 console.log("\n-------------------------------------------------");
