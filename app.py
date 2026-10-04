@@ -20,8 +20,9 @@ import json
 
 from dotenv import load_dotenv
 
-# Load .env file (API keys stay on server, never exposed to client)
-load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
+# Load .env file for local development (not in production container environments)
+if not os.environ.get("RENDER"):
+    load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 
 from flask import (
     Flask, render_template, request, redirect, url_for,
@@ -54,13 +55,13 @@ _IS_PRODUCTION = bool(
 )
 
 # Stable secret key: must come from the environment. If missing in production, stop with fatal error.
-secret_key_env = os.environ.get("SECRET_KEY")
+secret_key_env = os.environ.get("SECRET_KEY") or os.environ.get("FLASK_SECRET_KEY")
 if _IS_PRODUCTION and not secret_key_env:
     raise RuntimeError(
         "CRITICAL SECURITY CONFIGURATION ERROR: SECRET_KEY environment variable is required in production! "
         "Please configure SECRET_KEY in your Render dashboard environment variables."
     )
-app.secret_key = secret_key_env or os.environ.get("FLASK_SECRET_KEY") or "rehabopt-ar-dev-fallback-secret-key-2026"
+app.secret_key = secret_key_env or "rehabopt-ar-dev-fallback-secret-key-2026"
 
 # ProxyFix for Render/reverse proxy (ensures correct scheme detection for secure cookies)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
