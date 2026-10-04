@@ -213,9 +213,11 @@
   transform: translate(-50%, -50%);
   z-index: 10;
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
   gap: 12px;
-  max-width: min(94%, 820px);
+  max-width: min(94%, 920px);
+  max-height: 86vh;
+  overflow-y: auto;
   width: 100%;
 }
 

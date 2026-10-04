@@ -313,6 +313,90 @@ test("Task 6 (Cup Shelf Lift): Grasp, Anti-Gravity Elevation, and Shelf Placemen
   assert.strictEqual(state.dropped, true, "Opening hand far from shelf must record drop");
 });
 
+// --- TEST 9: TASK 1 (BALLOON AIR PUMP): FINGER CURL PUMP BIOMECHANICS ---
+test("Task 1 (Balloon): Wrist Open -> Clench Fist Curl Pump Transition", () => {
+  // 1. Hand opens wide (openness = 1.60, avgFingerCurl = 0.82)
+  const openResult = AdlKinematics.detectBalloonCurlPump(1.60, 0.82, /* wasOpen */ false);
+  assert.strictEqual(openResult.isOpen, true, "Open hand must be recognized as open");
+  assert.strictEqual(openResult.pumped, false, "Opening hand does not pump yet (air intake)");
+  assert.strictEqual(openResult.nextState, true, "State must transition to wasOpen = true");
+
+  // 2. Hand clenches into fist (openness = 1.15, avgFingerCurl = 0.40)
+  const pumpResult = AdlKinematics.detectBalloonCurlPump(1.15, 0.40, /* wasOpen */ true);
+  assert.strictEqual(pumpResult.isClosed, true, "Fist must be recognized as closed");
+  assert.strictEqual(pumpResult.pumped, true, "Closing fist after open must trigger air pump");
+  assert.strictEqual(pumpResult.nextState, false, "State resets to closed after pump");
+
+  // 3. Repeated closed hand without reopening must NOT trigger pump
+  const repeatClosed = AdlKinematics.detectBalloonCurlPump(1.15, 0.40, /* wasOpen */ false);
+  assert.strictEqual(repeatClosed.pumped, false, "Keeping fist closed cannot pump repeatedly without reopening");
+});
+
+// --- TEST 10: TASK 2 (4-TANK WATER FILLING): 550% RESERVOIR & 4 TANKS ---
+test("Task 2 (4 Water Tanks): 550% Hand Reservoir Depletion, Floor Wasting, & 100% Full Completion", () => {
+  let reservoir = 550.0;
+  let tanks = [{ level: 0 }, { level: 0 }, { level: 0 }, { level: 0 }];
+
+  // 1. Pour into Tank 1 (center x = 0.15) for 1 second (dt = 1.0, pourRate = 30)
+  let res = AdlKinematics.calculateWaterTankFill(reservoir, tanks, { x: 0.15, y: 0.3 }, 1.0, 30.0);
+  assert.strictEqual(res.filledTankIndex, 0, "Hand at x=0.15 must fill Tank 1");
+  assert.strictEqual(res.tanks[0].level, 30.0, "Tank 1 should have 30% water");
+  assert.strictEqual(res.reservoir, 520.0, "Reservoir must decrease from 550% to 520%");
+  assert.strictEqual(res.isWasting, false, "Water poured into tank must not be marked as wasting");
+
+  // 2. Pour outside tanks (e.g. x = 0.50, floor between tanks 2 & 3)
+  res = AdlKinematics.calculateWaterTankFill(res.reservoir, res.tanks, { x: 0.50, y: 0.3 }, 1.0, 30.0);
+  assert.strictEqual(res.filledTankIndex, -1, "Hand between tanks does not fill any tank");
+  assert.strictEqual(res.isWasting, true, "Water poured outside tanks wastes to floor");
+  assert.strictEqual(res.reservoir, 490.0, "Wasted water depletes reservoir to 490%");
+
+  // 3. Fill all 4 tanks to 100%
+  const fullTanks = [{ level: 100 }, { level: 100 }, { level: 100 }, { level: 100 }];
+  res = AdlKinematics.calculateWaterTankFill(100.0, fullTanks, { x: 0.15, y: 0.3 }, 0.1, 30.0);
+  assert.strictEqual(res.allFull, true, "When all 4 tanks have 100% water, allFull must be true");
+});
+
+// --- TEST 11: TASK 7 (CLEAN WINDOW DUST): SCRUBBING & ≥90% CLEAR COMPLETION ---
+test("Task 7 (Clean Window Dust): Index Finger Dust Scrubbing & ≥90% Threshold", () => {
+  // Create 10 mock dust cells (all at opacity 1.0)
+  const cells = [];
+  for (let i = 0; i < 10; i++) {
+    cells.push({ x: 100 + i * 20, y: 200, opacity: 1.0 });
+  }
+
+  // 1. Wipe first 5 cells with index cursor at (140, 200) with radius 50
+  const wipe1 = AdlKinematics.calculateGlassCleaning(cells, { x: 140, y: 200 }, 50);
+  const wipedCells = wipe1.cells.filter((c) => c.opacity < 1.0);
+  assert(wipedCells.length >= 4, "Scrubbing must reduce opacity of nearby dust cells");
+
+  // 2. Mock 9 out of 10 cells cleared (opacity <= 0.20)
+  const mostlyCleanCells = cells.map((c, idx) => ({
+    ...c,
+    opacity: idx < 9 ? 0.05 : 0.95,
+  }));
+  const wipeComplete = AdlKinematics.calculateGlassCleaning(mostlyCleanCells, { x: 0, y: 0 }, 1);
+  assert.strictEqual(wipeComplete.clearedCount, 9, "9 of 10 cells cleared");
+  assert.strictEqual(wipeComplete.clearedPct, 90, "Cleared percentage should be 90%");
+  assert.strictEqual(wipeComplete.isComplete, true, "≥90% cleared must mark task complete");
+});
+
+// --- TEST 12: TASK 4 (PIN PAD): STEP 6 SIDE CONFIRM BUTTON HIT DETECTION ---
+test("Task 4 (PIN Pad): Step 6 Side Confirm Button Hit Detection", () => {
+  const confirmBox = { x: 0.82, y: 0.50, w: 0.15, h: 0.10 };
+
+  // Cursor directly on confirm button
+  const hitCenter = AdlKinematics.calculatePinConfirmHit({ x: 0.82, y: 0.50 }, confirmBox);
+  assert.strictEqual(hitCenter, true, "Cursor at confirm button center must register hit");
+
+  // Cursor inside confirm button edge
+  const hitEdge = AdlKinematics.calculatePinConfirmHit({ x: 0.87, y: 0.53 }, confirmBox);
+  assert.strictEqual(hitEdge, true, "Cursor inside confirm bounds must register hit");
+
+  // Cursor outside confirm button (left side)
+  const missOutside = AdlKinematics.calculatePinConfirmHit({ x: 0.50, y: 0.50 }, confirmBox);
+  assert.strictEqual(missOutside, false, "Cursor on keypad must not hit side confirm button");
+});
+
 console.log("\n-------------------------------------------------");
 console.log(`SUMMARY: ${passed} / ${total} TESTS PASSED (${Math.round((passed / total) * 100)}%)`);
 console.log("-------------------------------------------------");

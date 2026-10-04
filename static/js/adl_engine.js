@@ -28,7 +28,9 @@ if (typeof document !== "undefined") {
   let currentTask = "menu";
   let currentStepIndex = 0;
   let repsCompleted = 0;
-  const targetReps = 3;
+  let targetReps = 3;
+  let sessionTimerInterval = null;
+  let taskElapsedSeconds = 0;
   let handPos = { x: 0.5, y: 0.5 };
   let wristData = null;
   let tasksCompleted = 0;
@@ -87,32 +89,29 @@ if (typeof document !== "undefined") {
   let calibTimer = null;
   let calibSamples = [];
 
-  // 1. Balloon Air Pump States
+  // 1. Balloon Air Pump States (Left Balloon, Right Pumper, Dual Gesture Detection)
   let balloonLevel = 0; // 0 to 100%
-  let balloonHandOpen = false;
+  let balloonHandOpen = true; // Primed for initial squeeze
   let balloonFullStartTime = null;
   let balloonPopped = false;
   let balloonPopTime = 0;
   let balloonParticles = [];
   let balloonPumps = 0;
   let lastPumpActionTime = 0;
+  let pumpPlungerOffset = 0;
 
-  // 2. 4-Tank Water Reaction Game States
+  // 2. 🚰 4-Tank Water Filling States (Bottom 4 Tanks, 550% Hand Reservoir)
   let waterTanks = [
-    { level: 0, secured: false, overflowAlerted: false },
-    { level: 0, secured: false, overflowAlerted: false },
-    { level: 0, secured: false, overflowAlerted: false },
-    { level: 0, secured: false, overflowAlerted: false },
+    { level: 0 },
+    { level: 0 },
+    { level: 0 },
+    { level: 0 },
   ];
-  let activeTankIndex = 0;
-  let tankActivationTime = performance.now();
-  let tanksSecuredCount = 0;
+  let waterHandReservoir = 550.0; // 550% capacity in patient's reservoir
   let waterSplashParticles = [];
-  let tankFillSpeed = 12.0; // % per second (gentle pace for seniors)
-  let lastTankPressTime = 0;
+  let waterFloorSplashes = [];
   let lastTankTime = performance.now();
-  let tankDwellTarget = -1;
-  let tankDwellStart = 0;
+  let tanksCompletedAnnounced = false;
 
   // 5. 🫗 Pour the Water Game States (Pronation / Supination Biomechanics)
   let pourGlassLevel = 0; // 0 to 1.15 (0% to 115%)
@@ -134,6 +133,39 @@ if (typeof document !== "undefined") {
   let shelfParticles = [];
   let shelfSteamTime = 0;
   let shelfDropAlerted = false;
+
+  // 7. 🪟 Clean Window Dust States
+  let cleanGlassCells = [];
+  const CLEAN_GLASS_COLS = 28;
+  const CLEAN_GLASS_ROWS = 18;
+  let cleanGlassClearedCount = 0;
+  let cleanGlassClearedPct = 0;
+  let cleanGlassSparkles = [];
+  let cleanGlassCompleted = false;
+  let cleanGlassCompletedTime = 0;
+
+  function initCleanGlassCells() {
+    cleanGlassCells = [];
+    cleanGlassClearedCount = 0;
+    cleanGlassClearedPct = 0;
+    cleanGlassCompleted = false;
+    cleanGlassSparkles = [];
+    for (let r = 0; r < CLEAN_GLASS_ROWS; r++) {
+      for (let c = 0; c < CLEAN_GLASS_COLS; c++) {
+        cleanGlassCells.push({
+          row: r,
+          col: c,
+          opacity: 1.0,
+          cleared: false,
+        });
+      }
+    }
+  }
+  initCleanGlassCells();
+
+  // PIN Pad States (Side Confirm Button in Step 6, default 5 sets)
+  let pinConfirmHovered = false;
+  let pinConfirmDwellStart = 0;
 
   // Randomized 4-digit PIN generator for cognitive-motor index finger tapping
   function generateRandomPin() {
@@ -180,28 +212,28 @@ if (typeof document !== "undefined") {
   });
   resizeCanvas();
 
-  // --- 6-Step Clinical Protocol Definitions for 4 Core Tasks ---
+  // --- 6-Step Clinical Protocol Definitions for 7 Tasks ---
   const ADL_TASKS = {
     balloon: {
       name: "🎈 Balloon Air Pump",
       steps: [
-        { name: "Neutral Rest", desc: "Hand relaxed at ready base" },
-        { name: "Open Hand", desc: "Spread fingers wide for air intake" },
-        { name: "Clench Fist", desc: "Squeeze tight fist to pump air" },
-        { name: "Fill to 100%", desc: "Pump repeatedly until bar is full" },
+        { name: "Neutral Ready", desc: "Hand open facing air pump" },
+        { name: "Air Intake", desc: "Open fingers wide to draw air into pump" },
+        { name: "Clench to Pump", desc: "Squeeze tight fist to compress cylinder" },
+        { name: "Fill to 100%", desc: "Repeatedly squeeze fist until meter is 100%" },
         { name: "5s Caution Hold", desc: "Hold steady 5s — DO NOT over-pump!" },
         { name: "Rep Complete", desc: "Relax hand to complete rep" },
       ],
     },
     watertanks: {
-      name: "🚰 4-Tank Water Reaction",
+      name: "🚰 4-Tank Water Filling",
       steps: [
-        { name: "Neutral Rest", desc: "Hand poised at ready base" },
-        { name: "Tank 1 Reaction", desc: "Spot active filling tank & tap button" },
-        { name: "Tank 2 Reaction", desc: "Fast tap on next filling tank" },
-        { name: "Tank 3 Reaction", desc: "Fast tap on next filling tank" },
-        { name: "Tank 4 Reaction", desc: "Fast tap on next filling tank" },
-        { name: "All Tanks Secured", desc: "Return hand to home base" },
+        { name: "Neutral Poise", desc: "Hold 550% reservoir poised above tanks" },
+        { name: "Fill Tank 1", desc: "Stream water into first tank to 100%" },
+        { name: "Fill Tank 2", desc: "Move stream over second tank to 100%" },
+        { name: "Fill Tank 3", desc: "Move stream over third tank to 100%" },
+        { name: "Fill Tank 4", desc: "Move stream over fourth tank to 100%" },
+        { name: "All Tanks Full", desc: "All 4 tanks at 100% — Lab complete!" },
       ],
     },
     light: {
@@ -218,12 +250,12 @@ if (typeof document !== "undefined") {
     pin: {
       name: "🔢 Touchless PIN Pad",
       steps: [
-        { name: "Neutral Rest", desc: "Hand poised in front" },
+        { name: "Neutral Ready", desc: "Hand poised in front of keypad" },
         { name: "Enter Digit 1", desc: "Tap random digit with index finger" },
         { name: "Enter Digit 2", desc: "Tap random digit with index finger" },
         { name: "Enter Digit 3", desc: "Tap random digit with index finger" },
         { name: "Enter Digit 4", desc: "Tap random digit with index finger" },
-        { name: "Code Confirmed", desc: "Retract hand to complete rep" },
+        { name: "Tap Confirm", desc: "Tap side [ ✅ CONFIRM ] button to finish set" },
       ],
     },
     pour: {
@@ -246,6 +278,17 @@ if (typeof document !== "undefined") {
         { name: "Anti-Gravity Lift", desc: "Lift arm upward toward upper shelf" },
         { name: "Align at Shelf", desc: "Hold mug steady inside the shelf slot" },
         { name: "Release to Place", desc: "Open hand wide to set mug on shelf" },
+      ],
+    },
+    cleanglass: {
+      name: "🪟 Clean Window Dust",
+      steps: [
+        { name: "Neutral Ready", desc: "Raise index finger toward dusty window" },
+        { name: "Initial Wipe", desc: "Rub circular strokes on upper dusty area" },
+        { name: "Center Scrub", desc: "Clean heavy white dust across center" },
+        { name: "Wide Perimeters", desc: "Wipe perimeter corners clear of dust" },
+        { name: "Detail Scrub", desc: "Clear remaining dust patches on glass" },
+        { name: "Crystal Clean", desc: "Glass is crystal clear (≥90% clear)" },
       ],
     },
   };
@@ -540,6 +583,43 @@ if (typeof document !== "undefined") {
           `;
           break;
       }
+    } else if (taskKey === "cleanglass") {
+      switch (stepIndex) {
+        case 0:
+          body = `
+            <rect x="18" y="14" width="64" height="52" rx="4" fill="#1E293B" stroke="${dots}" stroke-width="1.5"/>
+            <rect x="22" y="18" width="56" height="44" rx="2" fill="rgba(241,245,249,0.85)"/>
+            <line x1="50" y1="18" x2="50" y2="62" stroke="#475569" stroke-width="1.5"/>
+            <line x1="22" y1="40" x2="78" y2="40" stroke="#475569" stroke-width="1.5"/>
+            <circle cx="50" cy="72" r="4" fill="${dots}"/>
+          `;
+          break;
+        case 1:
+        case 2:
+        case 3:
+        case 4:
+          body = `
+            <rect x="18" y="14" width="64" height="52" rx="4" fill="#0F172A" stroke="${dots}" stroke-width="1.5"/>
+            <rect x="22" y="18" width="56" height="44" rx="2" fill="rgba(241,245,249,0.35)"/>
+            <line x1="50" y1="18" x2="50" y2="62" stroke="#334155" stroke-width="1"/>
+            <line x1="22" y1="40" x2="78" y2="40" stroke="#334155" stroke-width="1"/>
+            <path d="M 32 28 Q 50 22 65 32 Q 48 46 34 40" stroke="${amber}" stroke-width="3" fill="none" stroke-linecap="round"/>
+            <circle cx="65" cy="32" r="5" fill="${green}"/>
+            <circle cx="65" cy="32" r="9" fill="none" stroke="${dots}" stroke-width="1.5"/>
+            <text x="50" y="74" font-size="8" fill="${amber}" font-weight="bold" text-anchor="middle">SCRUB</text>
+          `;
+          break;
+        case 5:
+          body = `
+            <rect x="18" y="14" width="64" height="52" rx="4" fill="#0284C7" stroke="${green}" stroke-width="2"/>
+            <rect x="22" y="18" width="56" height="44" rx="2" fill="rgba(56, 189, 248, 0.25)"/>
+            <line x1="50" y1="18" x2="50" y2="62" stroke="rgba(255,255,255,0.4)" stroke-width="1.5"/>
+            <line x1="22" y1="40" x2="78" y2="40" stroke="rgba(255,255,255,0.4)" stroke-width="1.5"/>
+            <path d="M 40 42 L 48 50 L 62 34" stroke="${green}" stroke-width="3" fill="none" stroke-linecap="round"/>
+            <text x="50" y="74" font-size="8" font-weight="bold" fill="${green}" text-anchor="middle">CLEAN! ✨</text>
+          `;
+          break;
+      }
     }
 
     return `<svg viewBox="0 0 100 80" xmlns="http://www.w3.org/2000/svg" style="background:${bg}; border-radius:6px; display:block;">
@@ -593,8 +673,17 @@ if (typeof document !== "undefined") {
       if (currentTask === "pin" && currentStepIndex >= 1 && currentStepIndex <= 4) {
         const targetDigit = randomPin[currentStepIndex - 1];
         stepEl.textContent = `Step ${currentStepIndex + 1}: Tap Digit [ ${targetDigit} ] (Index Finger)`;
-      } else if (currentTask === "watertanks" && currentStepIndex >= 1 && currentStepIndex <= 4) {
-        stepEl.textContent = `Step ${currentStepIndex + 1}: Shut Filling Tank ${activeTankIndex + 1}!`;
+      } else if (currentTask === "pin" && currentStepIndex === 5) {
+        stepEl.textContent = `Step 6: Tap [ ✅ CONFIRM ] Button on Side!`;
+      } else if (currentTask === "watertanks") {
+        const fullCount = waterTanks.filter(t => t.level >= 100).length;
+        if (fullCount >= 4) {
+          stepEl.textContent = `Step 6: All 4 Tanks 100% Full! Complete!`;
+        } else {
+          stepEl.textContent = `Step ${fullCount + 1}: Fill Tank ${fullCount + 1} to 100% (${fullCount}/4 Full)`;
+        }
+      } else if (currentTask === "cleanglass") {
+        stepEl.textContent = `Step ${currentStepIndex + 1}: Clean Window Dust (${Math.round(cleanGlassClearedPct)}% Cleared)`;
       } else if (currentTask === "balloon" && currentStepIndex === 4) {
         stepEl.textContent = `Step 5: ⚠️ CAUTION: Hold Steady 5s (DO NOT PUMP!)`;
       } else if (currentTask === "cupshelf") {
@@ -665,29 +754,30 @@ if (typeof document !== "undefined") {
     dwellTarget = -1;
     dwellStart = 0;
     lastPinPressTime = 0;
+    pinConfirmHovered = false;
+    pinConfirmDwellStart = 0;
 
     // Balloon Task reset
     balloonLevel = 0;
-    balloonHandOpen = false;
+    balloonHandOpen = true; // Primed for first clench
     balloonFullStartTime = null;
     balloonPopped = false;
     balloonParticles = [];
     balloonPumps = 0;
+    pumpPlungerOffset = 0;
 
     // Water Tanks reset
     waterTanks = [
-      { level: 0, secured: false, overflowAlerted: false },
-      { level: 0, secured: false, overflowAlerted: false },
-      { level: 0, secured: false, overflowAlerted: false },
-      { level: 0, secured: false, overflowAlerted: false },
+      { level: 0 },
+      { level: 0 },
+      { level: 0 },
+      { level: 0 },
     ];
-    activeTankIndex = Math.floor(Math.random() * 4);
-    tankActivationTime = performance.now();
-    tanksSecuredCount = 0;
+    waterHandReservoir = 550.0;
     waterSplashParticles = [];
+    waterFloorSplashes = [];
     lastTankTime = performance.now();
-    tankDwellTarget = -1;
-    tankDwellStart = 0;
+    tanksCompletedAnnounced = false;
 
     // Pour the Water reset
     pourGlassLevel = 0;
@@ -705,21 +795,24 @@ if (typeof document !== "undefined") {
     shelfCupPos = null;
     shelfParticles = [];
     shelfDropAlerted = false;
+
+    // Clean Window Dust reset
+    initCleanGlassCells();
   }
 
-  // --- Guidance Popup Content & 10s Inactivity Re-trigger (6 Clinical Tasks) ---
+  // --- Guidance Popup Content & 10s Inactivity Re-trigger (7 Clinical Tasks) ---
   const ADL_GUIDES = {
     balloon: {
       title: "🎈 Balloon Air Pump",
       what: "Pump the balloon to 100% by opening and closing your hand, then hold steady 5s.",
-      how: "Spread fingers wide to intake air, then squeeze a tight fist to pump. Once 100%, hold still for 5 seconds — DO NOT pump again or it pops!",
+      how: "Spread fingers wide to intake air into the right cylinder pump, then clench a tight fist to pump air through the connecting hose into the left balloon. Once 100%, hold still for 5 seconds — DO NOT pump again or it pops!",
       tip: "Retrains repetitive finger extension & flexion coordination, grip control, and response inhibition.",
     },
     watertanks: {
-      title: "🚰 4-Tank Water Reaction",
-      what: "Quickly tap the button of whichever water tank starts filling.",
-      how: "Watch the 4 tanks. When a tank starts filling with water, quickly reach and tap its shutoff button with your index finger.",
-      tip: "Retrains rapid visual-motor reaction speed, targeted index pointing, and spatial reach.",
+      title: "🚰 4-Tank Water Filling",
+      what: "Fill all 4 bottom tanks to 100% using your 550% hand water reservoir.",
+      how: "Move your hand over each of the 4 tanks at the bottom. Water streams down into whichever tank you hover above. Fill each to 100%. If you pour outside tanks, water spills realistically.",
+      tip: "Retrains targeted spatial positioning, sustained arm reach, and bilateral coordination.",
     },
     light: {
       title: "💡 Rocker Light Switch",
@@ -729,8 +822,8 @@ if (typeof document !== "undefined") {
     },
     pin: {
       title: "🔢 Touchless PIN Pad",
-      what: "Tap the 4 randomly announced numbers in order.",
-      how: "Listen to each random number and reach to tap it directly using your index fingertip.",
+      what: "Tap the 4 random digits in order, then tap the side Confirm button (5 sets).",
+      how: "Listen to each random number and reach to tap it directly using your index fingertip. Once all 4 digits are in, tap the side [ ✅ CONFIRM ] button to complete each set. Complete 5 sets.",
       tip: "Retrains cognitive-motor sequence targeting and index finger precision.",
     },
     pour: {
@@ -744,6 +837,12 @@ if (typeof document !== "undefined") {
       what: "Pick up the mug from the table, lift it up to the cupboard shelf, and release it.",
       how: "1. Reach hand down over the mug and clench into a fist ✊ to grasp.\n2. Smoothly lift your arm upward against gravity toward the upper shelf.\n3. Align the cup into the glowing shelf target slot.\n4. Open your hand wide 🖐️ to place it securely on the shelf.",
       tip: "Retrains anti-gravity shoulder elevation, elbow flexion/extension, and coordinated grasp-to-release (ARAT protocol).",
+    },
+    cleanglass: {
+      title: "🪟 Clean Window Dust",
+      what: "Wipe heavy white dust off the large glass window using your index finger.",
+      how: "Use smooth wiping and scrubbing motions with your index finger across the window pane to rub away the heavy white dust until the window is crystal clear (≥90% clear).",
+      tip: "Retrains active shoulder flexion, elbow extension, and horizontal adduction/abduction across a large functional reach workspace.",
     },
   };
 
@@ -961,7 +1060,7 @@ if (typeof document !== "undefined") {
     };
 
     if (currentTask === "balloon" && !adlPaused) {
-      processBalloonHandMotion(currentOpenness);
+      processBalloonHandMotion(currentOpenness, lm, handSize);
     }
 
     if (currentTask !== "menu") {
@@ -975,16 +1074,26 @@ if (typeof document !== "undefined") {
   }
 
   // --- Balloon Hand Open / Close Biomechanics Detection ---
-  function processBalloonHandMotion(openness) {
-    const openThreshold = calibClosed + 0.75 * (calibOpen - calibClosed);
-    const closeThreshold = calibClosed + 0.25 * (calibOpen - calibClosed);
+  function processBalloonHandMotion(openness, lm, handSize) {
+    let avgFingerCurl = 1.0;
+    if (lm && lm.length >= 21) {
+      const c1 = Math.hypot(lm[8].x - lm[5].x, lm[8].y - lm[5].y);
+      const c2 = Math.hypot(lm[12].x - lm[9].x, lm[12].y - lm[9].y);
+      const c3 = Math.hypot(lm[16].x - lm[13].x, lm[16].y - lm[13].y);
+      const c4 = Math.hypot(lm[20].x - lm[17].x, lm[20].y - lm[17].y);
+      avgFingerCurl = (c1 + c2 + c3 + c4) / 4 / (handSize || 0.1);
+    }
 
-    const isOpen = openness > openThreshold;
-    const isClosed = openness < closeThreshold;
+    const openThreshold = calibClosed + 0.65 * (calibOpen - calibClosed);
+    const closeThreshold = calibClosed + 0.35 * (calibOpen - calibClosed);
+
+    const isOpen = openness > Math.min(openThreshold, 1.50) || avgFingerCurl > 0.72;
+    const isClosed = openness < Math.max(closeThreshold, 1.25) || avgFingerCurl < 0.50;
 
     if (isOpen) {
       if (!balloonHandOpen) {
         balloonHandOpen = true;
+        pumpPlungerOffset = 0;
         if (balloonLevel < 100 && !balloonPopped) {
           if (window.RehabBio) window.RehabBio.playBeep(440, 0.04, 0.15);
         }
@@ -992,6 +1101,7 @@ if (typeof document !== "undefined") {
     } else if (isClosed && balloonHandOpen) {
       // Hand transition: was open, now closed into fist -> PUMP!
       balloonHandOpen = false;
+      pumpPlungerOffset = 32;
       triggerBalloonPump();
     }
   }
@@ -1308,6 +1418,12 @@ if (typeof document !== "undefined") {
 
   function stopAdl() {
     hideAdlGuidancePopup();
+    if (sessionTimerInterval) {
+      clearInterval(sessionTimerInterval);
+      sessionTimerInterval = null;
+    }
+    const timerDisplay = document.getElementById("adl-timer-display");
+    if (timerDisplay) timerDisplay.textContent = "00:00";
     if (currentTask !== "menu") {
       logSession();
     }
@@ -1483,10 +1599,30 @@ if (typeof document !== "undefined") {
     currentStepIndex = 0;
     repsCompleted = 0;
     tasksCompleted = 0;
+    if (selectedTask === "pin") {
+      targetReps = 5;
+    } else {
+      targetReps = 3;
+    }
+    if (repsEl) repsEl.textContent = `0 / ${targetReps}`;
     resetTaskVariables();
     startTime = performance.now();
     stepStartTime = performance.now();
     lastAdlActionTime = performance.now();
+
+    // Start live HUD stopwatch
+    if (sessionTimerInterval) clearInterval(sessionTimerInterval);
+    taskElapsedSeconds = 0;
+    const timerDisplay = document.getElementById("adl-timer-display");
+    if (timerDisplay) timerDisplay.textContent = "00:00";
+    sessionTimerInterval = setInterval(() => {
+      if (!adlPaused && currentTask !== "menu") {
+        taskElapsedSeconds++;
+        const mm = String(Math.floor(taskElapsedSeconds / 60)).padStart(2, "0");
+        const ss = String(taskElapsedSeconds % 60).padStart(2, "0");
+        if (timerDisplay) timerDisplay.textContent = `${mm}:${ss}`;
+      }
+    }, 1000);
 
     renderStepCards(selectedTask);
     updateStepCardsUI();
@@ -1559,13 +1695,22 @@ if (typeof document !== "undefined") {
       case "cupshelf":
         drawCupShelfTask(hx, hy);
         break;
+      case "cleanglass":
+        drawCleanGlassTask(hx, hy);
+        break;
     }
   }
 
-  // 1. 🎈 Balloon Air Pump Task
+  // 1. 🎈 Balloon Air Pump Task (Left Balloon, Right Pumper, Connecting Hose)
   function drawBalloonTask(hx, hy) {
     const w = gameCanvas.width, h = gameCanvas.height;
-    const cx = w * 0.5, cy = h * 0.46;
+    const bx = w * 0.28, by = h * 0.48; // Balloon on LEFT side
+    const px = w * 0.74, py = h * 0.50; // Mechanical Pumper on RIGHT side
+
+    // Smoothly return plunger offset
+    if (pumpPlungerOffset > 0) {
+      pumpPlungerOffset = Math.max(0, pumpPlungerOffset - 1.5);
+    }
 
     // Update particles if popped
     if (balloonParticles.length > 0) {
@@ -1589,7 +1734,7 @@ if (typeof document !== "undefined") {
     }
 
     // Top Progress Gauge Bar
-    const barW = Math.min(420, w * 0.68);
+    const barW = Math.min(480, w * 0.72);
     const barH = 26;
     const barX = (w - barW) / 2;
     const barY = h * 0.09;
@@ -1645,7 +1790,6 @@ if (typeof document !== "undefined") {
       gCtx.fillText("DO NOT OPEN & CLOSE HAND — OVER-PUMP WILL POP!", w * 0.5, barY + barH + 50);
       gCtx.textAlign = "start";
 
-      // Check if 5-second hold completed successfully!
       if (elapsed >= 5000) {
         balloonFullStartTime = null;
         advanceStep();
@@ -1655,7 +1799,6 @@ if (typeof document !== "undefined") {
         showToast("🌟 Repetition complete! Balloon securely held without popping!", "success");
       }
     } else if (balloonPopped) {
-      // Popped alert banner
       gCtx.fillStyle = "rgba(239, 68, 68, 0.95)";
       gCtx.strokeStyle = "#FFFFFF";
       gCtx.lineWidth = 2;
@@ -1673,37 +1816,59 @@ if (typeof document !== "undefined") {
       gCtx.textAlign = "start";
     }
 
-    // Balloon Rendering
+    // Balloon metrics
+    const baseR = 36;
+    const maxExtraR = 74;
+    const currentR = baseR + (balloonLevel / 100) * maxExtraR;
+    const knotX = bx + 6;
+    const knotY = by + currentR + 4;
+    const hoseStartY = py + 55;
+    const hoseStartX = px - 18;
+
+    // 1. CONNECTING PNEUMATIC HOSE (Wire connecting right pumper to left balloon)
+    gCtx.save();
+    // Outer rubber hose
+    gCtx.strokeStyle = "#1E293B";
+    gCtx.lineWidth = 9;
+    gCtx.beginPath();
+    gCtx.moveTo(hoseStartX, hoseStartY);
+    gCtx.bezierCurveTo(px - 140, py + 120, bx + 120, knotY + 45, knotX, knotY);
+    gCtx.stroke();
+
+    // Inner glowing pneumatic core
+    gCtx.strokeStyle = balloonPumps > 0 ? "#38BDF8" : "#334155";
+    gCtx.lineWidth = 4;
+    gCtx.stroke();
+
+    // Animated Air Pulse Bubbles travelling along the hose
+    const hosePhase = (Date.now() / 20) % 60;
+    gCtx.strokeStyle = "#FFFFFF";
+    gCtx.lineWidth = 3;
+    gCtx.setLineDash([8, 18]);
+    gCtx.lineDashOffset = -hosePhase;
+    gCtx.stroke();
+    gCtx.setLineDash([]);
+    gCtx.restore();
+
+    // 2. BALLOON RENDERING (on LEFT side)
     if (!balloonPopped) {
-      const baseR = 36;
-      const maxExtraR = 74;
-      const currentR = baseR + (balloonLevel / 100) * maxExtraR;
-
-      // Balloon string
-      gCtx.strokeStyle = "#94A3B8";
-      gCtx.lineWidth = 2;
-      gCtx.beginPath();
-      gCtx.moveTo(cx, cy + currentR + 10);
-      gCtx.quadraticCurveTo(cx - 15, cy + currentR + 35, cx + 5, cy + currentR + 65);
-      gCtx.stroke();
-
+      gCtx.save();
       // Balloon knot
       gCtx.fillStyle = "#B91C1C";
       gCtx.beginPath();
-      gCtx.moveTo(cx - 8, cy + currentR + 10);
-      gCtx.lineTo(cx + 8, cy + currentR + 10);
-      gCtx.lineTo(cx, cy + currentR);
+      gCtx.moveTo(bx - 8, knotY);
+      gCtx.lineTo(bx + 8, knotY);
+      gCtx.lineTo(bx, by + currentR);
       gCtx.closePath();
       gCtx.fill();
 
       // Balloon body (oval)
-      gCtx.save();
       const bGrad = gCtx.createRadialGradient(
-        cx - currentR * 0.3,
-        cy - currentR * 0.35,
+        bx - currentR * 0.3,
+        by - currentR * 0.35,
         currentR * 0.1,
-        cx,
-        cy,
+        bx,
+        by,
         currentR
       );
       bGrad.addColorStop(0, "#F87171");
@@ -1712,15 +1877,15 @@ if (typeof document !== "undefined") {
 
       gCtx.fillStyle = bGrad;
       gCtx.beginPath();
-      gCtx.ellipse(cx, cy, currentR * 0.88, currentR, 0, 0, Math.PI * 2);
+      gCtx.ellipse(bx, by, currentR * 0.88, currentR, 0, 0, Math.PI * 2);
       gCtx.fill();
 
       // Shiny 3D highlight
       gCtx.fillStyle = "rgba(255, 255, 255, 0.45)";
       gCtx.beginPath();
       gCtx.ellipse(
-        cx - currentR * 0.36,
-        cy - currentR * 0.38,
+        bx - currentR * 0.36,
+        by - currentR * 0.38,
         currentR * 0.22,
         currentR * 0.32,
         -Math.PI / 6,
@@ -1728,14 +1893,96 @@ if (typeof document !== "undefined") {
         Math.PI * 2
       );
       gCtx.fill();
+
+      // Balloon Text Label
+      gCtx.font = "bold 13px Inter, sans-serif";
+      gCtx.fillStyle = "#FFFFFF";
+      gCtx.textAlign = "center";
+      gCtx.fillText("🎈 BALLOON", bx, by + 4);
       gCtx.restore();
     }
 
-    // Hand Status Pill
-    const handPillW = 270, handPillH = 34;
+    // 3. MECHANICAL AIR CYLINDER PUMPER (on RIGHT side)
+    gCtx.save();
+    // Base floor stand
+    gCtx.fillStyle = "#1E293B";
+    gCtx.strokeStyle = "#475569";
+    gCtx.lineWidth = 2;
+    gCtx.beginPath();
+    gCtx.roundRect(px - 44, py + 58, 88, 14, 6);
+    gCtx.fill();
+    gCtx.stroke();
+
+    // Pump Main Cylinder
+    const cylW = 48, cylH = 110;
+    const cylTopY = py - 46;
+    const cylGrad = gCtx.createLinearGradient(px - cylW / 2, cylTopY, px + cylW / 2, cylTopY);
+    cylGrad.addColorStop(0, "#475569");
+    cylGrad.addColorStop(0.3, "#94A3B8");
+    cylGrad.addColorStop(0.7, "#64748B");
+    cylGrad.addColorStop(1.0, "#334155");
+
+    gCtx.fillStyle = cylGrad;
+    gCtx.beginPath();
+    gCtx.roundRect(px - cylW / 2, cylTopY, cylW, cylH, 8);
+    gCtx.fill();
+    gCtx.strokeStyle = "#CBD5E1";
+    gCtx.lineWidth = 1.5;
+    gCtx.stroke();
+
+    // Pressure Gauge on Cylinder Side
+    const gaugeX = px + cylW / 2 + 12;
+    const gaugeY = cylTopY + 36;
+    gCtx.beginPath();
+    gCtx.arc(gaugeX, gaugeY, 14, 0, Math.PI * 2);
+    gCtx.fillStyle = "#0F172A";
+    gCtx.fill();
+    gCtx.strokeStyle = "#38BDF8";
+    gCtx.lineWidth = 2;
+    gCtx.stroke();
+    // Needle
+    const needleAngle = -Math.PI * 0.7 + (balloonLevel / 100) * Math.PI * 1.4;
+    gCtx.beginPath();
+    gCtx.moveTo(gaugeX, gaugeY);
+    gCtx.lineTo(gaugeX + Math.cos(needleAngle) * 10, gaugeY + Math.sin(needleAngle) * 10);
+    gCtx.strokeStyle = "#EF4444";
+    gCtx.lineWidth = 2;
+    gCtx.stroke();
+
+    // Cylinder Label
+    gCtx.font = "bold 9px monospace";
+    gCtx.fillStyle = "#E2E8F0";
+    gCtx.textAlign = "center";
+    gCtx.fillText("AIR PUMP", px, cylTopY + 50);
+    gCtx.font = "bold 11px monospace";
+    gCtx.fillStyle = "#38BDF8";
+    gCtx.fillText(`${balloonLevel}%`, px, cylTopY + 68);
+
+    // Piston Rod (moves down on fist clench)
+    const shaftH = 38 - (pumpPlungerOffset * 0.7);
+    const shaftTopY = cylTopY - shaftH;
+    gCtx.fillStyle = "#E2E8F0";
+    gCtx.fillRect(px - 4, shaftTopY, 8, shaftH);
+
+    // T-Handle Grip on Top of Plunger
+    gCtx.fillStyle = balloonHandOpen ? "#10B981" : "#F59E0B";
+    gCtx.strokeStyle = "#FFFFFF";
+    gCtx.lineWidth = 1.5;
+    gCtx.beginPath();
+    gCtx.roundRect(px - 32, shaftTopY - 12, 64, 12, 5);
+    gCtx.fill();
+    gCtx.stroke();
+
+    gCtx.font = "bold 9px Inter, sans-serif";
+    gCtx.fillStyle = "#070D18";
+    gCtx.fillText(balloonHandOpen ? "PULL UP" : "PUSH DOWN", px, shaftTopY - 3);
+    gCtx.restore();
+
+    // Bottom Hand Status Pill
+    const handPillW = 320, handPillH = 34;
     const handPillX = (w - handPillW) / 2;
     const handPillY = h * 0.84;
-    gCtx.fillStyle = "rgba(15, 23, 42, 0.85)";
+    gCtx.fillStyle = "rgba(15, 23, 42, 0.88)";
     gCtx.strokeStyle = balloonHandOpen ? "#10B981" : "#F59E0B";
     gCtx.lineWidth = 2;
     gCtx.beginPath();
@@ -1749,30 +1996,33 @@ if (typeof document !== "undefined") {
     if (balloonLevel >= 100) {
       gCtx.fillText("🛑 HOLD HAND STILL (DO NOT PUMP)", w * 0.5, handPillY + 22);
     } else if (balloonHandOpen) {
-      gCtx.fillText("✋ Hand OPEN (Air Drawn) → Clench FIST!", w * 0.5, handPillY + 22);
+      gCtx.fillText("🖐️ Hand OPEN (Air Intake) → Clench FIST ✊ to Pump!", w * 0.5, handPillY + 22);
     } else {
-      gCtx.fillText("✊ Fist Pumped → Open Fingers Wide!", w * 0.5, handPillY + 22);
+      gCtx.fillText("✊ Fist Pumped! Open Fingers Wide 🖐️ for Next Intake", w * 0.5, handPillY + 22);
     }
     gCtx.textAlign = "start";
   }
 
-  // 2. 🚰 4-Tank Water Reaction Game Task
+  // 2. 🚰 4-Tank Water Filling Task (550% Hand Reservoir, Bottom 4 Tanks)
   function drawWaterTanksTask(hx, hy) {
     const w = gameCanvas.width, h = gameCanvas.height;
+    const now = performance.now();
+    const dt = Math.min(0.08, (now - lastTankTime) / 1000);
+    lastTankTime = now;
 
-    // Splash particles
+    // Splash particles animation
     if (waterSplashParticles.length > 0) {
       waterSplashParticles.forEach((p) => {
         p.x += p.vx;
         p.y += p.vy;
-        p.vy += 0.3; // gravity
-        p.alpha -= 0.03;
+        p.vy += 0.35; // gravity
+        p.alpha -= 0.035;
       });
       waterSplashParticles = waterSplashParticles.filter((p) => p.alpha > 0);
       waterSplashParticles.forEach((p) => {
         gCtx.save();
         gCtx.globalAlpha = Math.max(0, p.alpha);
-        gCtx.fillStyle = "#38BDF8";
+        gCtx.fillStyle = p.color || "#38BDF8";
         gCtx.beginPath();
         gCtx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
         gCtx.fill();
@@ -1780,208 +2030,246 @@ if (typeof document !== "undefined") {
       });
     }
 
-    // Layout dimensions
-    const tankCentersX = [w * 0.18, w * 0.39, w * 0.61, w * 0.82];
-    const tankW = Math.min(84, w * 0.16);
-    const tankH = Math.min(130, h * 0.26);
-    const tankY = h * 0.38;
-    const buttonY = tankY + tankH + 38;
-    const buttonR = 25;
-    const mainPipeY = h * 0.16;
+    // Top Reservoir Gauge Bar
+    const barW = Math.min(500, w * 0.74);
+    const barH = 28;
+    const barX = (w - barW) / 2;
+    const barY = h * 0.08;
 
-    // Main Overhead Pipe
-    const pipeX1 = w * 0.10, pipeX2 = w * 0.90;
-    gCtx.fillStyle = "rgba(30, 41, 59, 0.9)";
+    gCtx.fillStyle = "rgba(15, 23, 42, 0.90)";
     gCtx.strokeStyle = "#38BDF8";
-    gCtx.lineWidth = 3;
+    gCtx.lineWidth = 2;
     gCtx.beginPath();
-    gCtx.roundRect(pipeX1, mainPipeY - 12, pipeX2 - pipeX1, 24, 6);
+    gCtx.roundRect(barX, barY, barW, barH, 14);
     gCtx.fill();
     gCtx.stroke();
 
-    // Animated water pulse in main pipe
-    const pulseOffset = (Date.now() / 15) % 40;
-    gCtx.strokeStyle = "rgba(56, 189, 248, 0.75)";
-    gCtx.lineWidth = 8;
-    gCtx.setLineDash([15, 12]);
-    gCtx.lineDashOffset = -pulseOffset;
-    gCtx.beginPath();
-    gCtx.moveTo(pipeX1 + 10, mainPipeY);
-    gCtx.lineTo(pipeX2 - 10, mainPipeY);
-    gCtx.stroke();
-    gCtx.setLineDash([]); // reset
-
-    // Pipe Title Banner
-    gCtx.font = "bold 13px Inter, sans-serif";
-    gCtx.fillStyle = "#E2E8F0";
-    gCtx.textAlign = "center";
-    gCtx.fillText("MAIN WATER SUPPLY CONDUIT", w * 0.5, mainPipeY - 18);
-
-    // Active Tank Reaction Prompt
-    gCtx.font = "bold 14px Inter, sans-serif";
-    gCtx.fillStyle = "#FBBF24";
-    gCtx.fillText(
-      `🚨 REACTION SPEED TRAINING: SHUT TANK ${activeTankIndex + 1} VALVE FAST! (Secured: ${tanksSecuredCount}/4)`,
-      w * 0.5,
-      mainPipeY + 34
-    );
-    gCtx.textAlign = "start";
-
-    // Fill active tank over time
-    const nowPerf = performance.now();
-    const dt = (nowPerf - lastTankTime) / 1000;
-    lastTankTime = nowPerf;
-
-    if (activeTankIndex >= 0 && activeTankIndex < 4) {
-      const tank = waterTanks[activeTankIndex];
-      tank.level += tankFillSpeed * dt;
-      if (tank.level >= 100) {
-        tank.level = 100;
-        if (!tank.overflowAlerted) {
-          tank.overflowAlerted = true;
-          showToast(`⚠️ Tank ${activeTankIndex + 1} overflowed!`, "danger");
-          if (window.RehabBio) window.RehabBio.playBuzz();
-        }
-      }
+    // Reservoir fill (max 550%)
+    const resPercent = Math.max(0, Math.min(1.0, waterHandReservoir / 550.0));
+    const resFillW = resPercent * (barW - 6);
+    if (resFillW > 0) {
+      const grad = gCtx.createLinearGradient(barX + 3, barY, barX + resFillW, barY);
+      grad.addColorStop(0, "#0284C7");
+      grad.addColorStop(0.5, "#38BDF8");
+      grad.addColorStop(1.0, "#60A5FA");
+      gCtx.fillStyle = grad;
+      gCtx.beginPath();
+      gCtx.roundRect(barX + 3, barY + 3, resFillW, barH - 6, 11);
+      gCtx.fill();
     }
 
-    // Draw the 4 Tanks
+    gCtx.font = "bold 13px Inter, monospace";
+    gCtx.fillStyle = "#FFFFFF";
+    gCtx.textAlign = "center";
+    gCtx.fillText(`💧 HAND RESERVOIR: ${Math.round(waterHandReservoir)}% / 550%`, w * 0.5, barY + 19);
+    gCtx.textAlign = "start";
+
+    // Auto-refill reservoir if user emptied it before all tanks full
+    if (waterHandReservoir <= 0) {
+      waterHandReservoir = 550.0;
+      showToast("💧 Hand reservoir refilled (+550%)! Keep pouring.", "info");
+    }
+
+    // Layout of 4 Bottom Tanks
+    const tankCentersX = [w * 0.15, w * 0.38, w * 0.62, w * 0.85];
+    const tankW = Math.min(108, w * 0.17);
+    const tankH = Math.min(150, h * 0.28);
+    const tankY = h * 0.62;
+
+    // Hand / Pitcher stream origin
+    const px = Math.max(40, Math.min(w - 40, hx));
+    const py = Math.max(50, Math.min(tankY - 45, hy));
+    const pourRate = 30.0; // 30% per second fill rate
+
+    // Determine if stream is hovering over any tank
+    let activeHoverTank = -1;
     for (let i = 0; i < 4; i++) {
       const cx = tankCentersX[i];
-      const isActive = i === activeTankIndex;
-      const isSecured = waterTanks[i].secured;
-      const level = waterTanks[i].level;
-
-      // Vertical sub-pipe from main conduit to tank
-      gCtx.fillStyle = "rgba(30, 41, 59, 0.9)";
-      gCtx.strokeStyle = isActive ? "#F59E0B" : "#64748B";
-      gCtx.lineWidth = isActive ? 2.5 : 1.5;
-      gCtx.fillRect(cx - 7, mainPipeY + 12, 14, tankY - (mainPipeY + 12));
-      gCtx.strokeRect(cx - 7, mainPipeY + 12, 14, tankY - (mainPipeY + 12));
-
-      // Falling water stream if active
-      if (isActive) {
-        gCtx.strokeStyle = "rgba(56, 189, 248, 0.85)";
-        gCtx.lineWidth = 8;
-        gCtx.setLineDash([8, 6]);
-        gCtx.lineDashOffset = -(Date.now() / 12) % 30;
-        gCtx.beginPath();
-        gCtx.moveTo(cx, mainPipeY + 12);
-        gCtx.lineTo(cx, tankY + tankH - (level / 100) * (tankH - 10));
-        gCtx.stroke();
-        gCtx.setLineDash([]);
+      if (Math.abs(px - cx) <= tankW / 2 + 10) {
+        activeHoverTank = i;
+        break;
       }
+    }
 
-      // Tank Container Body
+    // Water Stream Physics
+    const streamStartY = py + 26;
+    let streamEndY = h * 0.94; // floor default
+
+    if (activeHoverTank !== -1) {
+      const targetTank = waterTanks[activeHoverTank];
+      const waterSurfaceY = tankY + tankH - (targetTank.level / 100) * (tankH - 12);
+      streamEndY = waterSurfaceY;
+
+      // Fill tank & deplete reservoir
+      if (waterHandReservoir > 0) {
+        if (targetTank.level < 100) {
+          const fillDelta = Math.min(100 - targetTank.level, pourRate * dt);
+          targetTank.level += fillDelta;
+          waterHandReservoir = Math.max(0, waterHandReservoir - fillDelta);
+        } else {
+          // Tank already 100% full: water overflows
+          waterHandReservoir = Math.max(0, waterHandReservoir - pourRate * dt);
+        }
+
+        // Bubbles inside tank
+        for (let b = 0; b < 2; b++) {
+          waterSplashParticles.push({
+            x: px + (Math.random() - 0.5) * 16,
+            y: streamEndY,
+            vx: (Math.random() - 0.5) * 3,
+            vy: -2 - Math.random() * 3,
+            radius: 2 + Math.random() * 3,
+            color: "#60A5FA",
+            alpha: 0.9,
+          });
+        }
+      }
+    } else {
+      // Pouring outside tanks -> wastes realistically onto floor
+      if (waterHandReservoir > 0) {
+        waterHandReservoir = Math.max(0, waterHandReservoir - pourRate * dt);
+        // Floor splash particles
+        for (let b = 0; b < 2; b++) {
+          waterSplashParticles.push({
+            x: px + (Math.random() - 0.5) * 20,
+            y: streamEndY,
+            vx: (Math.random() - 0.5) * 4,
+            vy: -1 - Math.random() * 2,
+            radius: 2 + Math.random() * 2.5,
+            color: "#93C5FD",
+            alpha: 0.75,
+          });
+        }
+      }
+    }
+
+    // Draw cascading water stream
+    gCtx.save();
+    gCtx.strokeStyle = "rgba(56, 189, 248, 0.85)";
+    gCtx.lineWidth = 9;
+    gCtx.lineCap = "round";
+    gCtx.setLineDash([12, 8]);
+    gCtx.lineDashOffset = -(Date.now() / 10) % 20;
+    gCtx.beginPath();
+    gCtx.moveTo(px, streamStartY);
+    gCtx.lineTo(px, streamEndY);
+    gCtx.stroke();
+    gCtx.setLineDash([]);
+    gCtx.restore();
+
+    // Draw the 4 Bottom Tanks
+    let fullTanksCount = 0;
+    for (let i = 0; i < 4; i++) {
+      const cx = tankCentersX[i];
+      const tank = waterTanks[i];
+      const isFull = tank.level >= 100;
+      if (isFull) fullTanksCount++;
+      const isOver = activeHoverTank === i;
+
+      // Tank Body (Clear Acrylic Container)
+      gCtx.save();
       gCtx.fillStyle = "rgba(15, 23, 42, 0.82)";
-      gCtx.strokeStyle = isActive ? "#F59E0B" : isSecured ? "#10B981" : "#475569";
-      gCtx.lineWidth = isActive ? 3 : 2;
+      gCtx.strokeStyle = isFull ? "#10B981" : isOver ? "#38BDF8" : "#475569";
+      gCtx.lineWidth = isOver ? 3 : 2;
       gCtx.beginPath();
-      gCtx.roundRect(cx - tankW / 2, tankY, tankW, tankH, 8);
+      gCtx.roundRect(cx - tankW / 2, tankY, tankW, tankH, [6, 6, 12, 12]);
       gCtx.fill();
       gCtx.stroke();
+
+      // Measurement tick marks (25%, 50%, 75%, 100%)
+      gCtx.strokeStyle = "rgba(255, 255, 255, 0.25)";
+      gCtx.lineWidth = 1;
+      [0.25, 0.50, 0.75].forEach((frac) => {
+        const markY = tankY + tankH - frac * (tankH - 12);
+        gCtx.beginPath();
+        gCtx.moveTo(cx - tankW / 2 + 4, markY);
+        gCtx.lineTo(cx - tankW / 2 + 14, markY);
+        gCtx.stroke();
+      });
 
       // Water Level in Tank
-      const fillHeight = (level / 100) * (tankH - 8);
+      const fillHeight = (Math.min(100, tank.level) / 100) * (tankH - 12);
       if (fillHeight > 0) {
-        gCtx.save();
+        const waterTopY = tankY + tankH - fillHeight - 4;
+        const wGrad = gCtx.createLinearGradient(cx, waterTopY, cx, tankY + tankH);
+        if (isFull) {
+          wGrad.addColorStop(0, "#34D399");
+          wGrad.addColorStop(1, "#059669");
+        } else {
+          wGrad.addColorStop(0, "#38BDF8");
+          wGrad.addColorStop(1, "#1D4ED8");
+        }
+        gCtx.fillStyle = wGrad;
         gCtx.beginPath();
-        gCtx.roundRect(cx - tankW / 2 + 3, tankY + tankH - fillHeight - 3, tankW - 6, fillHeight, [0, 0, 6, 6]);
-        gCtx.fillStyle = isSecured ? "rgba(16, 185, 129, 0.75)" : "rgba(56, 189, 248, 0.75)";
+        gCtx.roundRect(cx - tankW / 2 + 4, waterTopY, tankW - 8, fillHeight, [3, 3, 8, 8]);
         gCtx.fill();
-        gCtx.restore();
-      }
 
-      // Tank Label
-      gCtx.font = "bold 12px monospace";
-      gCtx.fillStyle = isActive ? "#FBBF24" : "#94A3B8";
-      gCtx.textAlign = "center";
-      gCtx.fillText(`TANK ${i + 1}`, cx, tankY - 6);
-
-      // Percentage Text
-      gCtx.font = "bold 11px monospace";
-      gCtx.fillStyle = "#FFFFFF";
-      gCtx.fillText(`${Math.round(level)}%`, cx, tankY + tankH / 2);
-
-      // Status Badge
-      if (isSecured) {
-        gCtx.fillStyle = "#10B981";
-        gCtx.font = "bold 10px Inter, sans-serif";
-        gCtx.fillText("✅ SHUT", cx, tankY + 18);
-      } else if (isActive) {
-        gCtx.fillStyle = "#EF4444";
-        gCtx.font = "bold 10px Inter, sans-serif";
-        gCtx.fillText("⚠️ FILLING", cx, tankY + 18);
-      }
-
-      // Shutoff Valve Button
-      gCtx.beginPath();
-      gCtx.arc(cx, buttonY, buttonR, 0, Math.PI * 2);
-      gCtx.fillStyle = isActive ? "rgba(239, 68, 68, 0.9)" : "rgba(30, 41, 59, 0.85)";
-      gCtx.fill();
-      gCtx.strokeStyle = isActive ? "#FFFFFF" : isSecured ? "#10B981" : "#64748B";
-      gCtx.lineWidth = isActive ? 3 : 1.5;
-      gCtx.stroke();
-
-      // Active button pulsing ring
-      if (isActive) {
-        const pulseR = buttonR + 6 + Math.sin(Date.now() / 120) * 4;
+        // Water surface shine
+        gCtx.strokeStyle = isFull ? "#A7F3D0" : "#BAE6FD";
+        gCtx.lineWidth = 2;
         gCtx.beginPath();
-        gCtx.arc(cx, buttonY, pulseR, 0, Math.PI * 2);
-        gCtx.strokeStyle = "rgba(245, 158, 11, 0.6)";
-        gCtx.lineWidth = 2.5;
+        gCtx.moveTo(cx - tankW / 2 + 6, waterTopY);
+        gCtx.lineTo(cx + tankW / 2 - 6, waterTopY);
         gCtx.stroke();
       }
 
-      gCtx.font = "bold 11px Inter, sans-serif";
-      gCtx.fillStyle = "#FFFFFF";
-      gCtx.fillText(isActive ? "SHUT!" : isSecured ? "CLOSED" : "VALVE", cx, buttonY + 4);
-    }
-    gCtx.textAlign = "start";
-
-    // Index Fingertip Detection & Reticle
-    if (wristData && wristData.indexTip) {
-      const itx = wristData.indexTip.x * w, ity = wristData.indexTip.y * h;
-
-      // Reticle
-      gCtx.beginPath();
-      gCtx.arc(itx, ity, 13, 0, Math.PI * 2);
-      gCtx.strokeStyle = "#10B981";
-      gCtx.lineWidth = 2.5;
-      gCtx.stroke();
-
-      gCtx.font = "bold 10px Inter, sans-serif";
-      gCtx.fillStyle = "#10B981";
+      // Tank Header Label
+      gCtx.font = "bold 13px Inter, sans-serif";
+      gCtx.fillStyle = isFull ? "#34D399" : isOver ? "#38BDF8" : "#E2E8F0";
       gCtx.textAlign = "center";
-      gCtx.fillText("👆 TAP", itx, ity - 16);
-      gCtx.textAlign = "start";
+      gCtx.fillText(`TANK ${i + 1}`, cx, tankY - 10);
 
-      // Hit check on active tank button with 350ms dwell
-      const activeCx = tankCentersX[activeTankIndex];
-      const dist = Math.hypot(itx - activeCx, ity - buttonY);
-      if (dist < buttonR + 18) {
-        if (tankDwellTarget !== activeTankIndex) {
-          tankDwellTarget = activeTankIndex;
-          tankDwellStart = performance.now();
-        } else {
-          const dwellElapsed = performance.now() - tankDwellStart;
-          const dwellProg = Math.min(1.0, dwellElapsed / 350);
-          gCtx.beginPath();
-          gCtx.arc(activeCx, buttonY, buttonR + 8, -Math.PI / 2, -Math.PI / 2 + dwellProg * Math.PI * 2);
-          gCtx.strokeStyle = "#10B981";
-          gCtx.lineWidth = 4;
-          gCtx.stroke();
+      // Percentage Text
+      gCtx.font = "bold 14px monospace";
+      gCtx.fillStyle = "#FFFFFF";
+      gCtx.fillText(isFull ? "100% FULL ✅" : `${Math.round(tank.level)}%`, cx, tankY + tankH / 2);
+      gCtx.restore();
+    }
 
-          if (dwellElapsed >= 350) {
-            secureActiveTank();
-            tankDwellTarget = -1;
-          }
-        }
-      } else {
-        if (tankDwellTarget === activeTankIndex) {
-          tankDwellTarget = -1;
-        }
+    // Draw Water Dispenser Pitcher at hand position
+    gCtx.save();
+    gCtx.translate(px, py);
+    gCtx.fillStyle = "rgba(30, 41, 59, 0.92)";
+    gCtx.strokeStyle = "#38BDF8";
+    gCtx.lineWidth = 2;
+    gCtx.beginPath();
+    gCtx.roundRect(-22, -26, 44, 52, 8);
+    gCtx.fill();
+    gCtx.stroke();
+
+    // Spout at bottom
+    gCtx.fillStyle = "#38BDF8";
+    gCtx.beginPath();
+    gCtx.moveTo(-10, 26);
+    gCtx.lineTo(10, 26);
+    gCtx.lineTo(0, 34);
+    gCtx.closePath();
+    gCtx.fill();
+
+    // Pitcher Label
+    gCtx.font = "bold 9px Inter, sans-serif";
+    gCtx.fillStyle = "#FFFFFF";
+    gCtx.textAlign = "center";
+    gCtx.fillText("POURER", 0, -6);
+    gCtx.fillText(`💧 ${Math.round(waterHandReservoir)}%`, 0, 10);
+    gCtx.restore();
+
+    // Update Step Index dynamically based on tanks filled
+    currentStepIndex = Math.min(5, fullTanksCount);
+
+    // Completion Condition: All 4 Tanks 100% Full!
+    const allFull = fullTanksCount >= 4;
+    if (allFull && !tanksCompletedAnnounced) {
+      tanksCompletedAnnounced = true;
+      if (window.RehabBio) {
+        window.RehabBio.playRepChime();
+        window.RehabBio.speak("Outstanding! All 4 water tanks are 100% filled!");
       }
+      showToast("🎉 All 4 tanks 100% full! Outstanding job! Returning to menu...", "success");
+      advanceStep();
+      setTimeout(() => {
+        stopAdl();
+      }, 2600);
     }
   }
 
@@ -2058,7 +2346,7 @@ if (typeof document !== "undefined") {
     if (currentTargetDigit !== null) {
       gCtx.fillText(`👉 TAP DIGIT: [ ${currentTargetDigit} ] WITH INDEX FINGER`, w * 0.5, h * 0.08 + 24);
     } else {
-      gCtx.fillText("✅ CODE CONFIRMED! RETRACT HAND", w * 0.5, h * 0.08 + 24);
+      gCtx.fillText("👉 STEP 6: TAP [ ✅ CONFIRM ] BUTTON ON SIDE!", w * 0.5, h * 0.08 + 24);
     }
 
     // PIN Progress Display
@@ -2074,6 +2362,35 @@ if (typeof document !== "undefined") {
     gCtx.fillStyle = "#E2E8F0";
     gCtx.fillText(pinCodeDisplay, w * 0.5, h * 0.08 + 46);
     gCtx.textAlign = "start";
+
+    // Draw Side Confirm Button on Step 6
+    const confirmBox = { x: w * 0.82, y: h * 0.50, w: 140, h: 68 };
+    if (pinProgress >= 4) {
+      gCtx.save();
+      gCtx.fillStyle = pinConfirmHovered ? "rgba(16, 185, 129, 0.95)" : "rgba(5, 150, 105, 0.85)";
+      gCtx.strokeStyle = "#FFFFFF";
+      gCtx.lineWidth = pinConfirmHovered ? 3.5 : 2;
+      gCtx.beginPath();
+      gCtx.roundRect(confirmBox.x - confirmBox.w / 2, confirmBox.y - confirmBox.h / 2, confirmBox.w, confirmBox.h, 14);
+      gCtx.fill();
+      gCtx.stroke();
+
+      // Pulsing outer ring
+      const pulseR = 46 + Math.sin(Date.now() / 120) * 4;
+      gCtx.beginPath();
+      gCtx.arc(confirmBox.x, confirmBox.y, pulseR, 0, Math.PI * 2);
+      gCtx.strokeStyle = "rgba(16, 185, 129, 0.4)";
+      gCtx.lineWidth = 2.5;
+      gCtx.stroke();
+
+      gCtx.font = "bold 15px Inter, sans-serif";
+      gCtx.fillStyle = "#FFFFFF";
+      gCtx.textAlign = "center";
+      gCtx.fillText("✅ CONFIRM", confirmBox.x, confirmBox.y - 4);
+      gCtx.font = "bold 9px Inter, sans-serif";
+      gCtx.fillText("Hold / Tap to Submit", confirmBox.x, confirmBox.y + 16);
+      gCtx.restore();
+    }
 
     // Draw keypad buttons (keys at least 90px diameter, radius >= 45px)
     const keyRadius = Math.max(45, Math.min(52, w * 0.055));
@@ -2138,7 +2455,7 @@ if (typeof document !== "undefined") {
       gCtx.fillText("👆 INDEX", itx, ity - 16);
       gCtx.textAlign = "start";
 
-      // Check hit on target digit with smoothed cursor
+      // 1. Check hit on target digit with smoothed cursor
       if (currentTargetDigit !== null) {
         const targetIdx = padLabels.indexOf(String(currentTargetDigit));
         const targetPos = padPositions[targetIdx];
@@ -2171,6 +2488,256 @@ if (typeof document !== "undefined") {
           if (dwellTarget === targetIdx) dwellTarget = -1;
         }
       }
+
+      // 2. Check hit / dwell on Side Confirm button in Step 6
+      if (pinProgress >= 4) {
+        const isOverConfirm = (
+          itx >= confirmBox.x - confirmBox.w / 2 &&
+          itx <= confirmBox.x + confirmBox.w / 2 &&
+          ity >= confirmBox.y - confirmBox.h / 2 &&
+          ity <= confirmBox.y + confirmBox.h / 2
+        );
+
+        if (isOverConfirm) {
+          if (!pinConfirmHovered) {
+            pinConfirmHovered = true;
+            pinConfirmDwellStart = performance.now();
+          } else {
+            const dwellElapsed = performance.now() - pinConfirmDwellStart;
+            const dwellProg = Math.min(1.0, dwellElapsed / DWELL_MS);
+
+            // Dwell progress ring around confirm button
+            gCtx.beginPath();
+            gCtx.arc(confirmBox.x, confirmBox.y, 44, -Math.PI / 2, -Math.PI / 2 + dwellProg * Math.PI * 2);
+            gCtx.strokeStyle = "#FFFFFF";
+            gCtx.lineWidth = 4;
+            gCtx.stroke();
+
+            if (dwellElapsed >= DWELL_MS) {
+              pinConfirmHovered = false;
+              pinConfirmDwellStart = 0;
+              if (window.RehabBio) {
+                window.RehabBio.playRepChime();
+                window.RehabBio.speak("PIN code confirmed!");
+              }
+              showToast("🎉 PIN Confirmed! Set complete!", "success");
+              advanceStep();
+              randomPin = generateRandomPin();
+              pinProgress = 0;
+            }
+          }
+        } else {
+          pinConfirmHovered = false;
+        }
+      }
+    }
+  }
+
+  // 7. 🪟 Clean Window Dust Task (Large Window Scrubbing with Index Finger)
+  function drawCleanGlassTask(hx, hy) {
+    const w = gameCanvas.width, h = gameCanvas.height;
+
+    // Window dimensions
+    const winX = w * 0.12;
+    const winY = h * 0.15;
+    const winW = w * 0.76;
+    const winH = h * 0.68;
+
+    // Update & draw sparkles
+    if (cleanGlassSparkles.length > 0) {
+      cleanGlassSparkles.forEach((s) => {
+        s.x += s.vx;
+        s.y += s.vy;
+        s.alpha -= 0.03;
+      });
+      cleanGlassSparkles = cleanGlassSparkles.filter((s) => s.alpha > 0);
+      cleanGlassSparkles.forEach((s) => {
+        gCtx.save();
+        gCtx.globalAlpha = Math.max(0, s.alpha);
+        gCtx.fillStyle = s.color || "#FDE047";
+        gCtx.beginPath();
+        gCtx.arc(s.x, s.y, s.radius, 0, Math.PI * 2);
+        gCtx.fill();
+        gCtx.restore();
+      });
+    }
+
+    // Top HUD Progress Meter
+    const barW = Math.min(500, w * 0.74);
+    const barH = 28;
+    const barX = (w - barW) / 2;
+    const barY = h * 0.08;
+
+    gCtx.fillStyle = "rgba(15, 23, 42, 0.90)";
+    gCtx.strokeStyle = cleanGlassClearedPct >= 90 ? "#10B981" : "#38BDF8";
+    gCtx.lineWidth = 2;
+    gCtx.beginPath();
+    gCtx.roundRect(barX, barY, barW, barH, 14);
+    gCtx.fill();
+    gCtx.stroke();
+
+    // Fill
+    const fillW = Math.max(0, Math.min(1.0, cleanGlassClearedPct / 100.0)) * (barW - 6);
+    if (fillW > 0) {
+      const grad = gCtx.createLinearGradient(barX + 3, barY, barX + fillW, barY);
+      grad.addColorStop(0, "#38BDF8");
+      grad.addColorStop(0.7, "#10B981");
+      grad.addColorStop(1.0, "#34D399");
+      gCtx.fillStyle = grad;
+      gCtx.beginPath();
+      gCtx.roundRect(barX + 3, barY + 3, fillW, barH - 6, 11);
+      gCtx.fill();
+    }
+
+    gCtx.font = "bold 13px Inter, monospace";
+    gCtx.fillStyle = "#FFFFFF";
+    gCtx.textAlign = "center";
+    gCtx.fillText(`🪟 WINDOW DUST CLEANED: ${Math.round(cleanGlassClearedPct)}% / 100% (Target: ≥90%)`, w * 0.5, barY + 19);
+    gCtx.textAlign = "start";
+
+    // Draw Window Outer Frame & Bevel
+    gCtx.save();
+    gCtx.fillStyle = "#1E293B";
+    gCtx.strokeStyle = "#475569";
+    gCtx.lineWidth = 4;
+    gCtx.beginPath();
+    gCtx.roundRect(winX - 12, winY - 12, winW + 24, winH + 24, 12);
+    gCtx.fill();
+    gCtx.stroke();
+
+    // Clear Transparent Glass Background
+    const glassGrad = gCtx.createLinearGradient(winX, winY, winX + winW, winY + winH);
+    glassGrad.addColorStop(0, "rgba(186, 230, 253, 0.18)");
+    glassGrad.addColorStop(0.5, "rgba(224, 242, 254, 0.28)");
+    glassGrad.addColorStop(1, "rgba(186, 230, 253, 0.18)");
+    gCtx.fillStyle = glassGrad;
+    gCtx.fillRect(winX, winY, winW, winH);
+
+    // Cross Mullions dividing window into 4 panes
+    gCtx.fillStyle = "#334155";
+    gCtx.fillRect(winX + winW / 2 - 4, winY, 8, winH);
+    gCtx.fillRect(winX, winY + winH / 2 - 4, winW, 8);
+
+    // Draw Heavy White Dust Layer Grid
+    const cw = winW / CLEAN_GLASS_COLS;
+    const ch = winH / CLEAN_GLASS_ROWS;
+
+    cleanGlassCells.forEach((cell) => {
+      if (cell.opacity > 0.04) {
+        const cx = winX + cell.col * cw;
+        const cy = winY + cell.row * ch;
+        // Heavy chalky white dust
+        gCtx.fillStyle = `rgba(248, 250, 252, ${cell.opacity * 0.94})`;
+        gCtx.fillRect(cx, cy, cw + 0.5, ch + 0.5);
+      }
+    });
+
+    // Glass Diagonal Specular Glare (visible on clean portions)
+    gCtx.strokeStyle = "rgba(255, 255, 255, 0.15)";
+    gCtx.lineWidth = 14;
+    gCtx.beginPath();
+    gCtx.moveTo(winX + 30, winY + winH - 20);
+    gCtx.lineTo(winX + winW - 40, winY + 20);
+    gCtx.stroke();
+    gCtx.restore();
+
+    // Index Fingertip Cleaning Detection
+    const itx = wristData && wristData.smoothedCursor ? wristData.smoothedCursor.x * w : hx;
+    const ity = wristData && wristData.smoothedCursor ? wristData.smoothedCursor.y * h : hy;
+    const cleanRadius = 55;
+
+    // Check if cursor is on window
+    if (itx >= winX - 20 && itx <= winX + winW + 20 && ity >= winY - 20 && ity <= winY + winH + 20) {
+      // Clean cells within radius
+      cleanGlassCells.forEach((cell) => {
+        const cellCenterX = winX + cell.col * cw + cw / 2;
+        const cellCenterY = winY + cell.row * ch + ch / 2;
+        const d = Math.hypot(itx - cellCenterX, ity - cellCenterY);
+        if (d < cleanRadius) {
+          const wipeFactor = (1 - d / cleanRadius) * 0.40;
+          cell.opacity = Math.max(0, cell.opacity - wipeFactor);
+          if (cell.opacity <= 0.05 && !cell.cleared) {
+            cell.cleared = true;
+            cleanGlassClearedCount++;
+          }
+        }
+      });
+
+      // Recalculate percentage cleared
+      cleanGlassClearedPct = (cleanGlassClearedCount / cleanGlassCells.length) * 100.0;
+
+      // Add wipe sparkles around finger
+      if (Math.random() < 0.35) {
+        cleanGlassSparkles.push({
+          x: itx + (Math.random() - 0.5) * 40,
+          y: ity + (Math.random() - 0.5) * 40,
+          vx: (Math.random() - 0.5) * 2,
+          vy: (Math.random() - 0.5) * 2,
+          radius: 2 + Math.random() * 3,
+          color: Math.random() > 0.5 ? "#FDE047" : "#38BDF8",
+          alpha: 1.0,
+        });
+      }
+    }
+
+    // Draw Cleaning Reticle / Squeegee Pad at Index Fingertip
+    gCtx.save();
+    gCtx.beginPath();
+    gCtx.arc(itx, ity, cleanRadius, 0, Math.PI * 2);
+    gCtx.fillStyle = "rgba(56, 189, 248, 0.14)";
+    gCtx.fill();
+    gCtx.strokeStyle = "#38BDF8";
+    gCtx.lineWidth = 2;
+    gCtx.stroke();
+
+    // Finger Reticle Center Dot
+    gCtx.beginPath();
+    gCtx.arc(itx, ity, 8, 0, Math.PI * 2);
+    gCtx.fillStyle = "#10B981";
+    gCtx.fill();
+    gCtx.strokeStyle = "#FFFFFF";
+    gCtx.lineWidth = 2;
+    gCtx.stroke();
+
+    gCtx.font = "bold 11px Inter, sans-serif";
+    gCtx.fillStyle = "#FFFFFF";
+    gCtx.textAlign = "center";
+    gCtx.fillText("🪟 CLEANING", itx, ity - cleanRadius - 6);
+    gCtx.restore();
+
+    // Update step progression index based on percentage
+    if (cleanGlassClearedPct < 20) currentStepIndex = 0;
+    else if (cleanGlassClearedPct < 40) currentStepIndex = 1;
+    else if (cleanGlassClearedPct < 60) currentStepIndex = 2;
+    else if (cleanGlassClearedPct < 80) currentStepIndex = 3;
+    else if (cleanGlassClearedPct < 90) currentStepIndex = 4;
+    else currentStepIndex = 5;
+
+    // Completion Check (≥90% cleared)
+    if (cleanGlassClearedPct >= 90 && !cleanGlassCompleted) {
+      cleanGlassCompleted = true;
+      cleanGlassCompletedTime = performance.now();
+      // Burst celebration sparkles across the whole window!
+      for (let i = 0; i < 40; i++) {
+        cleanGlassSparkles.push({
+          x: winX + Math.random() * winW,
+          y: winY + Math.random() * winH,
+          vx: (Math.random() - 0.5) * 5,
+          vy: (Math.random() - 0.5) * 5,
+          radius: 3 + Math.random() * 4,
+          color: ["#FDE047", "#34D399", "#38BDF8", "#F472B6"][Math.floor(Math.random() * 4)],
+          alpha: 1.0,
+        });
+      }
+      if (window.RehabBio) {
+        window.RehabBio.playRepChime();
+        window.RehabBio.speak("Window is sparkling clean! Excellent shoulder and arm reach!");
+      }
+      showToast("🎉 Window is sparkling clean (≥90%)! Outstanding work! Returning to menu...", "success");
+      advanceStep();
+      setTimeout(() => {
+        stopAdl();
+      }, 2600);
     }
   }
 
@@ -2700,29 +3267,53 @@ if (typeof document !== "undefined") {
 
     if (currentTask === "balloon") {
       balloonHandOpen = true;
+      pumpPlungerOffset = 32;
       triggerBalloonPump();
     } else if (currentTask === "watertanks") {
       const tankCentersX = [
-        gameCanvas.width * 0.18,
-        gameCanvas.width * 0.39,
-        gameCanvas.width * 0.61,
-        gameCanvas.width * 0.82,
+        gameCanvas.width * 0.15,
+        gameCanvas.width * 0.38,
+        gameCanvas.width * 0.62,
+        gameCanvas.width * 0.85,
       ];
-      const buttonY = gameCanvas.height * 0.38 + Math.min(130, gameCanvas.height * 0.26) + 38;
-      const buttonR = 25;
+      const tankW = Math.min(108, gameCanvas.width * 0.17);
       const px = e.clientX - rect.left;
-      const py = e.clientY - rect.top;
 
       tankCentersX.forEach((cx, idx) => {
-        if (Math.hypot(px - cx, py - buttonY) < buttonR + 22) {
-          if (idx === activeTankIndex) {
-            secureActiveTank();
-          } else {
-            showToast(`⚠️ Tank ${idx + 1} is not filling! Shut Tank ${activeTankIndex + 1}!`, "warning");
+        if (Math.abs(px - cx) < tankW / 2 + 20) {
+          if (waterHandReservoir > 0 && waterTanks[idx].level < 100) {
+            const fillAmt = Math.min(25, 100 - waterTanks[idx].level);
+            waterTanks[idx].level += fillAmt;
+            waterHandReservoir = Math.max(0, waterHandReservoir - fillAmt);
+            showToast(`💧 Tank ${idx + 1}: ${Math.round(waterTanks[idx].level)}% full!`, "info");
           }
         }
       });
     } else if (currentTask === "pin") {
+      if (pinProgress >= 4) {
+        const confirmBox = { x: gameCanvas.width * 0.82, y: gameCanvas.height * 0.50, w: 140, h: 68 };
+        const px = e.clientX - rect.left;
+        const py = e.clientY - rect.top;
+        if (Math.abs(px - confirmBox.x) <= confirmBox.w / 2 && Math.abs(py - confirmBox.y) <= confirmBox.h / 2) {
+          if (window.RehabBio) {
+            window.RehabBio.playRepChime();
+            window.RehabBio.speak("PIN code confirmed!");
+          }
+          showToast("🎉 PIN Confirmed! Rep completed!", "success");
+          repsCompleted++;
+          pinProgress = 0;
+          generateRandomPin();
+          if (repsCompleted >= targetReps) {
+            showToast(`🏆 All ${targetReps} PIN sets completed! Returning to menu...`, "success");
+            setTimeout(() => { stopAdl(); }, 2000);
+          } else {
+            currentStepIndex = 1;
+            updateStepCardsUI();
+          }
+          return;
+        }
+      }
+
       padPositions.forEach((pos, i) => {
         if (Math.hypot(nx - pos.x, ny - pos.y) < 0.08) {
           if (currentStepIndex >= 1 && currentStepIndex <= 4 && padLabels[i] === String(randomPin[currentStepIndex - 1])) {
@@ -2754,6 +3345,16 @@ if (typeof document !== "undefined") {
         showToast("🎉 Mug safely placed on shelf!", "success");
         advanceStep();
       }
+    } else if (currentTask === "cleanglass") {
+      const px = e.clientX - rect.left;
+      const py = e.clientY - rect.top;
+      if (cleanGlassCells && cleanGlassCells.length > 0) {
+        cleanGlassCells.forEach((c) => {
+          if (Math.hypot(px - c.x, py - c.y) < 55) {
+            c.opacity = Math.max(0, c.opacity - 0.4);
+          }
+        });
+      }
     }
   });
 
@@ -2767,16 +3368,32 @@ if (typeof document !== "undefined") {
     if (!wristData) {
       wristData = {
         indexTip: handPos,
+        smoothedCursor: handPos,
         thumbTip: { x: handPos.x - 0.04, y: handPos.y },
         wrist: { x: handPos.x, y: handPos.y + 0.15 },
         knuckleAngle: 45,
       };
+    } else {
+      wristData.smoothedCursor = handPos;
+      wristData.indexTip = handPos;
+    }
+
+    if (currentTask === "cleanglass") {
+      const px = e.clientX - rect.left;
+      const py = e.clientY - rect.top;
+      if (cleanGlassCells && cleanGlassCells.length > 0) {
+        cleanGlassCells.forEach((c) => {
+          if (Math.hypot(px - c.x, py - c.y) < 55) {
+            c.opacity = Math.max(0, c.opacity - 0.35);
+          }
+        });
+      }
     }
   });
 
   // --- Telemetry Logging ---
   async function logSession() {
-    const duration = Math.floor((performance.now() - startTime) / 1000);
+    const duration = taskElapsedSeconds > 0 ? taskElapsedSeconds : Math.floor((performance.now() - startTime) / 1000);
     let finalScore = 100;
     let finalPeakRom = 85;
 
@@ -2788,7 +3405,8 @@ if (typeof document !== "undefined") {
       finalScore = Math.min(100, Math.round(balloonLevel));
       finalPeakRom = Math.round(currentOpenness * 45);
     } else if (currentTask === "watertanks") {
-      finalScore = Math.round((tanksSecuredCount / 4) * 100);
+      const fullCount = (waterTanks || []).filter((t) => t.level >= 100).length;
+      finalScore = Math.round((fullCount / 4) * 100);
       finalPeakRom = 80;
     } else if (currentTask === "light") {
       finalScore = switchOn ? 100 : 50;
@@ -2796,6 +3414,12 @@ if (typeof document !== "undefined") {
     } else if (currentTask === "pin") {
       finalScore = Math.round((pinProgress / 4) * 100);
       finalPeakRom = 75;
+    } else if (currentTask === "cleanglass") {
+      finalScore = Math.round(cleanGlassClearedPct || 0);
+      finalPeakRom = 85;
+    } else if (currentTask === "cupshelf") {
+      finalScore = shelfCupPlaced ? 100 : shelfCupGrasped ? 60 : 30;
+      finalPeakRom = 90;
     }
 
     try {
@@ -2897,6 +3521,87 @@ const AdlKinematics = {
       return { isOpen: false, isClosed: true, pumped: true, nextState: false };
     }
     return { isOpen: false, isClosed: false, pumped: false, nextState: wasOpen };
+  },
+  detectBalloonCurlPump(openness, avgFingerCurl, wasOpen, calibOpen = 1.9, calibClosed = 1.1) {
+    const openThreshold = calibClosed + 0.65 * (calibOpen - calibClosed);
+    const closeThreshold = calibClosed + 0.35 * (calibOpen - calibClosed);
+    const isOpen = openness > Math.min(openThreshold, 1.50) || avgFingerCurl > 0.72;
+    const isClosed = openness < Math.max(closeThreshold, 1.25) || avgFingerCurl < 0.50;
+
+    if (isOpen) {
+      return { isOpen: true, isClosed: false, pumped: false, nextState: true };
+    } else if (isClosed && wasOpen) {
+      return { isOpen: false, isClosed: true, pumped: true, nextState: false };
+    }
+    return { isOpen: false, isClosed: isClosed, pumped: false, nextState: wasOpen };
+  },
+  calculateWaterTankFill(reservoir, tanks, handPos, dt = 0.05, pourRate = 30.0) {
+    const tankCentersX = [0.15, 0.38, 0.62, 0.85];
+    const tankHalfWidth = 0.08;
+    let targetIndex = -1;
+
+    for (let i = 0; i < 4; i++) {
+      if (Math.abs(handPos.x - tankCentersX[i]) <= tankHalfWidth) {
+        targetIndex = i;
+        break;
+      }
+    }
+
+    const updatedTanks = tanks.map((t) => ({ ...t }));
+    let updatedReservoir = reservoir;
+    let isWasting = false;
+
+    if (targetIndex !== -1 && updatedReservoir > 0) {
+      const currentLevel = updatedTanks[targetIndex].level;
+      if (currentLevel < 100) {
+        const fillDelta = Math.min(100 - currentLevel, pourRate * dt);
+        updatedTanks[targetIndex].level = Math.min(100, currentLevel + fillDelta);
+        updatedReservoir = Math.max(0, updatedReservoir - fillDelta);
+      } else {
+        updatedReservoir = Math.max(0, updatedReservoir - pourRate * dt);
+      }
+    } else if (updatedReservoir > 0) {
+      isWasting = true;
+      updatedReservoir = Math.max(0, updatedReservoir - pourRate * dt);
+    }
+
+    const allFull = updatedTanks.filter((t) => t.level >= 100).length >= 4;
+    return {
+      reservoir: updatedReservoir,
+      tanks: updatedTanks,
+      filledTankIndex: targetIndex,
+      allFull,
+      isWasting,
+    };
+  },
+  calculateGlassCleaning(gridCells, cursorPos, radius = 55) {
+    if (!gridCells || gridCells.length === 0) {
+      return { clearedCount: 0, totalCount: 0, clearedPct: 100, isComplete: true };
+    }
+    const updated = gridCells.map((c) => {
+      const dist = Math.hypot(cursorPos.x - c.x, cursorPos.y - c.y);
+      if (dist < radius) {
+        return { ...c, opacity: Math.max(0, c.opacity - 0.4) };
+      }
+      return { ...c };
+    });
+    const clearedCount = updated.filter((c) => c.opacity <= 0.20).length;
+    const clearedPct = (clearedCount / updated.length) * 100;
+    return {
+      cells: updated,
+      clearedCount,
+      totalCount: updated.length,
+      clearedPct,
+      isComplete: clearedPct >= 90,
+    };
+  },
+  calculatePinConfirmHit(cursorPos, confirmBox = { x: 0.82, y: 0.50, w: 0.15, h: 0.10 }) {
+    return (
+      cursorPos.x >= confirmBox.x - confirmBox.w / 2 &&
+      cursorPos.x <= confirmBox.x + confirmBox.w / 2 &&
+      cursorPos.y >= confirmBox.y - confirmBox.h / 2 &&
+      cursorPos.y <= confirmBox.y + confirmBox.h / 2
+    );
   },
   getPalmCenter(lm) {
     if (!lm || lm.length < 21) return { x: 0.5, y: 0.5 };
