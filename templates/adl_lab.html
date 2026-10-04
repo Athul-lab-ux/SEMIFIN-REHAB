@@ -50,6 +50,29 @@
         </div>
       </div>
 
+      <!-- Hand Calibration Overlay -->
+      <div id="adl-calib-overlay" class="aircanvas-countdown-overlay" style="display:none;">
+        <div class="aco-box" style="max-width:440px; padding:28px;">
+          <div class="aco-label" id="calib-step-label">HAND CALIBRATION (STEP 1 OF 2)</div>
+          <div class="aco-num" id="calib-num">2</div>
+          <h3 id="calib-instruction" style="font-size:22px; margin:12px 0 6px; color:#FBBF24;">Open your hand wide</h3>
+          <p id="calib-hint" style="font-size:15px; color:#94A3B8; margin-bottom:16px;">Hold your hand open facing the camera.</p>
+          <div style="display:flex; justify-content:center; gap:12px;">
+            <button id="calib-skip-btn" class="clin-btn clin-btn-ghost" style="min-height:44px; padding:0 20px; font-size:16px;">Skip (Use Defaults)</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Light Switch Button Fallback -->
+      <div id="light-fallback-wrap" style="display:none; position:absolute; bottom:20px; left:50%; transform:translateX(-50%); z-index:25;">
+        <button id="light-fallback-btn" class="clin-btn clin-btn-primary" style="font-size:18px; padding:12px 28px; box-shadow:0 8px 24px rgba(0,0,0,0.5);">💡 Flip Switch (Tap Fallback)</button>
+      </div>
+
+      <!-- Balloon Try Again Fallback Button -->
+      <div id="balloon-tryagain-wrap" style="display:none; position:absolute; bottom:20px; left:50%; transform:translateX(-50%); z-index:25;">
+        <button id="balloon-tryagain-btn" class="clin-btn clin-btn-primary" style="font-size:18px; padding:12px 28px; box-shadow:0 8px 24px rgba(0,0,0,0.5);">🎈 Try Again</button>
+      </div>
+
       <!-- Paused Overlay -->
       <div id="adl-paused-overlay" class="aircanvas-paused-overlay">
         <div class="apo-box">

@@ -7,7 +7,8 @@
  * 4. 🔢 Touchless PIN Pad
  * Pure deterministic mathematics (no ML/DL guessing).
  */
-document.addEventListener("DOMContentLoaded", async () => {
+if (typeof document !== "undefined") {
+  document.addEventListener("DOMContentLoaded", async () => {
   const video = document.getElementById("video");
   const gameCanvas = document.getElementById("game-canvas");
   const gCtx = gameCanvas.getContext("2d");
@@ -75,6 +76,17 @@ document.addEventListener("DOMContentLoaded", async () => {
   let palmCenterHistory = [];
   let lastFlickTime = 0;
 
+  // Patient identity & persistent calibration
+  const activePatientId = localStorage.getItem("last_patient_id") || "SP_00001";
+  let calibOpen = parseFloat(localStorage.getItem("adl_calib_open_" + activePatientId)) || 1.9;
+  let calibClosed = parseFloat(localStorage.getItem("adl_calib_closed_" + activePatientId)) || 1.1;
+  let opennessHistory = [];
+  let currentOpenness = 1.5;
+  let sessionCalibrated = false;
+  let calibStep = 0; // 0: inactive, 1: open, 2: closed
+  let calibTimer = null;
+  let calibSamples = [];
+
   // 1. Balloon Air Pump States
   let balloonLevel = 0; // 0 to 100%
   let balloonHandOpen = false;
@@ -85,12 +97,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   let balloonPumps = 0;
   let lastPumpActionTime = 0;
 
-  // Calibration & Openness state
-  let calibOpen = parseFloat(localStorage.getItem("calibOpen")) || 1.9;
-  let calibClosed = parseFloat(localStorage.getItem("calibClosed")) || 1.1;
-  let opennessHistory = [];
-  let currentOpenness = 1.5;
-
   // 2. 4-Tank Water Reaction Game States
   let waterTanks = [
     { level: 0, secured: false, overflowAlerted: false },
@@ -99,19 +105,26 @@ document.addEventListener("DOMContentLoaded", async () => {
     { level: 0, secured: false, overflowAlerted: false },
   ];
   let activeTankIndex = 0;
-  let tankActivationTime = Date.now();
+  let tankActivationTime = performance.now();
   let tanksSecuredCount = 0;
   let waterSplashParticles = [];
-  let tankFillSpeed = 15.0; // % per second
+  let tankFillSpeed = 12.0; // % per second (gentle pace for seniors)
   let lastTankPressTime = 0;
   let lastTankTime = performance.now();
+  let tankDwellTarget = -1;
+  let tankDwellStart = 0;
 
-  // 5. 🫗 Pour the Water Game States
-  let pourGlassLevel = 0; // 0 to 100%
+  // 5. 🫗 Pour the Water Game States (Pronation / Supination Biomechanics)
+  let pourGlassLevel = 0; // 0 to 1.15 (0% to 115%)
   let pourTargetReached = false;
   let pourParticles = [];
   let lastPourTime = performance.now();
   let pourSpillAlerted = false;
+  let uprightAngle = 0;
+  let uprightCalibrated = false;
+  let smoothedPourTilt = 0;
+  let patientMaxFlow = 0.35; // 35% fill per second at full tilt (patient-adjustable)
+  let taskPeakRom = 0;
 
   // Randomized 4-digit PIN generator for cognitive-motor index finger tapping
   function generateRandomPin() {
@@ -133,10 +146,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   let dwellTarget = -1;
   const DWELL_MS = 350;
   const padPositions = [
-    { x: 0.38, y: 0.28 }, { x: 0.50, y: 0.28 }, { x: 0.62, y: 0.28 },
-    { x: 0.38, y: 0.45 }, { x: 0.50, y: 0.45 }, { x: 0.62, y: 0.45 },
-    { x: 0.38, y: 0.62 }, { x: 0.50, y: 0.62 }, { x: 0.62, y: 0.62 },
-    { x: 0.50, y: 0.78 },
+    { x: 0.34, y: 0.28 }, { x: 0.50, y: 0.28 }, { x: 0.66, y: 0.28 },
+    { x: 0.34, y: 0.45 }, { x: 0.50, y: 0.45 }, { x: 0.66, y: 0.45 },
+    { x: 0.34, y: 0.62 }, { x: 0.50, y: 0.62 }, { x: 0.66, y: 0.62 },
+    { x: 0.50, y: 0.79 },
   ];
   const padLabels = ["1","2","3","4","5","6","7","8","9","0"];
   let smoothedCursor = { x: 0.5, y: 0.5 };
@@ -516,8 +529,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // --- Advance to Next Step ---
   function advanceStep() {
-    lastAdlActionTime = Date.now();
-    stepStartTime = Date.now();
+    lastAdlActionTime = performance.now();
+    stepStartTime = performance.now();
     const taskInfo = ADL_TASKS[currentTask];
     if (!taskInfo) return;
 
@@ -562,6 +575,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     lastAnnouncedDigit = null;
     pinProgress = 0;
     dwellTarget = -1;
+    dwellStart = 0;
+    lastPinPressTime = 0;
 
     // Balloon Task reset
     balloonLevel = 0;
@@ -579,10 +594,12 @@ document.addEventListener("DOMContentLoaded", async () => {
       { level: 0, secured: false, overflowAlerted: false },
     ];
     activeTankIndex = Math.floor(Math.random() * 4);
-    tankActivationTime = Date.now();
+    tankActivationTime = performance.now();
     tanksSecuredCount = 0;
     waterSplashParticles = [];
     lastTankTime = performance.now();
+    tankDwellTarget = -1;
+    tankDwellStart = 0;
 
     // Pour the Water reset
     pourGlassLevel = 0;
@@ -590,6 +607,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     pourParticles = [];
     lastPourTime = performance.now();
     pourSpillAlerted = false;
+    smoothedPourTilt = 0;
+    taskPeakRom = 0;
   }
 
   // --- Guidance Popup Content & 10s Inactivity Re-trigger (5 Clinical Tasks) ---
@@ -729,6 +748,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   function onHandResults(results) {
     if (!results.multiHandLandmarks || results.multiHandLandmarks.length === 0) {
       isHandMissing = true;
+      lastTankTime = performance.now();
+      lastPourTime = performance.now();
+      tankDwellStart = 0;
+      dwellTarget = -1;
       handCtx.clearRect(0, 0, handCanvas.width, handCanvas.height);
       handCtx.fillStyle = "rgba(239, 68, 68, 0.9)";
       handCtx.font = "bold 24px Inter, sans-serif";
@@ -788,9 +811,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (opennessHistory.length > 3) opennessHistory.shift();
     currentOpenness = opennessHistory.reduce((a, b) => a + b, 0) / opennessHistory.length;
 
-    // Adaptive calibration
-    if (currentOpenness > calibOpen) { calibOpen = currentOpenness; localStorage.setItem("calibOpen", calibOpen); }
-    if (currentOpenness < calibClosed) { calibClosed = currentOpenness; localStorage.setItem("calibClosed", calibClosed); }
+    // Calibration sample collector if calibration active
+    if (calibStep === 1 || calibStep === 2) {
+      calibSamples.push(rawOpenness);
+    }
 
     // Pincer distance (Thumb to Index)
     const pincerDist = Math.hypot(thumbTip.x - indexTip.x, thumbTip.y - indexTip.y);
@@ -805,10 +829,10 @@ document.addEventListener("DOMContentLoaded", async () => {
       y: (lm[0].y + lm[5].y + lm[9].y + lm[13].y + lm[17].y) / 5
     };
     
-    const now = Date.now();
-    palmCenterHistory.push({ y: palmCenter.y, time: now });
+    const nowPerf = performance.now();
+    palmCenterHistory.push({ y: palmCenter.y, time: nowPerf });
     // Keep only last 300ms
-    palmCenterHistory = palmCenterHistory.filter(pt => now - pt.time <= 300);
+    palmCenterHistory = palmCenterHistory.filter(pt => nowPerf - pt.time <= 300);
 
     // Smoothing for PIN Pad cursor (alpha = 0.3)
     smoothedCursor.x = 0.3 * indexTip.x + 0.7 * smoothedCursor.x;
@@ -913,7 +937,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   function popBalloon() {
     balloonPopped = true;
-    balloonPopTime = Date.now();
+    balloonPopTime = performance.now();
     balloonFullStartTime = null;
 
     // Create explosion burst particles
@@ -936,24 +960,12 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     if (window.RehabBio) {
       window.RehabBio.playBuzz();
-      window.RehabBio.speak("Oh no! Balloon popped! Be careful not to over pump!");
+      window.RehabBio.speak("That's okay! Take a breath and tap Try Again!");
     }
-    showToast("💥 Ohh no! Balloon popped! Be careful not to over-pump!", "danger");
+    showToast("💥 Balloon popped! That's okay — tap Try Again below.", "danger");
 
-    // Auto reset after 2.8 seconds so patient can try again
-    setTimeout(() => {
-      if (currentTask === "balloon") {
-        balloonLevel = 0;
-        balloonHandOpen = false;
-        balloonFullStartTime = null;
-        balloonPopped = false;
-        balloonParticles = [];
-        balloonPumps = 0;
-        currentStepIndex = 1;
-        updateStepCardsUI();
-        showToast("🔄 Balloon reset! Open and close hand gently to pump.", "info");
-      }
-    }, 2800);
+    const wrap = document.getElementById("balloon-tryagain-wrap");
+    if (wrap) wrap.style.display = "block";
   }
 
   function secureActiveTank() {
@@ -961,7 +973,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (now - lastTankPressTime < 450) return; // Debounce
     lastTankPressTime = now;
 
-    const reactionMs = now - tankActivationTime;
+    const reactionMs = Math.round(performance.now() - tankActivationTime);
     waterTanks[activeTankIndex].secured = true;
     waterTanks[activeTankIndex].level = 0; // reset level on secure
     tanksSecuredCount++;
@@ -999,7 +1011,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (tanksSecuredCount < 4) {
       const otherIndices = [0, 1, 2, 3].filter((idx) => idx !== activeTankIndex);
       activeTankIndex = otherIndices[Math.floor(Math.random() * otherIndices.length)];
-      tankActivationTime = Date.now();
+      tankActivationTime = performance.now();
       if (window.RehabBio) {
         window.RehabBio.speak(`Tank ${activeTankIndex + 1} filling!`);
       }
@@ -1224,6 +1236,173 @@ document.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("adl-stop").addEventListener("click", stopAdl);
   document.getElementById("modal-adl-stop").addEventListener("click", stopAdl);
 
+  // --- Hand Calibration & Task Execution Workflows ---
+  function startCalibration(onComplete) {
+    const overlay = document.getElementById("adl-calib-overlay");
+    const stepLabel = document.getElementById("calib-step-label");
+    const numEl = document.getElementById("calib-num");
+    const instrEl = document.getElementById("calib-instruction");
+    const hintEl = document.getElementById("calib-hint");
+    const skipBtn = document.getElementById("calib-skip-btn");
+
+    if (!overlay) {
+      sessionCalibrated = true;
+      onComplete();
+      return;
+    }
+
+    calibSamples = [];
+    calibStep = 1;
+    overlay.style.display = "flex";
+
+    const finishCalibration = (openVal, closedVal) => {
+      if (calibTimer) clearInterval(calibTimer);
+      calibStep = 0;
+      overlay.style.display = "none";
+      sessionCalibrated = true;
+      calibOpen = openVal;
+      calibClosed = closedVal;
+      try {
+        localStorage.setItem("adl_calib_open_" + activePatientId, calibOpen.toFixed(2));
+        localStorage.setItem("adl_calib_closed_" + activePatientId, calibClosed.toFixed(2));
+      } catch (e) {}
+      if (skipBtn) skipBtn.onclick = null;
+      onComplete();
+    };
+
+    if (skipBtn) {
+      skipBtn.onclick = () => {
+        showToast("Hand calibration skipped. Using standard defaults.", "info");
+        finishCalibration(1.9, 1.1);
+      };
+    }
+
+    // Step 1: Open hand
+    stepLabel.textContent = "HAND CALIBRATION (STEP 1 OF 2)";
+    instrEl.textContent = "Open your hand wide";
+    hintEl.textContent = "Spread fingers wide facing the camera (2s)";
+    let timeLeft = 2;
+    numEl.textContent = timeLeft;
+
+    calibTimer = setInterval(() => {
+      timeLeft--;
+      if (timeLeft > 0) {
+        numEl.textContent = timeLeft;
+      } else {
+        clearInterval(calibTimer);
+        const recordedOpen = calibSamples.length > 0
+          ? calibSamples.reduce((a, b) => a + b, 0) / calibSamples.length
+          : 1.9;
+
+        // Step 2: Close hand
+        calibSamples = [];
+        calibStep = 2;
+        stepLabel.textContent = "HAND CALIBRATION (STEP 2 OF 2)";
+        instrEl.textContent = "Close your hand into a fist";
+        hintEl.textContent = "Clench your hand into a fist (2s)";
+        timeLeft = 2;
+        numEl.textContent = timeLeft;
+
+        calibTimer = setInterval(() => {
+          timeLeft--;
+          if (timeLeft > 0) {
+            numEl.textContent = timeLeft;
+          } else {
+            clearInterval(calibTimer);
+            const recordedClosed = calibSamples.length > 0
+              ? calibSamples.reduce((a, b) => a + b, 0) / calibSamples.length
+              : 1.1;
+
+            let finalOpen = Math.max(1.4, recordedOpen);
+            let finalClosed = Math.min(finalOpen - 0.25, Math.max(0.7, recordedClosed));
+            if (finalOpen <= finalClosed + 0.2) {
+              finalOpen = 1.9;
+              finalClosed = 1.1;
+            }
+            showToast("✅ Hand movement range calibrated!", "success");
+            finishCalibration(finalOpen, finalClosed);
+          }
+        }, 1000);
+      }
+    }, 1000);
+  }
+
+  function startPourUprightCalibration(onComplete) {
+    const acoOverlay = document.getElementById("adl-countdown-overlay");
+    const acoLabel = document.getElementById("adl-aco-label");
+    const acoNum = document.getElementById("adl-aco-num");
+    const acoHint = document.getElementById("adl-aco-hint");
+
+    if (!acoOverlay) {
+      onComplete();
+      return;
+    }
+
+    acoOverlay.classList.add("show");
+    acoLabel.textContent = "UPRIGHT FOREARM CALIBRATION";
+    acoHint.textContent = "Hold your hand straight upright like holding a drinking glass";
+    let countdown = 3;
+    acoNum.textContent = countdown;
+
+    const uprightSamples = [];
+    const sampleInterval = setInterval(() => {
+      if (wristData && wristData.pinkyMCP && wristData.indexMCP) {
+        const dx = wristData.pinkyMCP.x - wristData.indexMCP.x;
+        const dy = wristData.pinkyMCP.y - wristData.indexMCP.y;
+        uprightSamples.push(Math.atan2(dy, dx) * (180 / Math.PI));
+      }
+    }, 100);
+
+    const timer = setInterval(() => {
+      countdown--;
+      if (countdown > 0) {
+        acoNum.textContent = countdown;
+      } else {
+        clearInterval(timer);
+        clearInterval(sampleInterval);
+        acoOverlay.classList.remove("show");
+
+        if (uprightSamples.length > 0) {
+          uprightAngle = uprightSamples.reduce((a, b) => a + b, 0) / uprightSamples.length;
+        } else {
+          uprightAngle = 0;
+        }
+        uprightCalibrated = true;
+        smoothedPourTilt = 0;
+        taskPeakRom = 0;
+        showToast("✅ Forearm upright calibrated! Tilt to pour.", "success");
+        onComplete();
+      }
+    }, 1000);
+  }
+
+  function startTaskExecution(selectedTask) {
+    currentTask = selectedTask;
+    currentStepIndex = 0;
+    repsCompleted = 0;
+    tasksCompleted = 0;
+    resetTaskVariables();
+    startTime = performance.now();
+    stepStartTime = performance.now();
+    lastAdlActionTime = performance.now();
+
+    renderStepCards(selectedTask);
+    updateStepCardsUI();
+
+    document.getElementById("adl-pause").style.display = "inline-flex";
+    document.getElementById("adl-resume").style.display = "none";
+    document.getElementById("adl-stop").style.display = "inline-flex";
+
+    const lightWrap = document.getElementById("light-fallback-wrap");
+    if (lightWrap) lightWrap.style.display = (selectedTask === "light") ? "block" : "none";
+
+    const balloonWrap = document.getElementById("balloon-tryagain-wrap");
+    if (balloonWrap) balloonWrap.style.display = "none";
+
+    showToast(`🔑 Task Started: ${taskEl.textContent}`, "info");
+    showAdlGuidancePopup(selectedTask, 4);
+  }
+
   // --- Task Selection from Menu ---
   document.querySelectorAll(".task-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
@@ -1236,25 +1415,19 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (stepEl) stepEl.textContent = "Step 1: Neutral Rest";
       if (repsEl) repsEl.textContent = `0 / ${targetReps}`;
 
-      runAdlCountdown("GET READY", 4, () => {
-        currentTask = selectedTask;
-        currentStepIndex = 0;
-        repsCompleted = 0;
-        tasksCompleted = 0;
-        resetTaskVariables();
-        startTime = Date.now();
-        stepStartTime = Date.now();
-        lastAdlActionTime = Date.now();
+      const proceed = () => {
+        if (selectedTask === "pour") {
+          startPourUprightCalibration(() => startTaskExecution(selectedTask));
+        } else {
+          runAdlCountdown("GET READY", 4, () => startTaskExecution(selectedTask));
+        }
+      };
 
-        renderStepCards(selectedTask);
-        updateStepCardsUI();
-
-        document.getElementById("adl-pause").style.display = "inline-flex";
-        document.getElementById("adl-resume").style.display = "none";
-        document.getElementById("adl-stop").style.display = "inline-flex";
-        showToast(`🔑 Task Started: ${taskEl.textContent}`, "info");
-        showAdlGuidancePopup(selectedTask, 4);
-      });
+      if (!sessionCalibrated) {
+        startCalibration(proceed);
+      } else {
+        proceed();
+      }
     });
   });
 
@@ -1678,11 +1851,31 @@ document.addEventListener("DOMContentLoaded", async () => {
       gCtx.fillText("👆 TAP", itx, ity - 16);
       gCtx.textAlign = "start";
 
-      // Hit check on active tank button
+      // Hit check on active tank button with 350ms dwell
       const activeCx = tankCentersX[activeTankIndex];
       const dist = Math.hypot(itx - activeCx, ity - buttonY);
       if (dist < buttonR + 18) {
-        secureActiveTank();
+        if (tankDwellTarget !== activeTankIndex) {
+          tankDwellTarget = activeTankIndex;
+          tankDwellStart = performance.now();
+        } else {
+          const dwellElapsed = performance.now() - tankDwellStart;
+          const dwellProg = Math.min(1.0, dwellElapsed / 350);
+          gCtx.beginPath();
+          gCtx.arc(activeCx, buttonY, buttonR + 8, -Math.PI / 2, -Math.PI / 2 + dwellProg * Math.PI * 2);
+          gCtx.strokeStyle = "#10B981";
+          gCtx.lineWidth = 4;
+          gCtx.stroke();
+
+          if (dwellElapsed >= 350) {
+            secureActiveTank();
+            tankDwellTarget = -1;
+          }
+        }
+      } else {
+        if (tankDwellTarget === activeTankIndex) {
+          tankDwellTarget = -1;
+        }
       }
     }
   }
@@ -1719,9 +1912,10 @@ document.addEventListener("DOMContentLoaded", async () => {
       const now = Date.now();
       
       // Flick: rise of more than 0.08 normalized inside that 300ms window, 1s cooldown
-      if (oldestY - newestY > 0.08 && !switchOn && now - lastFlickTime > 1000) {
+      const nowP = performance.now();
+      if (oldestY - newestY > 0.08 && !switchOn && nowP - lastFlickTime > 1000) {
         switchOn = true;
-        lastFlickTime = now;
+        lastFlickTime = nowP;
         if (window.RehabBio) window.RehabBio.playBeep(880, 0.08, 0.3);
       }
     }
@@ -1776,7 +1970,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     gCtx.fillText(pinCodeDisplay, w * 0.5, h * 0.08 + 46);
     gCtx.textAlign = "start";
 
-    // Draw keypad buttons
+    // Draw keypad buttons (keys at least 90px diameter, radius >= 45px)
+    const keyRadius = Math.max(45, Math.min(52, w * 0.055));
+
     padPositions.forEach((pos, i) => {
       const px = pos.x * w, py = pos.y * h;
       const label = padLabels[i];
@@ -1786,15 +1982,15 @@ document.addEventListener("DOMContentLoaded", async () => {
       // Outer pulsing glow for target digit
       if (isTarget) {
         gCtx.beginPath();
-        gCtx.arc(px, py, 34, 0, Math.PI * 2);
+        gCtx.arc(px, py, keyRadius + 8, 0, Math.PI * 2);
         gCtx.strokeStyle = "rgba(245, 158, 11, 0.45)";
         gCtx.lineWidth = 4;
         gCtx.stroke();
       }
 
-      // Key button body
+      // Key button body (radius >= 45px -> diameter >= 90px)
       gCtx.beginPath();
-      gCtx.arc(px, py, 26, 0, Math.PI * 2);
+      gCtx.arc(px, py, keyRadius, 0, Math.PI * 2);
       gCtx.fillStyle = isTarget ? "rgba(245, 158, 11, 0.35)" : "rgba(15, 20, 32, 0.85)";
       gCtx.fill();
       gCtx.strokeStyle = isTarget ? "#F59E0B" : "#38BDF8";
@@ -1803,20 +1999,20 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       // Dwell progress ring
       if (isDwelling) {
-        const elapsed = Date.now() - dwellStart;
-        const prog = Math.min(1, elapsed / DWELL_MS);
+        const elapsed = performance.now() - dwellStart;
+        const prog = Math.min(1.0, elapsed / DWELL_MS);
         gCtx.beginPath();
-        gCtx.arc(px, py, 32, -Math.PI / 2, -Math.PI / 2 + prog * Math.PI * 2);
+        gCtx.arc(px, py, keyRadius + 5, -Math.PI / 2, -Math.PI / 2 + prog * Math.PI * 2);
         gCtx.strokeStyle = "#10B981";
         gCtx.lineWidth = 4;
         gCtx.stroke();
       }
 
-      // Digit label
-      gCtx.font = "bold 17px monospace";
+      // Digit label (large senior typography)
+      gCtx.font = "bold 22px monospace";
       gCtx.fillStyle = isTarget ? "#FFFFFF" : "#E2E8F0";
       gCtx.textAlign = "center";
-      gCtx.fillText(label, px, py + 6);
+      gCtx.fillText(label, px, py + 8);
     });
     gCtx.textAlign = "start";
 
@@ -1841,22 +2037,24 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (currentTargetDigit !== null) {
         const targetIdx = padLabels.indexOf(String(currentTargetDigit));
         const targetPos = padPositions[targetIdx];
-        const dist = Math.hypot(wristData.smoothedCursor.x - targetPos.x, wristData.smoothedCursor.y - targetPos.y);
+        const targetPx = targetPos.x * w;
+        const targetPy = targetPos.y * h;
+        const dist = Math.hypot(itx - targetPx, ity - targetPy);
 
-        // Sticky hit box: 20% larger if already dwelling
-        const hitRadius = (dwellTarget === targetIdx) ? 0.08 * 1.2 : 0.08;
+        // Sticky hit box: 20% larger when cursor is inside
+        const hitRadius = (dwellTarget === targetIdx) ? keyRadius * 1.2 : keyRadius;
 
         if (dist < hitRadius) {
           if (dwellTarget !== targetIdx) {
-            // Require 500ms cooldown to prevent double digits or entering a new key too soon
-            if (Date.now() - lastPinPressTime > 500) {
+            // Require 500ms cooldown after press before registering next key
+            if (performance.now() - lastPinPressTime > 500) {
               dwellTarget = targetIdx;
-              dwellStart = Date.now();
+              dwellStart = performance.now();
             }
-          } else if (Date.now() - dwellStart >= 350) { // 350ms dwell
+          } else if (performance.now() - dwellStart >= DWELL_MS) { // 350ms dwell
             pinProgress++;
             dwellTarget = -1;
-            lastPinPressTime = Date.now();
+            lastPinPressTime = performance.now();
             if (window.RehabBio) {
               window.RehabBio.playBeep(880, 0.08, 0.3);
             }
@@ -1864,6 +2062,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             advanceStep();
           }
         } else {
+          // Dwell timer resets immediately when cursor leaves key
           if (dwellTarget === targetIdx) dwellTarget = -1;
         }
       }
@@ -1882,22 +2081,36 @@ document.addEventListener("DOMContentLoaded", async () => {
     const gx = w * 0.58;
     const gy = h * 0.52;
 
-    let rollAngleDeg = 0;
-    if (wristData && wristData.knuckleAngle != null) {
-      rollAngleDeg = wristData.knuckleAngle;
+    // Hand roll = atan2(lm17.y - lm5.y, lm17.x - lm5.x) in degrees minus uprightAngle
+    let rawRoll = 0;
+    if (wristData && wristData.pinkyMCP && wristData.indexMCP) {
+      const dx = wristData.pinkyMCP.x - wristData.indexMCP.x;
+      const dy = wristData.pinkyMCP.y - wristData.indexMCP.y;
+      rawRoll = Math.atan2(dy, dx) * (180 / Math.PI) - uprightAngle;
+      while (rawRoll > 180) rawRoll -= 360;
+      while (rawRoll < -180) rawRoll += 360;
     }
+
+    // Smooth with alpha = 0.3
+    smoothedPourTilt = 0.3 * rawRoll + 0.7 * smoothedPourTilt;
+    const tilt = Math.abs(smoothedPourTilt);
+    taskPeakRom = Math.max(taskPeakRom, tilt);
+
+    // flow = clamp((|tilt| - 20) / 70, 0, 1) * maxFlow
+    const flow = Math.min(1, Math.max(0, (tilt - 20) / 70)) * patientMaxFlow;
+    const rollAngleDeg = smoothedPourTilt;
 
     const px = Math.max(80, Math.min(w - 80, hx));
     const py = Math.max(60, Math.min(gy - 30, hy));
 
-    const isTilting = Math.abs(rollAngleDeg) > 28;
+    const isTilting = tilt > 20;
     const spoutX = px + (rollAngleDeg >= 0 ? 40 : -40);
     const spoutY = py + 20;
 
     const overGlass = spoutX >= gx - 40 && spoutX <= gx + gw + 40 && spoutY < gy + 30;
 
-    if (isTilting && overGlass && !adlPaused) {
-      pourGlassLevel = Math.min(115, pourGlassLevel + 22.0 * dt);
+    if (isTilting && overGlass && !adlPaused && !isHandMissing) {
+      pourGlassLevel = Math.min(1.15, pourGlassLevel + flow * dt * 100);
 
       for (let i = 0; i < 3; i++) {
         pourParticles.push({
@@ -2071,25 +2284,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     gCtx.textAlign = "start";
   }
 
-  // --- Continuous 60 FPS Render Loop & 10s Inactivity Popup ---
-  function adlRenderLoop() {
-    requestAnimationFrame(adlRenderLoop);
-    
-    if (adlPaused || isHandMissing) {
-      lastTankTime = performance.now();
-    }
-
-    if (currentTask !== "menu" && !adlPaused) {
-      updateTask();
-
-      // If user is idle or stuck on a step for 10 seconds, trigger guidance popup!
-      if (!adlGuidanceShowing && Date.now() - lastAdlActionTime >= 10000) {
-        showAdlGuidancePopup(currentTask, 4);
-        lastAdlActionTime = Date.now();
-      }
-    }
-  }
-  adlRenderLoop();
+  // No second animation loop: Updates & rendering are driven directly by onHandResults callback.
 
   // Pointer / Touch fallback for interactive testing on laptops, touchpads, and phones
   gameCanvas.addEventListener("pointerdown", (e) => {
@@ -2166,7 +2361,27 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // --- Telemetry Logging ---
   async function logSession() {
-    const duration = Math.floor((Date.now() - startTime) / 1000);
+    const duration = Math.floor((performance.now() - startTime) / 1000);
+    let finalScore = 100;
+    let finalPeakRom = 85;
+
+    if (currentTask === "pour") {
+      finalScore = Math.round(Math.max(0, 100 * (1 - Math.abs(pourGlassLevel - 0.85) / 0.85)));
+      finalPeakRom = Math.round(taskPeakRom || 45);
+    } else if (currentTask === "balloon") {
+      finalScore = Math.min(100, Math.round(balloonLevel));
+      finalPeakRom = Math.round(currentOpenness * 45);
+    } else if (currentTask === "watertanks") {
+      finalScore = Math.round((tanksSecuredCount / 4) * 100);
+      finalPeakRom = 80;
+    } else if (currentTask === "light") {
+      finalScore = switchOn ? 100 : 50;
+      finalPeakRom = 90;
+    } else if (currentTask === "pin") {
+      finalScore = Math.round((pinProgress / 4) * 100);
+      finalPeakRom = 75;
+    }
+
     try {
       await fetch("/api/telemetry", {
         method: "POST",
@@ -2175,11 +2390,17 @@ document.addEventListener("DOMContentLoaded", async () => {
           session_type: "ADL",
           condition: localStorage.getItem("selectedCondition") || "Hemiparesis",
           duration_seconds: Math.max(1, duration),
-          peak_rom: 85,
+          peak_rom: finalPeakRom,
           smoothness_score: 82,
           cheats_blocked: cheatsBlocked,
-          score: repsCompleted,
-          metrics_json: JSON.stringify({ task: currentTask, reps: repsCompleted, duration }),
+          score: finalScore,
+          metrics_json: JSON.stringify({
+            task: currentTask,
+            reps: repsCompleted,
+            duration,
+            score: finalScore,
+            peak_rom: finalPeakRom,
+          }),
         }),
       });
     } catch (err) {
@@ -2194,6 +2415,105 @@ document.addEventListener("DOMContentLoaded", async () => {
     setTimeout(() => { if (toast) toast.className = "toast"; }, 3000);
   }
 
+  // Light switch fallback button listener
+  const lightFallbackBtn = document.getElementById("light-fallback-btn");
+  if (lightFallbackBtn) {
+    lightFallbackBtn.addEventListener("click", () => {
+      if (currentTask !== "light" || adlPaused) return;
+      switchOn = !switchOn;
+      lastFlickTime = performance.now();
+      if (window.RehabBio) window.RehabBio.playBeep(880, 0.08, 0.3);
+      showToast(switchOn ? "💡 Switch turned ON!" : "💡 Switch turned OFF", "success");
+      if (switchOn && currentStepIndex === 3) {
+        advanceStep();
+      }
+    });
+  }
+
+  // Balloon try again button listener
+  const balloonTryAgainBtn = document.getElementById("balloon-tryagain-btn");
+  if (balloonTryAgainBtn) {
+    balloonTryAgainBtn.addEventListener("click", () => {
+      const wrap = document.getElementById("balloon-tryagain-wrap");
+      if (wrap) wrap.style.display = "none";
+      balloonLevel = 0;
+      balloonHandOpen = false;
+      balloonFullStartTime = null;
+      balloonPopped = false;
+      balloonParticles = [];
+      balloonPumps = 0;
+      currentStepIndex = 1;
+      updateStepCardsUI();
+      showToast("🔄 Balloon reset! Open and close hand to pump.", "info");
+    });
+  }
+
   // Initialize camera
   await initCamera();
-});
+  });
+}
+
+// --- Pure Deterministic Kinematics Module (Exported for Testing) ---
+const AdlKinematics = {
+  getHandSize(lm) {
+    if (!lm || lm.length < 10) return 0.1;
+    return Math.hypot(lm[9].x - lm[0].x, lm[9].y - lm[0].y) || 0.1;
+  },
+  calculateOpenness(lm) {
+    if (!lm || lm.length < 21) return 0;
+    const handSize = this.getHandSize(lm);
+    const tips = [8, 12, 16, 20];
+    const sum = tips.reduce((acc, t) => acc + Math.hypot(lm[t].x - lm[0].x, lm[t].y - lm[0].y), 0);
+    return sum / tips.length / handSize;
+  },
+  getThresholds(calibOpen, calibClosed) {
+    return {
+      openThreshold: calibClosed + 0.75 * (calibOpen - calibClosed),
+      closeThreshold: calibClosed + 0.25 * (calibOpen - calibClosed),
+    };
+  },
+  detectPump(opennessHistory, calibOpen, calibClosed, wasOpen) {
+    const { openThreshold, closeThreshold } = this.getThresholds(calibOpen, calibClosed);
+    const current = opennessHistory.reduce((a, b) => a + b, 0) / (opennessHistory.length || 1);
+    if (current > openThreshold) {
+      return { isOpen: true, isClosed: false, pumped: false, nextState: true };
+    } else if (current < closeThreshold && wasOpen) {
+      return { isOpen: false, isClosed: true, pumped: true, nextState: false };
+    }
+    return { isOpen: false, isClosed: false, pumped: false, nextState: wasOpen };
+  },
+  getPalmCenter(lm) {
+    if (!lm || lm.length < 21) return { x: 0.5, y: 0.5 };
+    const pts = [0, 5, 9, 13, 17];
+    return {
+      x: pts.reduce((s, i) => s + lm[i].x, 0) / pts.length,
+      y: pts.reduce((s, i) => s + lm[i].y, 0) / pts.length,
+    };
+  },
+  detectFlick(history, windowMs = 300, minRise = 0.08) {
+    if (!history || history.length < 2) return false;
+    const oldestY = history[0].y;
+    const newestY = history[history.length - 1].y;
+    return (oldestY - newestY) > minRise;
+  },
+  calculatePourTiltAndFlow(lm, uprightAngle = 0, maxFlow = 0.35) {
+    if (!lm || lm.length < 21) return { roll: 0, tilt: 0, flow: 0 };
+    const dx = lm[17].x - lm[5].x;
+    const dy = lm[17].y - lm[5].y;
+    let roll = Math.atan2(dy, dx) * (180 / Math.PI) - uprightAngle;
+    while (roll > 180) roll -= 360;
+    while (roll < -180) roll += 360;
+    const tilt = Math.abs(roll);
+    const flow = Math.min(1, Math.max(0, (tilt - 20) / 70)) * maxFlow;
+    return { roll, tilt, flow };
+  },
+  calculatePinHit(cursor, targetPos, isDwelling, baseRadius = 0.08) {
+    const dist = Math.hypot(cursor.x - targetPos.x, cursor.y - targetPos.y);
+    const hitRadius = isDwelling ? baseRadius * 1.2 : baseRadius;
+    return dist < hitRadius;
+  },
+};
+
+if (typeof module !== "undefined" && module.exports) {
+  module.exports = AdlKinematics;
+}
