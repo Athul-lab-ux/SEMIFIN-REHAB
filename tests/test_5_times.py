@@ -94,8 +94,8 @@ class TestRehabOptSystem(unittest.TestCase):
         for fn in formulas:
             self.assertIn(fn, content, f"Missing kinematic formula: {fn}")
 
-    def test_opencv_skeleton_specifications(self):
-        # Verify air canvas, adl, arcade, and therapy engines have OpenCV colors & 21 landmarks
+    def test_mediapipe_skeleton_specifications(self):
+        """Verify MediaPipe 21-landmark tracking and skeleton color rendering across engines."""
         for js_file in ['air_canvas_engine.js', 'adl_engine.js', 'arcade_engine.js', 'therapy_engine.js']:
             path = os.path.join(os.path.dirname(__file__), '..', 'static', 'js', js_file)
             with open(path, 'r', encoding='utf-8') as f:
@@ -103,7 +103,7 @@ class TestRehabOptSystem(unittest.TestCase):
 
             # Check Red dots / wrist (#FF0000 or #EF4444)
             self.assertTrue('#FF0000' in content or '#EF4444' in content, f"{js_file} missing Red landmark color")
-            # Check 21 landmarks loop / reference
+            # Check MediaPipe 21 landmarks loop / reference
             self.assertTrue('21' in content or 'HAND_CONNECTIONS' in content, f"{js_file} missing full hand landmark support")
             # Check Green / Cyan bones (#00FF00 or #00E5FF or (0, 229, 255))
             self.assertTrue('#00FF00' in content or '#00E5FF' in content or '0, 229, 255' in content, f"{js_file} missing hand bone color")

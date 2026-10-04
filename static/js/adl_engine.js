@@ -2110,7 +2110,7 @@ if (typeof document !== "undefined") {
     const overGlass = spoutX >= gx - 40 && spoutX <= gx + gw + 40 && spoutY < gy + 30;
 
     if (isTilting && overGlass && !adlPaused && !isHandMissing) {
-      pourGlassLevel = Math.min(1.15, pourGlassLevel + flow * dt * 100);
+      pourGlassLevel = Math.min(125, pourGlassLevel + flow * dt * 100);
 
       for (let i = 0; i < 3; i++) {
         pourParticles.push({
@@ -2366,7 +2366,8 @@ if (typeof document !== "undefined") {
     let finalPeakRom = 85;
 
     if (currentTask === "pour") {
-      finalScore = Math.round(Math.max(0, 100 * (1 - Math.abs(pourGlassLevel - 0.85) / 0.85)));
+      const normalizedLevel = (pourGlassLevel || 0) / 100.0;
+      finalScore = Math.round(Math.max(0, 100 * (1 - Math.abs(normalizedLevel - 0.85) / 0.85)));
       finalPeakRom = Math.round(taskPeakRom || 45);
     } else if (currentTask === "balloon") {
       finalScore = Math.min(100, Math.round(balloonLevel));

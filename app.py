@@ -303,6 +303,10 @@ class PostgresCursorWrapper:
             clean_sql = clean_sql.replace("INSERT OR IGNORE INTO", "INSERT INTO")
             if "ON CONFLICT" not in clean_sql.upper():
                 clean_sql = clean_sql.rstrip("; \n") + " ON CONFLICT DO NOTHING"
+        elif "INSERT OR REPLACE INTO" in clean_sql:
+            clean_sql = clean_sql.replace("INSERT OR REPLACE INTO", "INSERT INTO")
+            if "ON CONFLICT" not in clean_sql.upper():
+                clean_sql = clean_sql.rstrip("; \n") + " ON CONFLICT DO NOTHING"
         clean_sql = clean_sql.replace("?", "%s")
         if params is not None:
             self._cursor.execute(clean_sql, params)

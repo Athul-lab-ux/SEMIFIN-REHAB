@@ -176,5 +176,99 @@ class TestPhase1Authentication(unittest.TestCase):
         self.assertEqual(res.status_code, 400)
         self.assertIn("at least 8 characters", res.get_json()["message"])
 
+    def test_proof_7_postgres_dialect_translation_layer(self):
+        """
+        PROOF 7: Verify SQL translation layer for PostgreSQL dialect compatibility:
+        - PRAGMA table_info translation
+        - PRAGMA journal_mode no-op
+        - INSERT OR IGNORE -> ON CONFLICT DO NOTHING
+        - INSERT OR REPLACE -> ON CONFLICT DO NOTHING
+        - ? -> %s placeholder translation
+        - DDL translation: AUTOINCREMENT -> SERIAL, REAL -> DOUBLE PRECISION
+        - lastrowid property safety
+        """
+        from app import PostgresCursorWrapper, PostgresConnectionWrapper
+
+        executed_sqls = []
+
+        class MockRawCursor:
+            def __init__(self):
+                self.description = [("col1",), ("col2",)]
+                self.lastrowid = 42
+                self.rowcount = 1
+
+            def execute(self, sql, params=None):
+                executed_sqls.append((sql, params))
+
+            def executemany(self, sql, params_seq):
+                executed_sqls.append((sql, params_seq))
+
+            def fetchone(self):
+                return ("val1", "val2")
+
+            def fetchall(self):
+                return [("val1", "val2")]
+
+            def close(self):
+                pass
+
+        class MockRawConnection:
+            def cursor(self):
+                return MockRawCursor()
+
+            def commit(self):
+                pass
+
+            def close(self):
+                pass
+
+        mock_cur = MockRawCursor()
+        wrapper = PostgresCursorWrapper(mock_cur)
+
+        # 1. PRAGMA table_info translation
+        wrapper.execute("PRAGMA table_info(patients)")
+        self.assertTrue(any("information_schema.columns" in s[0] and "patients" in s[0] for s in executed_sqls))
+
+        # 2. PRAGMA journal_mode no-op
+        before_count = len(executed_sqls)
+        wrapper.execute("PRAGMA journal_mode=WAL")
+        self.assertEqual(len(executed_sqls), before_count, "PRAGMA journal_mode must be no-op on Postgres")
+
+        # 3. INSERT OR IGNORE -> ON CONFLICT DO NOTHING with %s
+        executed_sqls.clear()
+        wrapper.execute("INSERT OR IGNORE INTO patients (id, name) VALUES (?, ?)", (1, "Test"))
+        self.assertEqual(len(executed_sqls), 1)
+        sql, params = executed_sqls[0]
+        self.assertNotIn("INSERT OR IGNORE", sql)
+        self.assertIn("ON CONFLICT DO NOTHING", sql)
+        self.assertIn("%s", sql)
+        self.assertNotIn("?", sql)
+        self.assertEqual(params, (1, "Test"))
+
+        # 4. INSERT OR REPLACE -> ON CONFLICT DO NOTHING
+        executed_sqls.clear()
+        wrapper.execute("INSERT OR REPLACE INTO patients (id, name) VALUES (?, ?)", (2, "Replace"))
+        self.assertEqual(len(executed_sqls), 1)
+        sql, params = executed_sqls[0]
+        self.assertNotIn("INSERT OR REPLACE", sql)
+        self.assertIn("ON CONFLICT DO NOTHING", sql)
+        self.assertIn("%s", sql)
+
+        # 5. lastrowid property
+        self.assertEqual(wrapper.lastrowid, 42)
+
+        # 6. executescript DDL translation
+        executed_sqls.clear()
+        conn_wrapper = PostgresConnectionWrapper(MockRawConnection())
+        ddl = "CREATE TABLE test (id INTEGER PRIMARY KEY AUTOINCREMENT, score REAL);"
+        conn_wrapper.executescript(ddl)
+        self.assertEqual(len(executed_sqls), 1)
+        ddl_sql = executed_sqls[0][0]
+        self.assertIn("SERIAL PRIMARY KEY", ddl_sql)
+        self.assertIn("DOUBLE PRECISION", ddl_sql)
+        self.assertNotIn("AUTOINCREMENT", ddl_sql)
+
+
 if __name__ == "__main__":
     unittest.main()
+

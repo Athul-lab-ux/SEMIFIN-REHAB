@@ -1,5 +1,6 @@
 .env
 rehabopt.db
+*.db
 __pycache__/
 *.pyc
 *.pyo

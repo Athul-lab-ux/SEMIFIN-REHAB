@@ -239,5 +239,115 @@ class TestOwnerFeatures(unittest.TestCase):
         self.assertIn("TEST_P001", res.get_data(as_text=True))
 
 
+    def test_owner_login_normal_endpoint_allow_demo_zero(self):
+        """
+        Verify SP_OWNER_1 logs in through standard /api/login endpoint with OWNER_PASSWORD
+        while ALLOW_DEMO_LOGINS=0, that wrong password fails with 401, and that a patient
+        cannot open owner pages.
+        """
+        orig_demo = os.environ.get("ALLOW_DEMO_LOGINS")
+        orig_owner_pass = os.environ.get("OWNER_PASSWORD")
+        test_pass = "StrongOwnerPass@2026!#"
+
+        try:
+            os.environ["ALLOW_DEMO_LOGINS"] = "0"
+            os.environ["OWNER_PASSWORD"] = test_pass
+
+            with app.app_context():
+                from app import seed_or_update_owner
+                db = get_db()
+                seed_or_update_owner(db)
+
+            # 1. Correct owner login via normal login endpoint
+            res = self.client.post("/api/login", json={
+                "identifier": "SP_OWNER_1",
+                "password": test_pass
+            })
+            self.assertEqual(res.status_code, 200)
+            data = res.get_json()
+            self.assertEqual(data["status"], "success")
+            self.assertEqual(data["role"], "owner")
+
+            # 2. Wrong password must fail with 401
+            bad_res = self.client.post("/api/login", json={
+                "identifier": "SP_OWNER_1",
+                "password": "WrongPassword123!"
+            })
+            self.assertEqual(bad_res.status_code, 401)
+
+            # 3. Patient cannot access owner pages
+            with self.client.session_transaction() as sess:
+                sess["patient_id"] = "TEST_P001"
+                sess["role"] = "patient"
+                sess["logged_in"] = True
+
+            patient_res1 = self.client.get("/api/admin/patients")
+            self.assertEqual(patient_res1.status_code, 403)
+
+            patient_res2 = self.client.get("/api/admin/patient/TEST_P001")
+            self.assertEqual(patient_res2.status_code, 403)
+
+        finally:
+            if orig_demo is not None:
+                os.environ["ALLOW_DEMO_LOGINS"] = orig_demo
+            else:
+                os.environ.pop("ALLOW_DEMO_LOGINS", None)
+            if orig_owner_pass is not None:
+                os.environ["OWNER_PASSWORD"] = orig_owner_pass
+            else:
+                os.environ.pop("OWNER_PASSWORD", None)
+
+    def test_soap_notes_fallback_no_api_key(self):
+        """
+        Verify clinical SOAP progress note generator operates reliably when GEMINI_API_KEY
+        is absent (built-in clinical generator fallback), producing structured [S][O][A][P]
+        documentation and ensuring /report page renders safely.
+        """
+        orig_key = os.environ.get("GEMINI_API_KEY")
+        if "GEMINI_API_KEY" in os.environ:
+            del os.environ["GEMINI_API_KEY"]
+
+        try:
+            with self.client.session_transaction() as sess:
+                sess["patient_id"] = "TEST_P001"
+                sess["role"] = "patient"
+                sess["logged_in"] = True
+                sess["onboarding_done"] = 1
+
+            # 1. Generate SOAP note with zero external API key
+            res = self.client.post("/api/generate-soap", json={
+                "patient_id": "TEST_P001",
+                "condition": "Hemiparesis",
+                "streak": 3,
+                "repetitions_completed": 5,
+                "active_duration_seconds": 180,
+                "metrics": {
+                    "peak_elbow_rom_deg": 115.0,
+                    "baseline_elbow_rom_deg": 60.0,
+                    "trunk_cheat_events": 0,
+                    "normalized_jerk_score": 78.5,
+                }
+            })
+            self.assertEqual(res.status_code, 200)
+            data = res.get_json()
+            self.assertEqual(data["status"], "success")
+            soap = data.get("soap_note", "")
+            self.assertTrue(len(soap) > 50, "SOAP note must contain structured text")
+            self.assertIn("[S]", soap)
+            self.assertIn("[O]", soap)
+            self.assertIn("[A]", soap)
+            self.assertIn("[P]", soap)
+
+            # 2. Verify /report page renders safely without errors
+            report_res = self.client.get("/report")
+            self.assertEqual(report_res.status_code, 200)
+            self.assertIn("Clinical Report Card", report_res.get_data(as_text=True))
+
+        finally:
+            if orig_key is not None:
+                os.environ["GEMINI_API_KEY"] = orig_key
+
+
 if __name__ == "__main__":
     unittest.main()
+
