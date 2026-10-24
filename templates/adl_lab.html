@@ -30,7 +30,7 @@
         <div class="value" id="step-display">Ready</div>
       </div>
       <div class="hud-item">
-        <div class="label">🎯 Repetitions</div>
+        <div class="label" id="reps-label">🎯 Repetitions</div>
         <div class="value" id="reps-display">0 / 3</div>
       </div>
       <div class="hud-item">
@@ -77,6 +77,27 @@
         <button id="balloon-tryagain-btn" class="clin-btn clin-btn-primary" style="font-size:18px; padding:12px 28px; box-shadow:0 8px 24px rgba(0,0,0,0.5);">🎈 Try Again</button>
       </div>
 
+      <!-- 🎯 Reps / Times Setup Popup (shown before every task starts) -->
+      <div id="adl-setup-popup" class="adl-setup-popup" role="dialog" aria-modal="true">
+        <div class="asp-card">
+          <div class="asp-badge">🎯 SESSION SETUP</div>
+          <h3 id="asp-title" class="asp-title">🎈 Balloon Air Pump</h3>
+          <p id="asp-sub" class="asp-sub">Choose how many reps you want to complete.</p>
+          <div class="asp-stepper">
+            <button id="asp-minus" class="asp-step-btn" aria-label="Decrease">−</button>
+            <div class="asp-value-wrap">
+              <span id="asp-value" class="asp-value">3</span>
+              <span id="asp-unit" class="asp-unit">reps</span>
+            </div>
+            <button id="asp-plus" class="asp-step-btn" aria-label="Increase">+</button>
+          </div>
+          <div id="asp-range-text" class="asp-range">Range: 1 – 15</div>
+          <button id="asp-start" class="asp-start-btn">Start Task →</button>
+          <button id="asp-cancel" class="asp-cancel-btn">Cancel</button>
+          <div class="asp-hint">You can stop any time with ⏹ Stop.</div>
+        </div>
+      </div>
+
       <!-- Paused Overlay -->
       <div id="adl-paused-overlay" class="aircanvas-paused-overlay">
         <div class="apo-box">
@@ -87,6 +108,18 @@
             <button id="modal-adl-resume" class="clin-btn clin-btn-primary">▶ Resume (4s)</button>
             <button id="modal-adl-stop" class="clin-btn clin-btn-ghost">⏹ Stop</button>
           </div>
+        </div>
+      </div>
+
+      <!-- 🎆 Grand Ending Celebration Popup (SUPER / FANTASTIC finale) -->
+      <div id="adl-celebration-popup" class="adl-celebration-popup" role="dialog" aria-modal="true">
+        <div class="acm-card">
+          <div class="acm-burst">🎉 🎊 ✨ 🎈</div>
+          <h2 id="acm-big" class="acm-big">FANTASTIC! 🎉</h2>
+          <p id="acm-sub" class="acm-sub">Outstanding performance — every move on target!</p>
+          <p id="acm-task" class="acm-task"></p>
+          <p id="acm-score" class="acm-score"></p>
+          <div class="acm-hint">📋 Returning to Task Menu — choose your next task…</div>
         </div>
       </div>
 
@@ -121,7 +154,7 @@
       <!-- 6 Visual Skeletal Posture Step Cards Rail (P4 Clinical Protocol) -->
       <div id="adl-steps-bar" class="adl-steps-bar" style="display:none;"></div>
 
-      <!-- Task Menu (4 Core Clinical Tasks) -->
+      <!-- Task Menu (7 Clinical Daily Tasks) -->
       <div id="task-menu">
         <button class="task-btn" data-task="balloon">
           🎈 Balloon Air Pump
@@ -133,7 +166,7 @@
         </button>
         <button class="task-btn" data-task="light">
           💡 Rocker Light Switch
-          <span class="desc">Rapid hand thrust to flip wall switch</span>
+          <span class="desc">Point index finger &amp; slide the rocker UP for ON, DOWN for OFF</span>
         </button>
         <button class="task-btn" data-task="pin">
           🔢 Touchless PIN Pad

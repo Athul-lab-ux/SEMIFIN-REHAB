@@ -188,22 +188,28 @@ document.addEventListener("DOMContentLoaded", async () => {
       },
     },
 
-    // 2. Bubble Pop 2.0 (Wrist / Palm Grasp & Release Spasticity Game)
+    // 2. Bubble Pop 2.0 (One bubble at a time: blue / gold / silver, pop on fist close)
     bubblepop2: {
-      name: "Bubble Pop 2.0", emoji: "🫧", trains: "Wrist & palm grasp-to-pop spasticity release",
-      guide: "Align your open hand over a bubble, then CLENCH FIST ✊ to pop! Open hand 🖐️ to reload.",
+      name: "Bubble Pop 2.0", emoji: "🫧", trains: "One-bubble tracking with fist-close pop",
+      guide: "One bubble at a time — blue=10, gold=65, silver=25. Move your hand to follow it, then CLOSE your hand/palm toward the center to pop. Open hand does not pop.",
       lives: false,
       init() {
-        this.bubbles = [];
+        this.bubble = null;
         this.timer = 0;
-        this.readyToGrasp = true;
         this.palmCenter = { x: 0.5, y: 0.5 };
         this.openness = 1.0;
         this.isClosed = false;
         this.isOpen = true;
+        this.justPopped = false;
+        this.popTimer = 0;
+        this.lastT = performance.now();
       },
       update(res, W, H) {
-        // Calculate palm center and openness
+        const now = performance.now();
+        const dt = Math.max(0.001, (now - this.lastT) / 1000);
+        this.lastT = now;
+
+        // ---- hand state: palm center + open vs closed ----
         const hand = (res && res.hand) || (engine.lastRes && engine.lastRes.hand);
         if (hand && hand[0]) {
           const pIndices = [0, 5, 9, 13, 17];
@@ -223,7 +229,6 @@ document.addEventListener("DOMContentLoaded", async () => {
           const avgDist = tipDists.reduce((a, b) => a + b, 0) / tipDists.length;
           this.openness = avgDist / handSize;
 
-          // MCP-to-tip curl distances (direct finger flexion check matching MediaPipe screenshots)
           const curlDists = [
             hand[8] && hand[5] ? Math.hypot(hand[8].x - hand[5].x, hand[8].y - hand[5].y) : handSize,
             hand[12] && hand[9] ? Math.hypot(hand[12].x - hand[9].x, hand[12].y - hand[9].y) : handSize,
@@ -233,9 +238,9 @@ document.addEventListener("DOMContentLoaded", async () => {
           const avgCurl = curlDists.reduce((a, b) => a + b, 0) / curlDists.length;
           const curlRatio = avgCurl / handSize;
 
-          // Closed if either tip-to-wrist drops or individual fingers curl inwards (Screenshot 2026-10-04 204125)
+          // Closed when fingertips curl inward relative to the hand (the closing motion in the reference sequence)
           this.isClosed = this.openness < 1.25 || curlRatio < 0.55;
-          // Open when extended away (Screenshot 2026-10-04 204113)
+          // Open when fingertips are clearly extended
           this.isOpen = this.openness > 1.35 && curlRatio > 0.62;
         } else if (engine.tip) {
           this.palmCenter = { x: engine.tip.x * W, y: engine.tip.y * H };
@@ -243,119 +248,167 @@ document.addEventListener("DOMContentLoaded", async () => {
           this.isOpen = true;
         }
 
-        // Grasp state machine: if popped, must open hand to reload
-        if (!this.readyToGrasp && this.isOpen) {
-          this.readyToGrasp = true;
-          if (window.RehabBio && typeof window.RehabBio.playBeep === "function") {
-            window.RehabBio.playBeep(640, 0.04, 0.15);
+        // ---- pop cooldown after a successful pop ----
+        if (this.justPopped) {
+          this.popTimer -= dt;
+          if (this.popTimer <= 0) {
+            this.justPopped = false;
+            this.bubble = null;
+          }
+          // Still let the hand follow the bubble visually while cooldown runs
+          if (this.bubble) {
+            this.bubble.x += this.bubble.vx + Math.sin(this.bubble.wobble) * 0.5;
+            this.bubble.y -= this.bubble.vy;
+            this.bubble.wobble += 0.05;
+          }
+          return;
+        }
+
+        // ---- one active bubble only ----
+        if (!this.bubble) {
+          if (++this.timer > Math.max(20, 50 / this.$speed)) {
+            this.timer = 0;
+            const roll = Math.random();
+            let color, points, label;
+            if (roll < 0.55) {
+              // blue
+              color = "#38BDF8";
+              points = 10;
+              label = "BLUE 10";
+            } else if (roll < 0.80) {
+              // gold
+              color = "#FBBF24";
+              points = 65;
+              label = "GOLD 65";
+            } else {
+              // silver
+              color = "#C0C0C0";
+              points = 25;
+              label = "SILVER 25";
+            }
+            this.bubble = {
+              x: rand(0.15, 0.85) * W,
+              y: H + 40,
+              vx: rand(-0.7, 0.7),
+              vy: rand(1.3, 2.3) * this.$speed,
+              r: rand(46, 56),
+              color,
+              points,
+              label,
+              wobble: rand(0, Math.PI * 2),
+              popped: false,
+            };
           }
         }
 
-        // Spawn bubbles slowly
-        if (++this.timer > Math.max(35, 75 / this.$speed) && this.bubbles.length < 6) {
-          this.timer = 0;
-          const colors = ["#38BDF8", "#34D399", "#F472B6", "#FBBF24", "#A78BFA"];
-          this.bubbles.push({
-            x: rand(0.15, 0.85) * W,
-            y: H + 30,
-            vx: rand(-0.7, 0.7),
-            vy: rand(1.4, 2.4) * this.$speed,
-            r: rand(38, 48),
-            color: colors[(Math.random() * colors.length) | 0],
-            wobble: rand(0, Math.PI * 2),
-            popped: false,
-          });
-        }
-
-        // Update bubbles
-        for (const b of this.bubbles) {
+        // ---- move the single bubble ----
+        const b = this.bubble;
+        if (b) {
           b.x += b.vx + Math.sin(b.wobble) * 0.5;
           b.y -= b.vy;
           b.wobble += 0.05;
 
           const dist = Math.hypot(b.x - this.palmCenter.x, b.y - this.palmCenter.y);
-          const inZone = dist < b.r + 52;
+          const near = dist < b.r + 40;
 
-          // When in center and user clenches fist (Image 2 & Screenshot 204125)
-          if (inZone && this.readyToGrasp && this.isClosed && !b.popped) {
+          // Pop rule: bubble must be near the hand AND the hand must close.
+          // Open hand over the bubble does NOT pop it.
+          if (near && this.isClosed && !b.popped) {
             b.popped = true;
-            this.readyToGrasp = false; // Must open to re-arm (Image 3 & Screenshot 204113)
-            this.$engine.addScore(10);
-            spawnParticles(b.x, b.y, b.color, 24);
-            addScorePopup(this.palmCenter.x, this.palmCenter.y - 30, "+10 🫧 GRASP POP!", b.color);
+            this.justPopped = true;
+            this.popTimer = 0.9 / this.$speed;
+            this.$engine.addScore(b.points);
+            spawnParticles(b.x, b.y, b.color, 28);
+            addScorePopup(b.x, b.y - 20, `+${b.points} ${b.label}!`, b.color);
             if (window.RehabBio && typeof window.RehabBio.playBeep === "function") {
-              window.RehabBio.playBeep(1120, 0.08, 0.35);
+              window.RehabBio.playBeep(1180, 0.08, 0.35);
             }
           }
+
+          // Drop the bubble if it leaves the screen without being popped
+          if (b.y < -80) {
+            this.bubble = null;
+          }
         }
-        this.bubbles = this.bubbles.filter((b) => !b.popped && b.y > -60);
       },
       draw(ctx, W, H) {
-        // Draw bubbles with glossy shading
-        for (const b of this.bubbles) {
+        // ---- draw the single bubble ----
+        const b = this.bubble;
+        if (b) {
           ctx.save();
           const dist = Math.hypot(b.x - this.palmCenter.x, b.y - this.palmCenter.y);
-          const inZone = dist < b.r + 52;
+          const near = dist < b.r + 40;
 
+          // outer glow when hand is near
+          if (near) {
+            ctx.beginPath();
+            ctx.arc(b.x, b.y, b.r + 12, 0, Math.PI * 2);
+            ctx.fillStyle = "rgba(251, 191, 36, 0.22)";
+            ctx.fill();
+          }
+
+          // bubble body
           ctx.beginPath();
           ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
-          ctx.fillStyle = inZone ? "rgba(251, 191, 36, 0.35)" : "rgba(56, 189, 248, 0.25)";
+          ctx.fillStyle = b.color;
+          ctx.globalAlpha = 0.55;
           ctx.fill();
-          ctx.lineWidth = inZone ? 3.5 : 2;
-          ctx.strokeStyle = inZone ? "#FBBF24" : b.color;
+          ctx.globalAlpha = 1;
+          ctx.lineWidth = near ? 4 : 2.5;
+          ctx.strokeStyle = b.color;
           ctx.stroke();
 
-          // Bubble highlight sheen
+          // highlight sheen
           ctx.beginPath();
-          ctx.arc(b.x - b.r * 0.35, b.y - b.r * 0.35, b.r * 0.22, 0, Math.PI * 2);
-          ctx.fillStyle = "rgba(255, 255, 255, 0.75)";
+          ctx.arc(b.x - b.r * 0.32, b.y - b.r * 0.32, b.r * 0.22, 0, Math.PI * 2);
+          ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
           ctx.fill();
 
-          ctx.font = "24px Segoe UI Emoji, sans-serif";
+          // value label inside bubble
+          ctx.fillStyle = "#0F172A";
+          ctx.font = `bold ${Math.round(b.r * 0.42)}px Segoe UI, sans-serif`;
           ctx.textAlign = "center";
           ctx.textBaseline = "middle";
-          ctx.fillText("🫧", b.x, b.y);
+          ctx.fillText(b.label, b.x, b.y - 2);
+
           ctx.restore();
         }
 
-        // Draw Player Palm Target Zone (The Wrist / Palm Center)
+        // ---- draw player palm / hand status ----
         ctx.save();
         const px = this.palmCenter.x;
         const py = this.palmCenter.y;
 
-        // Outer Aura
         ctx.beginPath();
-        ctx.arc(px, py, 48, 0, Math.PI * 2);
-        if (!this.readyToGrasp) {
-          ctx.strokeStyle = "rgba(249, 115, 22, 0.7)"; // Orange: waiting to open hand
-          ctx.setLineDash([6, 6]);
-          ctx.lineWidth = 2.5;
-          ctx.stroke();
-        } else if (this.isClosed) {
-          ctx.strokeStyle = "rgba(16, 185, 129, 0.95)"; // Green: Fist clenched!
+        ctx.arc(px, py, 46, 0, Math.PI * 2);
+        if (this.justPopped) {
+          ctx.strokeStyle = "rgba(16, 185, 129, 0.95)";
           ctx.lineWidth = 4;
-          ctx.stroke();
+        } else if (this.isClosed) {
+          ctx.strokeStyle = "rgba(239, 68, 68, 0.95)";
+          ctx.lineWidth = 4;
         } else {
-          ctx.strokeStyle = "rgba(56, 189, 248, 0.85)"; // Cyan: Open & Ready!
+          ctx.strokeStyle = "rgba(56, 189, 248, 0.85)";
           ctx.lineWidth = 3;
-          ctx.stroke();
         }
+        ctx.stroke();
 
-        // Center hand status icon
         ctx.font = "26px Segoe UI Emoji, sans-serif";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         ctx.fillText(this.isClosed ? "✊" : "🖐️", px, py);
 
-        // Feedback prompt below hand
         ctx.font = "bold 13px Segoe UI, sans-serif";
         ctx.textAlign = "center";
-        if (!this.readyToGrasp) {
-          ctx.fillStyle = "#F97316";
-          ctx.fillText("🖐️ Open hand to reload!", px, py + 48);
-        } else {
+        if (this.justPopped) {
           ctx.fillStyle = "#10B981";
-          ctx.fillText("Catch bubble & Squeeze ✊", px, py + 48);
+          ctx.fillText("✔️ Pop! Next bubble coming…", px, py + 52);
+        } else if (this.isClosed) {
+          ctx.fillStyle = "#EF4444";
+          ctx.fillText("Hand closed — pop if bubble is near", px, py + 52);
+        } else {
+          ctx.fillStyle = "#38BDF8";
+          ctx.fillText("Follow the bubble with your hand", px, py + 52);
         }
         ctx.restore();
       },
@@ -647,7 +700,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     // 7. Finger Count (Open & Close Finger Isolation Game)
     fingercount: {
       name: "Finger Count", emoji: "🖐️", trains: "Individual finger extension & count coordination",
-      guide: "Look at the screen: show the exact number of fingers prompted (1 to 5) and hold steady!",
+      guide: "Show the exact number of fingers prompted. 60s game — correct match = 1 to 5 points.",
       lives: false,
       init() {
         this.target = Math.floor(rand(1, 6)); // 1 to 5
@@ -663,33 +716,49 @@ document.addEventListener("DOMContentLoaded", async () => {
         this.lastT = now;
 
         const hand = (res && res.hand) || (engine.lastRes && engine.lastRes.hand);
-        if (hand && hand[0]) {
-          const handSize = Math.hypot(hand[9].x - hand[0].x, hand[9].y - hand[0].y) || 0.1;
+        this.detected = 0;
 
-          // Thumb tip (4) vs pinky MCP (17) and thumb MCP (2)
-          const thumbExt = Math.hypot(hand[4].x - hand[17].x, hand[4].y - hand[17].y) >
-                           Math.hypot(hand[3].x - hand[17].x, hand[3].y - hand[17].y) * 1.15 &&
-                           Math.hypot(hand[4].x - hand[2].x, hand[4].y - hand[2].y) > handSize * 0.42;
-
-          // 4 Fingers: Tip dist to wrist > PIP dist to wrist * 1.18
-          const indexExt = hand[8] && hand[6] && Math.hypot(hand[8].x - hand[0].x, hand[8].y - hand[0].y) > Math.hypot(hand[6].x - hand[0].x, hand[6].y - hand[0].y) * 1.18;
-          const middleExt = hand[12] && hand[10] && Math.hypot(hand[12].x - hand[0].x, hand[12].y - hand[0].y) > Math.hypot(hand[10].x - hand[0].x, hand[10].y - hand[0].y) * 1.18;
-          const ringExt = hand[16] && hand[14] && Math.hypot(hand[16].x - hand[0].x, hand[16].y - hand[0].y) > Math.hypot(hand[14].x - hand[0].x, hand[14].y - hand[0].y) * 1.18;
-          const pinkyExt = hand[20] && hand[18] && Math.hypot(hand[20].x - hand[0].x, hand[20].y - hand[0].y) > Math.hypot(hand[18].x - hand[0].x, hand[18].y - hand[0].y) * 1.18;
-
-          this.detected = (thumbExt ? 1 : 0) + (indexExt ? 1 : 0) + (middleExt ? 1 : 0) + (ringExt ? 1 : 0) + (pinkyExt ? 1 : 0);
-        } else {
-          this.detected = 0;
+        if (!hand || !hand[0]) {
+          this.matchTime = Math.max(0, this.matchTime - dt * 1.5);
+          return;
         }
+
+        const wrist = hand[0];
+        const handSize = Math.hypot(hand[9].x - wrist.x, hand[9].y - wrist.y) || 0.15;
+
+        // Extend a finger when its tip is clearly farther from wrist than the matching MCP/PIP base,
+        // using a stable per-finger comparison instead of a single global threshold.
+        const thumbExt = hand[4] && hand[2] && hand[3] && hand[17]
+          ? (Math.hypot(hand[4].x - wrist.x, hand[4].y - wrist.y) > Math.hypot(hand[2].x - wrist.x, hand[2].y - wrist.y) * 1.02)
+          : false;
+
+        const indexExt = hand[8] && hand[6]
+          ? (Math.hypot(hand[8].x - wrist.x, hand[8].y - wrist.y) > Math.hypot(hand[6].x - wrist.x, hand[6].y - wrist.y) * 1.08)
+          : false;
+
+        const middleExt = hand[12] && hand[10]
+          ? (Math.hypot(hand[12].x - wrist.x, hand[12].y - wrist.y) > Math.hypot(hand[10].x - wrist.x, hand[10].y - wrist.y) * 1.08)
+          : false;
+
+        const ringExt = hand[16] && hand[14]
+          ? (Math.hypot(hand[16].x - wrist.x, hand[16].y - wrist.y) > Math.hypot(hand[14].x - wrist.x, hand[14].y - wrist.y) * 1.08)
+          : false;
+
+        const pinkyExt = hand[20] && hand[18]
+          ? (Math.hypot(hand[20].x - wrist.x, hand[20].y - wrist.y) > Math.hypot(hand[18].x - wrist.x, hand[18].y - wrist.y) * 1.08)
+          : false;
+
+        this.detected = (thumbExt ? 1 : 0) + (indexExt ? 1 : 0) + (middleExt ? 1 : 0) + (ringExt ? 1 : 0) + (pinkyExt ? 1 : 0);
 
         // Match validation with dwell timer
         if (this.detected === this.target) {
           this.matchTime += dt;
           if (this.matchTime >= this.dwellNeeded) {
             this.matchTime = 0;
-            this.$engine.addScore(15);
+            const earned = Math.floor(rand(1, 6)); // 1 to 5
+            this.$engine.addScore(earned);
             spawnParticles(W / 2, H * 0.35, "#10B981", 24);
-            addScorePopup(W / 2, H * 0.35, `+15 🎯 ${this.target} FINGERS!`, "#10B981");
+            addScorePopup(W / 2, H * 0.35, `+${earned} 🎯 ${this.target} FINGERS!`, "#10B981");
             if (window.RehabBio && typeof window.RehabBio.playBeep === "function") {
               window.RehabBio.playBeep(880, 0.08, 0.3);
             }
@@ -1428,9 +1497,19 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
+  function recoveryLevelForGame(gameKey, score) {
+    if (!/"(fruit|bubblepop|bubblepop2)"/.test('"' + gameKey + '"')) return null;
+    const target = 60;
+    if (score < target) return "slow";
+    if (score === target) return "steady";
+    return "fast";
+  }
+
   async function logSession() {
     const duration = Math.floor((Date.now() - engine.startedAt) / 1000);
     const name = engine.game ? engine.game.name : "Unknown";
+    const gameKey = engine.key || "";
+    const level = recoveryLevelForGame(gameKey, engine.score);
     try {
       await fetch("/api/telemetry", {
         method: "POST",
@@ -1443,10 +1522,20 @@ document.addEventListener("DOMContentLoaded", async () => {
           smoothness_score: 70,
           cheats_blocked: 0,
           score: engine.score,
-          metrics_json: JSON.stringify({ game: name, score: engine.score, lives: engine.lives, speed: engine.speed }),
+          metrics_json: JSON.stringify({
+            "game": name,
+            "score": engine.score,
+            "lives": engine.lives,
+            "speed": engine.speed,
+            "recovery_level": level,
+            "target_score": level ? 60 : null,
+          }),
         }),
       });
-      showToast(`📊 Session logged (${name}, ${engine.score} pts)`, "success");
+      const msg = level
+        ? `📊 Session logged (${name}, ${engine.score} pts — ${level} recovery)`
+        : `📊 Session logged (${name}, ${engine.score} pts)`;
+      showToast(msg, "success");
     } catch (err) {
       console.error("Telemetry error:", err);
     }

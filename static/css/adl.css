@@ -299,6 +299,78 @@
   padding: 16px;
 }
 .adl-guidance-popup.show { display: flex; }
+
+/* 🎆 Grand Ending Celebration Popup */
+.adl-celebration-popup {
+  position: absolute;
+  inset: 0;
+  z-index: 60;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(4, 8, 16, 0.82);
+  backdrop-filter: blur(4px);
+  animation: adl-celebration-fade-in 0.35s ease-out;
+}
+.adl-celebration-popup.show { display: flex; }
+@keyframes adl-celebration-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.acm-card {
+  text-align: center;
+  padding: 44px 60px;
+  border-radius: 24px;
+  background: linear-gradient(160deg, rgba(7, 13, 24, 0.96), rgba(6, 78, 59, 0.92));
+  border: 3px solid #10B981;
+  box-shadow: 0 0 90px rgba(16, 185, 129, 0.5), 0 24px 60px rgba(0, 0, 0, 0.65);
+  animation: adl-celebration-pop 0.45s cubic-bezier(0.18, 1.25, 0.4, 1.1);
+  max-width: min(640px, 88%);
+}
+@keyframes adl-celebration-pop {
+  0% { transform: scale(0.55) rotate(-2deg); opacity: 0; }
+  70% { transform: scale(1.06) rotate(1deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+.acm-burst {
+  font-size: 34px;
+  letter-spacing: 10px;
+  margin-bottom: 10px;
+  animation: adl-celebration-bounce 1s ease-in-out infinite alternate;
+}
+@keyframes adl-celebration-bounce {
+  from { transform: translateY(0) scale(1); }
+  to { transform: translateY(-8px) scale(1.12); }
+}
+.acm-big {
+  font-size: clamp(38px, 6.5vw, 72px);
+  font-weight: 900;
+  margin: 0 0 8px;
+  background: linear-gradient(90deg, #FDE047, #34D399, #38BDF8, #F472B6);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 4px 18px rgba(253, 224, 71, 0.45));
+}
+.acm-sub {
+  font-size: clamp(15px, 2vw, 20px);
+  color: #E2E8F0;
+  margin: 0 0 14px;
+  font-weight: 600;
+}
+.acm-task {
+  font-size: 13px;
+  color: #94A3B8;
+  margin: 0 0 18px;
+  font-weight: 600;
+}
+.acm-hint {
+  font-size: 12.5px;
+  color: #38BDF8;
+  border-top: 1px solid rgba(56, 189, 248, 0.25);
+  padding-top: 14px;
+  font-weight: 600;
+}
 .agp-card {
   background: #0D1726;
   border: 1.5px solid #10B981;
@@ -386,6 +458,116 @@
   margin-top: 6px; font-size: 11.5px; color: #94A3B8; font-weight: 600;
 }
 .agp-sub-hint { color: #64748B; font-size: 10.5px; }
+
+/* 🎯 Reps / Times Setup Popup (before every task) */
+.adl-setup-popup {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(4, 8, 16, 0.86);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  padding: 16px;
+}
+.adl-setup-popup.show { display: flex; }
+.asp-card {
+  width: 100%;
+  max-width: 380px;
+  background: #0D1726;
+  border: 1.5px solid #38BDF8;
+  border-radius: 16px;
+  padding: 22px 24px;
+  text-align: center;
+  color: #F8FAFC;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.6), 0 0 24px rgba(56, 189, 248, 0.25);
+}
+.asp-badge {
+  display: inline-block;
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  color: #38BDF8;
+  background: rgba(56, 189, 248, 0.14);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  border-radius: 6px;
+  padding: 3px 9px;
+  margin-bottom: 10px;
+}
+.asp-title { font-size: 18px; font-weight: 800; margin: 0 0 4px; color: #FFFFFF; }
+.asp-sub { font-size: 12.5px; color: #94A3B8; margin: 0 0 16px; font-weight: 600; }
+.asp-stepper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin-bottom: 6px;
+}
+.asp-step-btn {
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
+  border: 1.5px solid rgba(56, 189, 248, 0.45);
+  background: rgba(56, 189, 248, 0.12);
+  color: #38BDF8;
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s ease;
+}
+.asp-step-btn:hover { background: rgba(56, 189, 248, 0.25); color: #FFFFFF; }
+.asp-step-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.asp-value-wrap {
+  min-width: 108px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.asp-value { font-size: 40px; font-weight: 900; color: #FBBF24; line-height: 1; font-family: ui-monospace, monospace; }
+.asp-unit { font-size: 11px; font-weight: 700; color: #94A3B8; text-transform: uppercase; letter-spacing: 0.6px; }
+.asp-range { font-size: 11.5px; color: #64748B; font-weight: 600; margin-bottom: 16px; }
+.asp-start-btn {
+  width: 100%;
+  padding: 12px 14px;
+  background: #10B981;
+  color: #FFFFFF;
+  border: none;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.2s ease;
+}
+.asp-start-btn:hover { background: #059669; transform: scale(1.02); }
+.asp-cancel-btn {
+  width: 100%;
+  margin-top: 8px;
+  padding: 9px 14px;
+  background: transparent;
+  color: #94A3B8;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.2s ease;
+}
+.asp-cancel-btn:hover { color: #FFFFFF; border-color: rgba(255, 255, 255, 0.5); }
+.asp-hint { font-size: 11px; color: #64748B; margin-top: 10px; font-weight: 600; }
+.acm-score {
+  font-size: 13.5px;
+  color: #FDE047;
+  font-weight: 700;
+  margin: 0 0 16px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
 
 @media (max-width: 640px) {
   .adl-container {

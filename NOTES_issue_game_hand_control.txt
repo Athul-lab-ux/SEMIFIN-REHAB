@@ -1,0 +1,68 @@
+# Root-cause notes — Game session control feels mouse/touch driven instead of hand-driven
+# Project: rehabopt-ar
+# Status: Problem recorded for later fix. No code changes made yet.
+
+## Observed symptom
+In the Game Session (/arcade), the games should be controlled by the real hand in front of the webcam via MediaPipe hand landmarks.
+In practice, hand movement does not drive the game reliably.
+Instead, the game responds mainly when the laptop touchpad or mouse is used.
+
+## Why this happens (from the code)
+
+### 1. Vision pipeline starts before hand tracking is actually ready
+- File: static/js/vision_loader.js
+- VisionLoader.start() acquires the webcam stream immediately.
+- MediaPipe Hands/Pose models are initialized later in the background by initModels().
+- If window.Hands / window.Pose are not already present, the loader tries to load them from CDN.
+- If that load is slow or fails, the code only warns in the console; it does not block the game.
+- Hand inference is throttled (about 30ms), pose about 35ms.
+- So there is a real gap where the camera is live but hand landmarks are still null.
+
+### 2. The engine uses a hand-control gate flag: tipFromCamera
+- File: static/js/arcade_engine.js
+- engine.tipFromCamera starts as false.
+- In computeFrame():
+  - If res.hand && res.hand[8] -> engine.tip = index fingertip, tipFromCamera = true
+  - Else if res.hand && res.hand[0] -> engine.tip = wrist, tipFromCamera = true
+  - Otherwise tipFromCamera stays false
+- This flag decides whether the active control input comes from the camera or from the pointer fallback.
+
+### 3. A pointer/mouse/touch fallback is wired to take over when vision is missing
+- File: static/js/arcade_engine.js
+- pointermove:
+  - Computes normalized canvas coords nx, ny
+  - Updates engine.tip only when !engine.tipFromCamera
+- pointerdown:
+  - Flappy bird: directly moves the bird on click
+  - Hammer: fakes a wrist pitch event on click
+- So when hand tracking is not providing a tip, mouse/touch becomes the effective control.
+
+### 4. The game can become active while hand tracking is still unreliable
+- File: static/js/arcade_engine.js
+- startVision() is called automatically on page load.
+- selectGame(...) runs a 4s countdown and then sets engine.playing = true.
+- The 60 FPS loop starts using engine.tip / engine.tipFromCamera immediately.
+- If the game becomes active before hand detection is stable, the pointer fallback is the dominant input during that time.
+
+### 5. Hand control is frame-dependent, not one-time
+- File: static/js/arcade_engine.js, static/js/vision_loader.js
+- Tip, openness, wrist pitch, elbow angle all depend on hand/pose landmarks being present that frame.
+- If the hand is briefly lost, the active control path can flip back to pointer/mouse.
+
+### 6. Practical laptop/webcam causes
+- On a laptop, the hand is often lower in the frame, near keyboard level.
+- MediaPipe Hands works best when the hand is reasonably large in frame, well lit, and not heavily occluded.
+- Small, far, angled, backlit, or fast-moving hands can cause intermittent detection.
+- In that case, the app behaves correctly according to its code, but the user experience becomes pointer-like whenever hand detection drops.
+
+### 7. Same risk likely applies to other vision sessions
+- Files: static/js/air_canvas_engine.js, static/js/adl_engine.js
+- They also depend on MediaPipe hand results and can become unresponsive in the same way if landmarks are not continuously available.
+
+## What this means for a fix later
+- The core issue is not necessarily a missing feature; it is that hand-driven control is conditional on continuous hand detection.
+- Any future fix has to improve the situation where hand tracking is missing or unstable, without breaking the pointer fallback entirely unless that fallback is meant to be removed.
+- The fix work should be validated on a real webcam setup, not only by clicking the mouse.
+
+## Saved
+- This note is saved so the issue can be solved later in one place.
