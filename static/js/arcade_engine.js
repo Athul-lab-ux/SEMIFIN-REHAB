@@ -197,7 +197,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         this.bubble = null;
         this.timer = 0;
         this.palmCenter = { x: 0.5, y: 0.5 };
-        this.openness = 1.0;
+        this.handState = "OPEN";      // rotation-invariant state: OPEN | FIST
+        this.prevHandState = "OPEN";  // previous frame state for edge-triggered pop
         this.isClosed = false;
         this.isOpen = true;
         this.justPopped = false;
@@ -209,41 +210,37 @@ document.addEventListener("DOMContentLoaded", async () => {
         const dt = Math.max(0.001, (now - this.lastT) / 1000);
         this.lastT = now;
 
-        // ---- hand state: palm center + open vs closed ----
+        // ---- hand state: palm center (wrist 0 + middle MCP 9 midpoint) + FIST/OPEN gesture ----
         const hand = (res && res.hand) || (engine.lastRes && engine.lastRes.hand);
-        if (hand && hand[0]) {
-          const pIndices = [0, 5, 9, 13, 17];
-          let cx = 0, cy = 0, count = 0;
-          pIndices.forEach((idx) => {
-            if (hand[idx]) { cx += hand[idx].x; cy += hand[idx].y; count++; }
-          });
+        if (hand && hand[0] && hand[9]) {
+          // Palm center = midpoint between wrist (0) and middle MCP knuckle (9)
           this.palmCenter = {
-            x: (cx / (count || 1)) * W,
-            y: (cy / (count || 1)) * H,
+            x: (hand[0].x + hand[9].x) / 2 * W,
+            y: (hand[0].y + hand[9].y) / 2 * H,
           };
 
-          const handSize = Math.hypot(hand[9].x - hand[0].x, hand[9].y - hand[0].y) || 0.1;
-          const tipDists = [8, 12, 16, 20].map((tip) =>
-            hand[tip] ? Math.hypot(hand[tip].x - hand[0].x, hand[tip].y - hand[0].y) : handSize * 1.3
-          );
-          const avgDist = tipDists.reduce((a, b) => a + b, 0) / tipDists.length;
-          this.openness = avgDist / handSize;
+          // Rotation-invariant palm scale: wrist (0) -> middle MCP (9)
+          const palmScale = Math.hypot(hand[9].x - hand[0].x, hand[9].y - hand[0].y) || 0.1;
 
-          const curlDists = [
-            hand[8] && hand[5] ? Math.hypot(hand[8].x - hand[5].x, hand[8].y - hand[5].y) : handSize,
-            hand[12] && hand[9] ? Math.hypot(hand[12].x - hand[9].x, hand[12].y - hand[9].y) : handSize,
-            hand[16] && hand[13] ? Math.hypot(hand[16].x - hand[13].x, hand[16].y - hand[13].y) : handSize,
-            hand[20] && hand[17] ? Math.hypot(hand[20].x - hand[17].x, hand[20].y - hand[17].y) : handSize,
-          ];
-          const avgCurl = curlDists.reduce((a, b) => a + b, 0) / curlDists.length;
-          const curlRatio = avgCurl / handSize;
-
-          // Closed when fingertips curl inward relative to the hand (the closing motion in the reference sequence)
-          this.isClosed = this.openness < 1.25 || curlRatio < 0.55;
-          // Open when fingertips are clearly extended
-          this.isOpen = this.openness > 1.35 && curlRatio > 0.62;
+          // FIST if 3+ of the 4 fingertips (8,12,16,20) are retracted close to the wrist/palm,
+          // measured as Euclidean distance from wrist relative to palm scale (angle-safe).
+          let retractedCount = 0;
+          [8, 12, 16, 20].forEach((tipIdx) => {
+            if (hand[tipIdx]) {
+              const d = Math.hypot(hand[tipIdx].x - hand[0].x, hand[tipIdx].y - hand[0].y);
+              if (d < palmScale * 1.15) retractedCount++;
+            } else {
+              retractedCount++; // missing landmark counts as retracted
+            }
+          });
+          this.prevHandState = this.handState;
+          this.handState = retractedCount >= 3 ? "FIST" : "OPEN";
+          this.isClosed = this.handState === "FIST";
+          this.isOpen = this.handState === "OPEN";
         } else if (engine.tip) {
           this.palmCenter = { x: engine.tip.x * W, y: engine.tip.y * H };
+          this.prevHandState = this.handState;
+          this.handState = "OPEN";
           this.isClosed = false;
           this.isOpen = true;
         }
@@ -309,11 +306,15 @@ document.addEventListener("DOMContentLoaded", async () => {
           b.wobble += 0.05;
 
           const dist = Math.hypot(b.x - this.palmCenter.x, b.y - this.palmCenter.y);
-          const near = dist < b.r + 40;
+          const near = dist < b.r + 40; // hover = palm center inside bubble boundary + padding
 
-          // Pop rule: bubble must be near the hand AND the hand must close.
-          // Open hand over the bubble does NOT pop it.
-          if (near && this.isClosed && !b.popped) {
+          // Latch trigger: pop STRICTLY on the transition edge
+          // (hovered === true) AND (previous state === "OPEN") AND (current state === "FIST")
+          // Hovering with an open hand, or staying closed, never pops.
+          const isHovered = near;
+          const poppedThisFrame =
+            isHovered && this.prevHandState === "OPEN" && this.handState === "FIST" && !b.popped;
+          if (poppedThisFrame) {
             b.popped = true;
             this.justPopped = true;
             this.popTimer = 0.9 / this.$speed;
@@ -706,7 +707,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         this.target = Math.floor(rand(1, 6)); // 1 to 5
         this.detected = 0;
         this.matchTime = 0;
-        this.dwellNeeded = 0.45 / this.$speed; // seconds
+        this.dwellNeeded = 0.45; // fixed 450ms stable-hold latch (not speed-scaled)
         this.lastT = performance.now();
         this.fingerEmojis = { 1: "☝️", 2: "✌️", 3: "🤟", 4: "🖖", 5: "🖐️" };
       },
@@ -726,34 +727,39 @@ document.addEventListener("DOMContentLoaded", async () => {
         const wrist = hand[0];
         const handSize = Math.hypot(hand[9].x - wrist.x, hand[9].y - wrist.y) || 0.15;
 
-        // Extend a finger when its tip is clearly farther from wrist than the matching MCP/PIP base,
-        // using a stable per-finger comparison instead of a single global threshold.
-        const thumbExt = hand[4] && hand[2] && hand[3] && hand[17]
-          ? (Math.hypot(hand[4].x - wrist.x, hand[4].y - wrist.y) > Math.hypot(hand[2].x - wrist.x, hand[2].y - wrist.y) * 1.02)
-          : false;
-
+        // Rotation-invariant extension detection (no fragile tip.y < pip.y vertical checks).
+        // 4 fingers: finger is EXTENDED when dist(wrist, tip) > dist(wrist, PIP) * 1.15.
         const indexExt = hand[8] && hand[6]
-          ? (Math.hypot(hand[8].x - wrist.x, hand[8].y - wrist.y) > Math.hypot(hand[6].x - wrist.x, hand[6].y - wrist.y) * 1.08)
+          ? (Math.hypot(hand[8].x - wrist.x, hand[8].y - wrist.y) > Math.hypot(hand[6].x - wrist.x, hand[6].y - wrist.y) * 1.15)
           : false;
 
         const middleExt = hand[12] && hand[10]
-          ? (Math.hypot(hand[12].x - wrist.x, hand[12].y - wrist.y) > Math.hypot(hand[10].x - wrist.x, hand[10].y - wrist.y) * 1.08)
+          ? (Math.hypot(hand[12].x - wrist.x, hand[12].y - wrist.y) > Math.hypot(hand[10].x - wrist.x, hand[10].y - wrist.y) * 1.15)
           : false;
 
         const ringExt = hand[16] && hand[14]
-          ? (Math.hypot(hand[16].x - wrist.x, hand[16].y - wrist.y) > Math.hypot(hand[14].x - wrist.x, hand[14].y - wrist.y) * 1.08)
+          ? (Math.hypot(hand[16].x - wrist.x, hand[16].y - wrist.y) > Math.hypot(hand[14].x - wrist.x, hand[14].y - wrist.y) * 1.15)
           : false;
 
         const pinkyExt = hand[20] && hand[18]
-          ? (Math.hypot(hand[20].x - wrist.x, hand[20].y - wrist.y) > Math.hypot(hand[18].x - wrist.x, hand[18].y - wrist.y) * 1.08)
+          ? (Math.hypot(hand[20].x - wrist.x, hand[20].y - wrist.y) > Math.hypot(hand[18].x - wrist.x, hand[18].y - wrist.y) * 1.15)
           : false;
 
+        // Thumb: lateral movement, compared against the pinky knuckle base (17), NOT the wrist.
+        // EXTENDED when dist(thumb tip 4, pinky base 17) > dist(thumb IP 3, pinky base 17) * 1.18.
+        const thumbExt = hand[4] && hand[3] && hand[17]
+          ? (Math.hypot(hand[4].x - hand[17].x, hand[4].y - hand[17].y) > Math.hypot(hand[3].x - hand[17].x, hand[3].y - hand[17].y) * 1.18)
+          : false;
+
+        // Total count 0-5. Supports BOTH clinical "3" styles automatically:
+        //   Style A: index+middle+ring extended (thumb & pinky folded)
+        //   Style B: thumb+index+middle extended (ring & pinky folded)
         this.detected = (thumbExt ? 1 : 0) + (indexExt ? 1 : 0) + (middleExt ? 1 : 0) + (ringExt ? 1 : 0) + (pinkyExt ? 1 : 0);
 
-        // Match validation with dwell timer
+        // Progression latch (debounce): hold the correct count stable for 450ms continuously.
         if (this.detected === this.target) {
           this.matchTime += dt;
-          if (this.matchTime >= this.dwellNeeded) {
+          if (this.matchTime >= 0.45) {
             this.matchTime = 0;
             const earned = Math.floor(rand(1, 6)); // 1 to 5
             this.$engine.addScore(earned);
@@ -762,7 +768,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             if (window.RehabBio && typeof window.RehabBio.playBeep === "function") {
               window.RehabBio.playBeep(880, 0.08, 0.3);
             }
-            // Pick new target different from current
+            // New random target, guaranteed different from the current one
             let nextTarget = Math.floor(rand(1, 6));
             while (nextTarget === this.target) {
               nextTarget = Math.floor(rand(1, 6));
@@ -770,7 +776,8 @@ document.addEventListener("DOMContentLoaded", async () => {
             this.target = nextTarget;
           }
         } else {
-          this.matchTime = Math.max(0, this.matchTime - dt * 1.5);
+          // Count flickered or changed before 450ms -> hard reset of the hold timer
+          this.matchTime = 0;
         }
       },
       draw(ctx, W, H) {
