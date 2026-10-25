@@ -341,24 +341,25 @@
 
 /* 4-second Guidance Popup Overlay (How to do & What to do) */
 .therapy-guidance-popup {
-  position: absolute; inset: 0; z-index: 8;
+  position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 8;
   display: none; align-items: center; justify-content: center;
-  background: rgba(11, 18, 32, 0.78);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  background: transparent;
+  pointer-events: none;
   animation: fadeIn 0.2s ease;
-  padding: 16px;
+  padding: 0 16px;
+  width: 100%;
+  max-width: 520px;
 }
 .therapy-guidance-popup.show { display: flex; }
 .tgp-card {
-  background: #0F172A;
+  pointer-events: auto;
+  background: rgba(15, 23, 42, 0.94);
   border: 1.5px solid var(--clin-orange);
   border-radius: 16px;
-  padding: 22px 24px;
-  max-width: min(92%, 460px);
+  padding: 16px 20px;
   width: 100%;
   color: #F8FAFC;
-  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.55), 0 0 24px rgba(16, 185, 129, 0.25);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.7), 0 0 24px rgba(249, 115, 22, 0.25);
   text-align: left;
 }
 .tgp-header-row {

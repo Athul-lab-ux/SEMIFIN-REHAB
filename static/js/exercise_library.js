@@ -41,10 +41,10 @@ const EXERCISES = [
     emoji: "🦾",
     name: "Elbow Extension & Flexion",
     metric: "ELBOW °",
-    hint: "Straighten arm to top corner target (≥150°) and hold 1s (0.5 Rep), then bend elbow back in (<120°) to complete 1 Rep.",
+    hint: "Straighten arm to top corner target (≥140°) and hold (0.5 Rep), then bend elbow back in (<125°) to complete 1 Rep.",
     steps: [
-      S("Step 1: Extend Arm (≥150°) & Hold Corner Target (1.0s)", (m) => m.elbowMax != null && m.elbowMax >= 150 && m.cornerHit, 1.0),
-      S("Step 2: Bend Elbow Back In (<120°)", (m) => m.elbowMax != null && m.elbowMax < 120),
+      S("Step 1: Extend Arm (≥140°) & Touch Corner Target", (m) => (m.cornerHit || (m.elbowMax != null && m.elbowMax >= 140)), 0.6),
+      S("Step 2: Bend Elbow Back In (<125°)", (m) => m.elbowMax != null && m.elbowMax < 125),
     ],
   },
 
@@ -56,9 +56,9 @@ const EXERCISES = [
     emoji: "🏋️",
     name: "Shoulder Elevation / Shrug",
     metric: "SHOULDER",
-    hint: "Shrug your shoulder up into the target and hold 2s (0.5 Rep), then lower your shoulder back down to complete 1 Rep.",
+    hint: "Shrug your shoulder up into the target and hold (0.5 Rep), then lower your shoulder back down to complete 1 Rep.",
     steps: [
-      S("Step 1: Shrug Shoulder Up into Target & Hold (2.0s)", (m) => !!m.shoulderShrugHit, 2.0),
+      S("Step 1: Shrug Shoulder Up into Target & Hold", (m) => !!m.shoulderShrugHit, 1.2),
       S("Step 2: Lower Shoulder Back Down to Rest Position", (m) => !!m.shoulderRelaxed),
     ],
   },
@@ -73,8 +73,8 @@ const EXERCISES = [
     metric: "PALM",
     hint: "Close fingers into a tight fist (0.5 Rep), then spread all 5 fingers wide into an open palm to complete 1 Rep.",
     steps: [
-      S("Step 1: Close Hand into Fist ✊ & Hold (0.5s)", (m) => !!m.isFist, 0.5),
-      S("Step 2: Open Palm Wide 🖐️ & Hold (0.7s)", (m) => !!m.isOpenPalm, 0.7),
+      S("Step 1: Close Hand into Fist ✊ & Hold", (m) => !!m.isFist, 0.4),
+      S("Step 2: Open Palm Wide 🖐️ & Hold", (m) => !!m.isOpenPalm, 0.5),
     ],
   },
 
@@ -86,10 +86,10 @@ const EXERCISES = [
     emoji: "🙌",
     name: "Horizontal Wrist Up & Down",
     metric: "WRIST °",
-    hint: "Hold forearm horizontal. Tilt wrist UP into target (≥20°) and hold (0.5 Rep), then bring wrist DOWN to level to complete 1 Rep.",
+    hint: "Hold forearm horizontal. Tilt wrist UP into target (≥14°) and hold (0.5 Rep), then bring wrist DOWN to level to complete 1 Rep.",
     steps: [
-      S("Step 1: Cock Wrist UPward (≥20°) & Hold (0.8s)", (m) => m.wristPitch != null && m.wristPitch >= 20, 0.8),
-      S("Step 2: Return Wrist DOWN to Level (≤8°)", (m) => m.wristPitch != null && m.wristPitch <= 8),
+      S("Step 1: Cock Wrist UPward (≥14°) & Hold", (m) => (m.wristPitch != null && m.wristPitch >= 14) || (m.dev != null && m.dev >= 12), 0.5),
+      S("Step 2: Return Wrist DOWN to Level (≤10°)", (m) => (m.wristPitch != null && m.wristPitch <= 10) || (m.dev != null && m.dev <= 8)),
     ],
   },
 
@@ -101,9 +101,9 @@ const EXERCISES = [
     emoji: "🎯",
     name: "Diagonal Reach & Hold (Endurance)",
     metric: "HOLD",
-    hint: "Reach wrist diagonally upward into target circle and hold steady for 3 seconds.",
+    hint: "Reach wrist diagonally upward into target circle and hold steady for 2 seconds.",
     steps: [
-      S("Reach Wrist into Diagonal Target & Hold Steady (3.0s)", (m) => !!m.diagonalHit, 3.0),
+      S("Reach Wrist into Diagonal Target & Hold Steady", (m) => !!m.diagonalHit, 2.0),
     ],
   },
 
@@ -117,8 +117,8 @@ const EXERCISES = [
     metric: "GLIDE",
     hint: "Glide wrist horizontally from Station 1 to Station 2 (0.5 Rep), then glide back to Station 1 to complete 1 Rep.",
     steps: [
-      S("Step 1: Glide Wrist to Station 2 (Right) & Hold (1.0s)", (m) => !!m.s2Hit, 1.0),
-      S("Step 2: Glide Wrist Back to Station 1 (Left) & Hold (1.0s)", (m) => !!m.s1Hit, 1.0),
+      S("Step 1: Glide Wrist to Station 2 (Right) & Hold", (m) => !!m.s2Hit, 0.6),
+      S("Step 2: Glide Wrist Back to Station 1 (Left) & Hold", (m) => !!m.s1Hit, 0.6),
     ],
   },
 
@@ -132,8 +132,8 @@ const EXERCISES = [
     metric: "ROTATE",
     hint: "Keep palm wide open. Rotate hand Left (0.5 Rep), then rotate hand Right to complete 1 Rep.",
     steps: [
-      S("Step 1: Rotate Open Palm Left ⬅️ & Hold (0.6s)", (m) => !!m.rotateLeftHit, 0.6),
-      S("Step 2: Rotate Open Palm Right ➡️ & Hold (0.6s)", (m) => !!m.rotateRightHit, 0.6),
+      S("Step 1: Rotate Open Palm Left ⬅️ & Hold", (m) => !!m.rotateLeftHit, 0.4),
+      S("Step 2: Rotate Open Palm Right ➡️ & Hold", (m) => !!m.rotateRightHit, 0.4),
     ],
   },
 
@@ -145,9 +145,9 @@ const EXERCISES = [
     emoji: "🛸",
     name: "Dynamic Moving Target Pursuit",
     metric: "PURSUIT",
-    hint: "Follow the moving target with your wrist. Keep inside for the 10s countdown. Moving outside resets the timer!",
+    hint: "Follow the moving target with your wrist. Keep inside for the countdown. Moving outside resets the timer!",
     steps: [
-      S("Follow Moving Target with Wrist for 10s Countdown", (m) => !!m.movingPursuitComplete),
+      S("Follow Moving Target with Wrist (Counting Down)", (m) => !!m.movingPursuitComplete),
     ],
   },
 
@@ -161,8 +161,8 @@ const EXERCISES = [
     metric: "PINCH",
     hint: "Pinch thumb and index fingertip together tightly (0.5 Rep), then release fingers wide open to complete 1 Rep.",
     steps: [
-      S("Step 1: Pinch Thumb & Index Together 🤏 & Hold (0.8s)", (m) => m.pinchRatio != null && m.pinchRatio <= 0.22, 0.8),
-      S("Step 2: Release Fingers Wide Open 🖐️", (m) => m.pinchRatio != null && m.pinchRatio >= 0.45),
+      S("Step 1: Pinch Thumb & Index Together 🤏 & Hold", (m) => (m.pinchRatio != null && m.pinchRatio <= 0.32) || (m.pinch != null && m.pinch <= 0.05), 0.5),
+      S("Step 2: Release Fingers Wide Open 🖐️", (m) => (m.pinchRatio != null && m.pinchRatio >= 0.40) || (m.pinch != null && m.pinch >= 0.08)),
     ],
   },
 ];
@@ -216,7 +216,7 @@ function getExerciseStepSvg(exKey, stepIndex, isActive = false, isDone = false) 
         <circle cx="106" cy="22" r="2.5" fill="#38BDF8" />
       `;
     } else {
-      // Step 2: Elbow bent / flexed inward toward chest (<120°)
+      // Step 2: Elbow bent / flexed inward toward chest (<125°)
       rEl = { x: 84, y: 48 }; rWr = { x: 72, y: 38 };
     }
   } else if (exKey === "shoulder_raise") {
@@ -322,7 +322,7 @@ function getHandStepSvg(exKey, stepIndex, isActive, isDone) {
     // Step 0: Fist, Step 1: Wide Open Palm
     spread = (stepIndex === 0) ? 0.35 : 1.45;
   } else if (exKey === "wrist_stretch") {
-    // Step 0: Cocked UP (pitch >= 20°), Step 1: Return level (pitch <= 8°)
+    // Step 0: Cocked UP (pitch >= 14°), Step 1: Return level (pitch <= 10°)
     wristAngle = (stepIndex === 0) ? -32 : 0;
     spread = 0.50;
     if (stepIndex === 0) {
