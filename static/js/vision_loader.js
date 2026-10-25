@@ -27,6 +27,7 @@ const VisionLoader = (() => {
 
   let poseModel = null;
   let handsModel = null;
+  let handsOnlyMode = false;
   let isModelInitStarted = false;
   let isModelReady = false;
   let isProcessingPose = false;
@@ -80,7 +81,7 @@ const VisionLoader = (() => {
           console.warn("[VisionLoader] Could not load @mediapipe/hands from CDN:", e);
         }
       }
-      if (typeof window.Pose === "undefined") {
+      if (!handsOnlyMode && typeof window.Pose === "undefined") {
         try {
           await loadScript("https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js");
         } catch (e) {
@@ -123,8 +124,8 @@ const VisionLoader = (() => {
         }
       }
 
-      // 3. Initialize Pose if available
-      if (typeof window.Pose !== "undefined" && !poseModel) {
+      // 3. Initialize Pose if available (and not in handsOnlyMode)
+      if (!handsOnlyMode && typeof window.Pose !== "undefined" && !poseModel) {
         try {
           poseModel = new window.Pose({
             locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`,
@@ -168,9 +169,10 @@ const VisionLoader = (() => {
   }
 
   // --- Immediate Camera Acquisition -------------------------------------
-  async function start(video, onResults) {
+  async function start(video, onResults, options = {}) {
     videoElement = video;
     onResultsCallback = onResults;
+    handsOnlyMode = !!(options && options.handsOnly);
 
     if (isRunning && stream) {
       return true;
@@ -318,15 +320,15 @@ const VisionLoader = (() => {
 
       // Asynchronously send frames to neural models with sequential priority (hands first, then pose)
       const now = performance.now();
-      if (handsModel && !isProcessingHands && (now - lastHandsInferenceTime >= 30)) {
+      if (handsModel && !isProcessingHands && (now - lastHandsInferenceTime >= 20)) {
         isProcessingHands = true;
         lastHandsInferenceTime = now;
         handsModel.send({ image: videoElement })
           .catch(() => {})
           .finally(() => {
             isProcessingHands = false;
-            // Interleave pose sequentially after hands to prevent WebGL texture collision
-            if (poseModel && !isProcessingPose && (performance.now() - lastPoseInferenceTime >= 35)) {
+            // Only interleave pose if NOT in handsOnlyMode
+            if (!handsOnlyMode && poseModel && !isProcessingPose && (performance.now() - lastPoseInferenceTime >= 35)) {
               isProcessingPose = true;
               lastPoseInferenceTime = performance.now();
               poseModel.send({ image: videoElement })
@@ -334,7 +336,7 @@ const VisionLoader = (() => {
                 .finally(() => { isProcessingPose = false; });
             }
           });
-      } else if (poseModel && !isProcessingPose && !handsModel && (now - lastPoseInferenceTime >= 35)) {
+      } else if (!handsOnlyMode && poseModel && !isProcessingPose && !handsModel && (now - lastPoseInferenceTime >= 35)) {
         isProcessingPose = true;
         lastPoseInferenceTime = now;
         poseModel.send({ image: videoElement })

@@ -1,22 +1,18 @@
 /**
- * RehabOpt AR — Session 2: Arcade Arena Engine (11 therapeutic games)
- * ------------------------------------------------------------------
+ * RehabOpt AR — Session 2: Arcade Arena Engine (8 Active Therapeutic Games)
+ * -------------------------------------------------------------------------
  * Featuring an independent 60 FPS requestAnimationFrame physics & render loop,
- * real-time MediaPipe Hand + Pose tracking with optical centroid fallback,
- * and mouse / touch pointer support for hybrid interaction.
+ * ultra-low-latency hands-only MediaPipe vision pipeline, and touch / pointer fallback.
  *
- * 11 Active Therapeutic Games (mapped to 13 clinical formulas):
- *  1. 🐦 Flappy Kinetic   (E3 · C5) — Wrist extension & dorsiflexion
- *  2. 🍉 Fruit Ballistic  (C3 · S2) — Open-palm ballistic reach
- *  3. ⭐ Star Catch        (C2)      — Horizontal planar sweep
- *  4. 🫧 Bubble Pop        (C2)      — Precision index finger pointing
- *  5. ⚖️ Balance Beam      (S1 · E6) — Steady isometric hold / tremor control
- *  6. 🎯 Track the Dot     (C2 · E4) — Smooth pursuit tracking & path error
- *  7. ✊ Fist Pop          (C3)      — Spasticity release (fist → open palm)
- *  8. 🔨 Wrist Hammer      (S2 · S3) — Fast downward wrist snap & acceleration
- *  9. 💪 Elbow Crusher     (C1)      — Elbow flexion ROM (<100°)
- * 10. 🐤 Flappy Reach      (C4)      — Vertical shoulder & arm elevation
- * 11. 🤏 Pinch Pop         (E2)      — Fine-motor thumb–index pincer precision
+ * 8 Active Therapeutic Games:
+ *  1. 🍎 Fruit Slash    — Index finger blade slicing & reaction speed
+ *  2. 🪙 Coin Catcher   — Horizontal planar reaching & basket steering
+ *  3. ⭐ Sky Pop        — Top-to-bottom target interception & pointing
+ *  4. 🫧 Bubble Burst   — Precision index fingertip bubble popping
+ *  5. 🐦 Flappy Bird    — Index fingertip elevation & flight control
+ *  6. ⚡ Laser Blast    — Target pointing & rapid reactive beam bursts
+ *  7. 🎈 Balloon Bounce — Upward reach & continuous dynamic tracking
+ *  8. 🎯 Target Tap     — Spatial reaching & precision bullseye tapping
  */
 document.addEventListener("DOMContentLoaded", async () => {
   // ---------------- DOM Elements --------------------------------------
@@ -188,229 +184,98 @@ document.addEventListener("DOMContentLoaded", async () => {
       },
     },
 
-    // 2. Bubble Pop 2.0 (One bubble at a time: blue / gold / silver, pop on fist close)
-    bubblepop2: {
-      name: "Bubble Pop 2.0", emoji: "🫧", trains: "One-bubble tracking with fist-close pop",
-      guide: "One bubble at a time — blue=10, gold=65, silver=25. Move your hand to follow it, then CLOSE your hand/palm toward the center to pop. Open hand does not pop.",
+    // 2. Coin Catcher (Horizontal Reaching & Catching)
+    coincatcher: {
+      name: "Coin Catcher", emoji: "🪙", trains: "Horizontal reaching & hand-eye coordination",
+      guide: "Move your hand left and right to steer the basket! Catch gold coins (+10) and gems (+25), avoid falling rocks 🪨 (-5)!",
       lives: false,
       init() {
-        this.bubble = null;
+        this.items = [];
         this.timer = 0;
-        this.palmCenter = { x: 0.5, y: 0.5 };
-        this.handState = "OPEN";      // rotation-invariant state: OPEN | FIST
-        this.prevHandState = "OPEN";  // previous frame state for edge-triggered pop
-        this.isClosed = false;
-        this.isOpen = true;
-        this.justPopped = false;
-        this.popTimer = 0;
-        this.lastT = performance.now();
+        this.basketX = 0.5;
       },
       update(res, W, H) {
-        const now = performance.now();
-        const dt = Math.max(0.001, (now - this.lastT) / 1000);
-        this.lastT = now;
+        const targetX = engine.tip ? engine.tip.x : 0.5;
+        this.basketX += (targetX - this.basketX) * 0.35;
 
-        // ---- hand state: palm center (wrist 0 + middle MCP 9 midpoint) + FIST/OPEN gesture ----
-        const hand = (res && res.hand) || (engine.lastRes && engine.lastRes.hand);
-        if (hand && hand[0] && hand[9]) {
-          // Palm center = midpoint between wrist (0) and middle MCP knuckle (9)
-          this.palmCenter = {
-            x: (hand[0].x + hand[9].x) / 2 * W,
-            y: (hand[0].y + hand[9].y) / 2 * H,
-          };
-
-          // Rotation-invariant palm scale: wrist (0) -> middle MCP (9)
-          const palmScale = Math.hypot(hand[9].x - hand[0].x, hand[9].y - hand[0].y) || 0.1;
-
-          // FIST if 3+ of the 4 fingertips (8,12,16,20) are retracted close to the wrist/palm,
-          // measured as Euclidean distance from wrist relative to palm scale (angle-safe).
-          let retractedCount = 0;
-          [8, 12, 16, 20].forEach((tipIdx) => {
-            if (hand[tipIdx]) {
-              const d = Math.hypot(hand[tipIdx].x - hand[0].x, hand[tipIdx].y - hand[0].y);
-              if (d < palmScale * 1.15) retractedCount++;
-            } else {
-              retractedCount++; // missing landmark counts as retracted
-            }
+        if (++this.timer > Math.max(14, 34 / this.$speed)) {
+          this.timer = 0;
+          const roll = Math.random();
+          let type, emoji, color, pts;
+          if (roll < 0.60) {
+            type = "coin"; emoji = "🪙"; color = "#FBBF24"; pts = 10;
+          } else if (roll < 0.82) {
+            type = "gem"; emoji = "💎"; color = "#38BDF8"; pts = 25;
+          } else {
+            type = "rock"; emoji = "🪨"; color = "#64748B"; pts = -5;
+          }
+          this.items.push({
+            x: rand(0.08, 0.92) * W,
+            y: -30,
+            vy: rand(2.8, 4.8) * this.$speed,
+            type, emoji, color, pts,
+            r: 24,
+            caught: false,
           });
-          this.prevHandState = this.handState;
-          this.handState = retractedCount >= 3 ? "FIST" : "OPEN";
-          this.isClosed = this.handState === "FIST";
-          this.isOpen = this.handState === "OPEN";
-        } else if (engine.tip) {
-          this.palmCenter = { x: engine.tip.x * W, y: engine.tip.y * H };
-          this.prevHandState = this.handState;
-          this.handState = "OPEN";
-          this.isClosed = false;
-          this.isOpen = true;
         }
 
-        // ---- pop cooldown after a successful pop ----
-        if (this.justPopped) {
-          this.popTimer -= dt;
-          if (this.popTimer <= 0) {
-            this.justPopped = false;
-            this.bubble = null;
-          }
-          // Still let the hand follow the bubble visually while cooldown runs
-          if (this.bubble) {
-            this.bubble.x += this.bubble.vx + Math.sin(this.bubble.wobble) * 0.5;
-            this.bubble.y -= this.bubble.vy;
-            this.bubble.wobble += 0.05;
-          }
-          return;
-        }
+        const basketPx = this.basketX * W;
+        const basketY = H - 55;
+        const basketW = 110;
+        const basketH = 34;
 
-        // ---- one active bubble only ----
-        if (!this.bubble) {
-          if (++this.timer > Math.max(20, 50 / this.$speed)) {
-            this.timer = 0;
-            const roll = Math.random();
-            let color, points, label;
-            if (roll < 0.55) {
-              // blue
-              color = "#38BDF8";
-              points = 10;
-              label = "BLUE 10";
-            } else if (roll < 0.80) {
-              // gold
-              color = "#FBBF24";
-              points = 65;
-              label = "GOLD 65";
+        for (const it of this.items) {
+          it.y += it.vy;
+          if (!it.caught && it.y >= basketY - 15 && it.y <= basketY + basketH && Math.abs(it.x - basketPx) < (basketW / 2 + it.r * 0.6)) {
+            it.caught = true;
+            if (it.type === "rock") {
+              this.$engine.deductScore(5);
+              spawnParticles(it.x, it.y, "#EF4444", 16);
+              addScorePopup(it.x, it.y - 20, "−5 🪨 ROCK!", "#EF4444");
+              if (window.RehabBio) window.RehabBio.playCheatBuzz();
             } else {
-              // silver
-              color = "#C0C0C0";
-              points = 25;
-              label = "SILVER 25";
-            }
-            this.bubble = {
-              x: rand(0.15, 0.85) * W,
-              y: H + 40,
-              vx: rand(-0.7, 0.7),
-              vy: rand(1.3, 2.3) * this.$speed,
-              r: rand(46, 56),
-              color,
-              points,
-              label,
-              wobble: rand(0, Math.PI * 2),
-              popped: false,
-            };
-          }
-        }
-
-        // ---- move the single bubble ----
-        const b = this.bubble;
-        if (b) {
-          b.x += b.vx + Math.sin(b.wobble) * 0.5;
-          b.y -= b.vy;
-          b.wobble += 0.05;
-
-          const dist = Math.hypot(b.x - this.palmCenter.x, b.y - this.palmCenter.y);
-          const near = dist < b.r + 40; // hover = palm center inside bubble boundary + padding
-
-          // Latch trigger: pop STRICTLY on the transition edge
-          // (hovered === true) AND (previous state === "OPEN") AND (current state === "FIST")
-          // Hovering with an open hand, or staying closed, never pops.
-          const isHovered = near;
-          const poppedThisFrame =
-            isHovered && this.prevHandState === "OPEN" && this.handState === "FIST" && !b.popped;
-          if (poppedThisFrame) {
-            b.popped = true;
-            this.justPopped = true;
-            this.popTimer = 0.9 / this.$speed;
-            this.$engine.addScore(b.points);
-            spawnParticles(b.x, b.y, b.color, 28);
-            addScorePopup(b.x, b.y - 20, `+${b.points} ${b.label}!`, b.color);
-            if (window.RehabBio && typeof window.RehabBio.playBeep === "function") {
-              window.RehabBio.playBeep(1180, 0.08, 0.35);
+              this.$engine.addScore(it.pts);
+              spawnParticles(it.x, it.y, it.color, 20);
+              addScorePopup(it.x, it.y - 20, `+${it.pts} ${it.emoji}!`, it.color);
+              if (window.RehabBio && typeof window.RehabBio.playBeep === "function") {
+                window.RehabBio.playBeep(it.type === "gem" ? 1200 : 980, 0.06, 0.3);
+              }
             }
           }
-
-          // Drop the bubble if it leaves the screen without being popped
-          if (b.y < -80) {
-            this.bubble = null;
-          }
         }
+        this.items = this.items.filter((it) => !it.caught && it.y < H + 50);
       },
       draw(ctx, W, H) {
-        // ---- draw the single bubble ----
-        const b = this.bubble;
-        if (b) {
+        const bx = this.basketX * W;
+        const by = H - 55;
+        const bw = 110;
+        const bh = 34;
+
+        for (const it of this.items) {
           ctx.save();
-          const dist = Math.hypot(b.x - this.palmCenter.x, b.y - this.palmCenter.y);
-          const near = dist < b.r + 40;
-
-          // outer glow when hand is near
-          if (near) {
-            ctx.beginPath();
-            ctx.arc(b.x, b.y, b.r + 12, 0, Math.PI * 2);
-            ctx.fillStyle = "rgba(251, 191, 36, 0.22)";
-            ctx.fill();
-          }
-
-          // bubble body
-          ctx.beginPath();
-          ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
-          ctx.fillStyle = b.color;
-          ctx.globalAlpha = 0.55;
-          ctx.fill();
-          ctx.globalAlpha = 1;
-          ctx.lineWidth = near ? 4 : 2.5;
-          ctx.strokeStyle = b.color;
-          ctx.stroke();
-
-          // highlight sheen
-          ctx.beginPath();
-          ctx.arc(b.x - b.r * 0.32, b.y - b.r * 0.32, b.r * 0.22, 0, Math.PI * 2);
-          ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
-          ctx.fill();
-
-          // value label inside bubble
-          ctx.fillStyle = "#0F172A";
-          ctx.font = `bold ${Math.round(b.r * 0.42)}px Segoe UI, sans-serif`;
+          ctx.font = "32px Segoe UI Emoji, sans-serif";
           ctx.textAlign = "center";
           ctx.textBaseline = "middle";
-          ctx.fillText(b.label, b.x, b.y - 2);
-
+          ctx.fillText(it.emoji, it.x, it.y);
           ctx.restore();
         }
 
-        // ---- draw player palm / hand status ----
         ctx.save();
-        const px = this.palmCenter.x;
-        const py = this.palmCenter.y;
-
+        ctx.fillStyle = "rgba(245, 158, 11, 0.9)";
+        ctx.strokeStyle = "#FDE68A";
+        ctx.lineWidth = 3;
         ctx.beginPath();
-        ctx.arc(px, py, 46, 0, Math.PI * 2);
-        if (this.justPopped) {
-          ctx.strokeStyle = "rgba(16, 185, 129, 0.95)";
-          ctx.lineWidth = 4;
-        } else if (this.isClosed) {
-          ctx.strokeStyle = "rgba(239, 68, 68, 0.95)";
-          ctx.lineWidth = 4;
-        } else {
-          ctx.strokeStyle = "rgba(56, 189, 248, 0.85)";
-          ctx.lineWidth = 3;
-        }
+        ctx.roundRect(bx - bw / 2, by, bw, bh, 10);
+        ctx.fill();
         ctx.stroke();
 
-        ctx.font = "26px Segoe UI Emoji, sans-serif";
+        ctx.fillStyle = "#D97706";
+        ctx.fillRect(bx - bw / 2 + 6, by + 4, bw - 12, 6);
+
+        ctx.font = "18px Segoe UI Emoji, sans-serif";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        ctx.fillText(this.isClosed ? "✊" : "🖐️", px, py);
-
-        ctx.font = "bold 13px Segoe UI, sans-serif";
-        ctx.textAlign = "center";
-        if (this.justPopped) {
-          ctx.fillStyle = "#10B981";
-          ctx.fillText("✔️ Pop! Next bubble coming…", px, py + 52);
-        } else if (this.isClosed) {
-          ctx.fillStyle = "#EF4444";
-          ctx.fillText("Hand closed — pop if bubble is near", px, py + 52);
-        } else {
-          ctx.fillStyle = "#38BDF8";
-          ctx.fillText("Follow the bubble with your hand", px, py + 52);
-        }
+        ctx.fillText("🧺", bx, by + bh / 2 + 2);
         ctx.restore();
       },
     },
@@ -698,138 +563,197 @@ document.addEventListener("DOMContentLoaded", async () => {
       },
     },
 
-    // 7. Finger Count (Open & Close Finger Isolation Game)
-    fingercount: {
-      name: "Finger Count", emoji: "🖐️", trains: "Individual finger extension & count coordination",
-      guide: "Show the exact number of fingers prompted. 60s game — correct match = 1 to 5 points.",
+    // 7. Balloon Bounce (Upward Reach & Continuous Dynamic Tracking)
+    balloonbounce: {
+      name: "Balloon Bounce", emoji: "🎈", trains: "Upward reach & dynamic tracking",
+      guide: "Keep balloons in the air! Move your hand underneath falling balloons to bounce them upward (+10 pts)!",
       lives: false,
       init() {
-        this.target = Math.floor(rand(1, 6)); // 1 to 5
-        this.detected = 0;
-        this.matchTime = 0;
-        this.dwellNeeded = 0.45; // fixed 450ms stable-hold latch (not speed-scaled)
-        this.lastT = performance.now();
-        this.fingerEmojis = { 1: "☝️", 2: "✌️", 3: "🤟", 4: "🖖", 5: "🖐️" };
+        this.balloons = [
+          { x: 200, y: 150, vx: 1.2, vy: 0, r: 36, color: "#EF4444", stringLen: 28, bounces: 0 },
+          { x: 450, y: 100, vx: -1.0, vy: 0, r: 34, color: "#3B82F6", stringLen: 28, bounces: 0 },
+        ];
+        this.spawnTimer = 0;
       },
       update(res, W, H) {
-        const now = performance.now();
-        const dt = Math.max(0.001, (now - this.lastT) / 1000);
-        this.lastT = now;
+        const tip = engine.tip ? { x: engine.tip.x * W, y: engine.tip.y * H } : null;
 
-        const hand = (res && res.hand) || (engine.lastRes && engine.lastRes.hand);
-        this.detected = 0;
-
-        if (!hand || !hand[0]) {
-          this.matchTime = Math.max(0, this.matchTime - dt * 1.5);
-          return;
+        if (this.balloons.length < 2 && ++this.spawnTimer > 60) {
+          this.spawnTimer = 0;
+          const colors = ["#EF4444", "#3B82F6", "#10B981", "#F59E0B", "#8B5CF6"];
+          this.balloons.push({
+            x: rand(0.2, 0.8) * W,
+            y: 60,
+            vx: rand(-1.2, 1.2),
+            vy: rand(0.5, 1.5),
+            r: rand(32, 38),
+            color: colors[(Math.random() * colors.length) | 0],
+            stringLen: 28,
+            bounces: 0,
+          });
         }
 
-        const wrist = hand[0];
-        const handSize = Math.hypot(hand[9].x - wrist.x, hand[9].y - wrist.y) || 0.15;
+        for (const b of this.balloons) {
+          b.vy += 0.08 * this.$speed;
+          b.x += b.vx * this.$speed;
+          b.y += b.vy;
 
-        // Rotation-invariant extension detection (no fragile tip.y < pip.y vertical checks).
-        // 4 fingers: finger is EXTENDED when dist(wrist, tip) > dist(wrist, PIP) * 1.15.
-        const indexExt = hand[8] && hand[6]
-          ? (Math.hypot(hand[8].x - wrist.x, hand[8].y - wrist.y) > Math.hypot(hand[6].x - wrist.x, hand[6].y - wrist.y) * 1.15)
-          : false;
+          if (b.x - b.r < 10) { b.x = b.r + 10; b.vx = Math.abs(b.vx); }
+          if (b.x + b.r > W - 10) { b.x = W - 10 - b.r; b.vx = -Math.abs(b.vx); }
+          if (b.y - b.r < 10) { b.y = b.r + 10; b.vy = Math.abs(b.vy) * 0.5; }
 
-        const middleExt = hand[12] && hand[10]
-          ? (Math.hypot(hand[12].x - wrist.x, hand[12].y - wrist.y) > Math.hypot(hand[10].x - wrist.x, hand[10].y - wrist.y) * 1.15)
-          : false;
-
-        const ringExt = hand[16] && hand[14]
-          ? (Math.hypot(hand[16].x - wrist.x, hand[16].y - wrist.y) > Math.hypot(hand[14].x - wrist.x, hand[14].y - wrist.y) * 1.15)
-          : false;
-
-        const pinkyExt = hand[20] && hand[18]
-          ? (Math.hypot(hand[20].x - wrist.x, hand[20].y - wrist.y) > Math.hypot(hand[18].x - wrist.x, hand[18].y - wrist.y) * 1.15)
-          : false;
-
-        // Thumb: lateral movement, compared against the pinky knuckle base (17), NOT the wrist.
-        // EXTENDED when dist(thumb tip 4, pinky base 17) > dist(thumb IP 3, pinky base 17) * 1.18.
-        const thumbExt = hand[4] && hand[3] && hand[17]
-          ? (Math.hypot(hand[4].x - hand[17].x, hand[4].y - hand[17].y) > Math.hypot(hand[3].x - hand[17].x, hand[3].y - hand[17].y) * 1.18)
-          : false;
-
-        // Total count 0-5. Supports BOTH clinical "3" styles automatically:
-        //   Style A: index+middle+ring extended (thumb & pinky folded)
-        //   Style B: thumb+index+middle extended (ring & pinky folded)
-        this.detected = (thumbExt ? 1 : 0) + (indexExt ? 1 : 0) + (middleExt ? 1 : 0) + (ringExt ? 1 : 0) + (pinkyExt ? 1 : 0);
-
-        // Progression latch (debounce): hold the correct count stable for 450ms continuously.
-        if (this.detected === this.target) {
-          this.matchTime += dt;
-          if (this.matchTime >= 0.45) {
-            this.matchTime = 0;
-            const earned = Math.floor(rand(1, 6)); // 1 to 5
-            this.$engine.addScore(earned);
-            spawnParticles(W / 2, H * 0.35, "#10B981", 24);
-            addScorePopup(W / 2, H * 0.35, `+${earned} 🎯 ${this.target} FINGERS!`, "#10B981");
-            if (window.RehabBio && typeof window.RehabBio.playBeep === "function") {
-              window.RehabBio.playBeep(880, 0.08, 0.3);
+          if (tip) {
+            const dx = b.x - tip.x;
+            const dy = b.y - tip.y;
+            const dist = Math.hypot(dx, dy);
+            if (dist < b.r + 34 && dy < 15 && b.vy > -1) {
+              b.vy = -rand(6.5, 8.5) * Math.min(1.3, this.$speed);
+              b.vx += clamp(dx * 0.08, -2.5, 2.5);
+              b.bounces++;
+              this.$engine.addScore(10);
+              spawnParticles(b.x, b.y + b.r, b.color, 18);
+              addScorePopup(b.x, b.y - 20, "+10 🎈 BOUNCE!", b.color);
+              if (window.RehabBio && typeof window.RehabBio.playBeep === "function") {
+                window.RehabBio.playBeep(880 + Math.min(400, b.bounces * 40), 0.06, 0.3);
+              }
             }
-            // New random target, guaranteed different from the current one
-            let nextTarget = Math.floor(rand(1, 6));
-            while (nextTarget === this.target) {
-              nextTarget = Math.floor(rand(1, 6));
-            }
-            this.target = nextTarget;
           }
-        } else {
-          // Count flickered or changed before 450ms -> hard reset of the hold timer
-          this.matchTime = 0;
+
+          if (b.y > H + 50) {
+            b.y = 50;
+            b.x = rand(0.2, 0.8) * W;
+            b.vy = rand(0.5, 1.5);
+            b.vx = rand(-1.2, 1.2);
+            b.bounces = 0;
+          }
         }
       },
       draw(ctx, W, H) {
-        ctx.save();
-        // Central Challenge Display Card
-        const cardW = 340;
-        const cardH = 210;
-        const cardX = (W - cardW) / 2;
-        const cardY = H * 0.16;
+        const tip = engine.tip ? { x: engine.tip.x * W, y: engine.tip.y * H } : null;
 
-        ctx.fillStyle = "rgba(15, 23, 42, 0.85)";
-        ctx.beginPath();
-        ctx.roundRect(cardX, cardY, cardW, cardH, 16);
-        ctx.fill();
-        ctx.strokeStyle = this.detected === this.target ? "#10B981" : "rgba(255, 255, 255, 0.18)";
-        ctx.lineWidth = 3;
-        ctx.stroke();
-
-        // Target Prompt
-        ctx.fillStyle = "#94A3B8";
-        ctx.font = "bold 13px Segoe UI, sans-serif";
-        ctx.textAlign = "center";
-        ctx.fillText("TARGET CHALLENGE", W / 2, cardY + 28);
-
-        // Big Target Number & Emoji
-        ctx.fillStyle = "#FFFFFF";
-        ctx.font = "bold 36px Segoe UI, sans-serif";
-        const emoji = this.fingerEmojis[this.target] || "🖐️";
-        ctx.fillText(`SHOW ${this.target} ${emoji}`, W / 2, cardY + 74);
-
-        // Dwell Progress Ring if matching
-        if (this.detected === this.target) {
-          const progress = Math.min(1.0, this.matchTime / this.dwellNeeded);
+        if (tip) {
+          ctx.save();
+          ctx.strokeStyle = "rgba(56, 189, 248, 0.9)";
+          ctx.fillStyle = "rgba(56, 189, 248, 0.25)";
+          ctx.lineWidth = 4;
           ctx.beginPath();
-          ctx.arc(W / 2, cardY + 130, 28, -Math.PI / 2, -Math.PI / 2 + progress * Math.PI * 2);
-          ctx.strokeStyle = "#10B981";
-          ctx.lineWidth = 5;
+          ctx.ellipse(tip.x, tip.y, 42, 18, 0, 0, Math.PI * 2);
+          ctx.fill();
           ctx.stroke();
+          ctx.restore();
         }
 
-        // Detected Feedback
-        ctx.font = "bold 17px Segoe UI, sans-serif";
-        ctx.fillStyle = this.detected === this.target ? "#10B981" : "#FBBF24";
-        const statusText = this.detected === this.target
-          ? `Holding: ${this.detected} ✅`
-          : `Detected: ${this.detected} (Need ${this.target})`;
-        ctx.fillText(statusText, W / 2, cardY + 135);
+        for (const b of this.balloons) {
+          ctx.save();
+          ctx.strokeStyle = "rgba(255, 255, 255, 0.6)";
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(b.x, b.y + b.r);
+          ctx.quadraticCurveTo(b.x + Math.sin(b.y * 0.05) * 8, b.y + b.r + 14, b.x, b.y + b.r + b.stringLen);
+          ctx.stroke();
 
-        ctx.fillStyle = "#CBD5E1";
-        ctx.font = "12px Segoe UI, sans-serif";
-        ctx.fillText("Hold hand facing camera", W / 2, cardY + 184);
-        ctx.restore();
+          ctx.fillStyle = b.color;
+          ctx.beginPath();
+          ctx.moveTo(b.x - 4, b.y + b.r + 4);
+          ctx.lineTo(b.x + 4, b.y + b.r + 4);
+          ctx.lineTo(b.x, b.y + b.r);
+          ctx.closePath();
+          ctx.fill();
+
+          ctx.beginPath();
+          ctx.ellipse(b.x, b.y, b.r * 0.88, b.r, 0, 0, Math.PI * 2);
+          ctx.fillStyle = b.color;
+          ctx.globalAlpha = 0.88;
+          ctx.fill();
+          ctx.globalAlpha = 1.0;
+          ctx.strokeStyle = "#FFFFFF";
+          ctx.lineWidth = 2;
+          ctx.stroke();
+
+          ctx.fillStyle = "rgba(255, 255, 255, 0.75)";
+          ctx.beginPath();
+          ctx.ellipse(b.x - b.r * 0.3, b.y - b.r * 0.35, b.r * 0.22, b.r * 0.14, -0.4, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+      },
+    },
+
+    // 8. Target Tap (Spatial Reaching & Precision Pointing)
+    targettap: {
+      name: "Target Tap", emoji: "🎯", trains: "Spatial reaching & precision pointing",
+      guide: "Pulsing bullseye targets appear around the screen! Reach out and tap each one before it shrinks (+15 pts)!",
+      lives: false,
+      init() {
+        this.targets = [];
+        this.timer = 0;
+      },
+      update(res, W, H) {
+        if (++this.timer > Math.max(18, 40 / this.$speed) && this.targets.length < 3) {
+          this.timer = 0;
+          this.targets.push({
+            x: rand(0.15, 0.85) * W,
+            y: rand(0.18, 0.82) * H,
+            maxR: rand(38, 48),
+            pulse: 0,
+            life: 180,
+            maxLife: 180,
+            tapped: false,
+          });
+        }
+
+        const tip = engine.tip ? { x: engine.tip.x * W, y: engine.tip.y * H } : null;
+
+        for (const t of this.targets) {
+          t.pulse += 0.08;
+          t.life--;
+
+          if (tip && Math.hypot(tip.x - t.x, tip.y - t.y) < t.maxR + 15) {
+            t.tapped = true;
+            this.$engine.addScore(15);
+            spawnParticles(t.x, t.y, "#10B981", 24);
+            addScorePopup(t.x, t.y - 15, "+15 🎯 BULLSEYE!", "#10B981");
+            if (window.RehabBio && typeof window.RehabBio.playBeep === "function") {
+              window.RehabBio.playBeep(1080, 0.08, 0.35);
+            }
+          }
+        }
+        this.targets = this.targets.filter((t) => !t.tapped && t.life > 0);
+      },
+      draw(ctx, W, H) {
+        for (const t of this.targets) {
+          const progress = t.life / t.maxLife;
+          const r = t.maxR * (0.5 + 0.5 * progress);
+
+          ctx.save();
+          ctx.strokeStyle = `rgba(16, 185, 129, ${0.4 + 0.3 * Math.sin(t.pulse)})`;
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.arc(t.x, t.y, r + 8 + Math.sin(t.pulse) * 4, 0, Math.PI * 2);
+          ctx.stroke();
+
+          ctx.fillStyle = "rgba(239, 68, 68, 0.85)";
+          ctx.beginPath();
+          ctx.arc(t.x, t.y, r, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.fillStyle = "#FFFFFF";
+          ctx.beginPath();
+          ctx.arc(t.x, t.y, r * 0.66, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.fillStyle = "#EF4444";
+          ctx.beginPath();
+          ctx.arc(t.x, t.y, r * 0.33, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.strokeStyle = "#FBBF24";
+          ctx.lineWidth = 4;
+          ctx.beginPath();
+          ctx.arc(t.x, t.y, r + 16, -Math.PI / 2, -Math.PI / 2 + progress * Math.PI * 2);
+          ctx.stroke();
+          ctx.restore();
+        }
       },
     },
   };
@@ -1058,7 +982,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (window.RehabQA) {
       window.RehabQA.runStressTest(window.RehabQA.STRESS_TARGET);
     }
-    const ok = await VisionLoader.start(video, onFrame);
+    const ok = await VisionLoader.start(video, onFrame, { handsOnly: true });
     if (ok) {
       engine.visionStarted = true;
       VisionLoader.watch();
@@ -1144,6 +1068,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   function onFrame(res) {
+    engine.lastRes = res;
     computeFrame(res);
   }
 
@@ -1387,12 +1312,13 @@ document.addEventListener("DOMContentLoaded", async () => {
       // Live metrics readout
       metricEl.textContent =
         engine.key === "fruit" ? `Fingertip Blade · v=${engine.vel.toFixed(1)}` :
-        engine.key === "hammer" ? `Wrist ${Math.round(engine.wristPitch)}° ${engine.wristPitch >= 13 ? "UP ⬆️" : engine.wristPitch <= -8 ? "DOWN ⬇️" : "LEVEL ↔️"}` :
+        engine.key === "coincatcher" ? `Basket Steering · x=${Math.round((engine.tip ? engine.tip.x : 0.5) * 100)}%` :
+        engine.key === "balloonbounce" ? `Paddle Bounce Tracking` :
+        engine.key === "targettap" ? `Target Precision Tap` :
         engine.key === "flappy" ? `Index Finger Flight` :
         engine.key === "starcatch" ? `Sky Pop Tracking` :
         engine.key === "bubblepop" ? `Bubble Target Pop` :
         engine.key === "laserblast" ? `Laser Reticle Aim` :
-        engine.key === "paddlepong" ? `Paddle Reflex` :
         `Motion Active`;
     }
 
@@ -1505,7 +1431,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   });
 
   function recoveryLevelForGame(gameKey, score) {
-    if (!/"(fruit|bubblepop|bubblepop2)"/.test('"' + gameKey + '"')) return null;
     const target = 60;
     if (score < target) return "slow";
     if (score === target) return "steady";
@@ -1559,7 +1484,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         btnCamToggle.classList.add("danger");
         showToast("📷 Camera paused to save CPU/battery", "info");
       } else {
-        const ok = await VisionLoader.start(video, onFrame);
+        const ok = await VisionLoader.start(video, onFrame, { handsOnly: true });
         if (ok) {
           engine.visionStarted = true;
           VisionLoader.watch();
