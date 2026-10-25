@@ -6,4 +6,4 @@ SECRET_KEY = 8a158841f58c6da6bdb19fc74edec7703e661a62f57285192a27a75e0ce5e357
 FLASK_SECRET_KEY = 8a158841f58c6da6bdb19fc74edec7703e661a62f57285192a27a75e0ce5e357
 OWNER_PASSWORD = OwnerAdmin@2026Secure!
 ALLOW_DEMO_LOGINS = 1
-DATABASE_URL = postgresql://neondb_owner:npg_xMUvVKpgT80b@ep-steep-bonus-b5hay8d6-pooler.c-7.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require
+DATABASE_URL = postgresql://neondb_owner:npg_xMUvVKpgT80b@ep-steep-bonus-b5hay8d6-pooler.c-7.us-east-2.aws.neon.tech/neondb?sslmode=require
