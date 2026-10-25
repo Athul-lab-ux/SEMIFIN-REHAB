@@ -1,21 +1,21 @@
 /**
- * RehabOpt AR — Guided Therapy Engine (Calibrated 9-Exercise Clinical System)
+ * RehabOpt AR — Guided Therapy Engine (High-Visibility Clinical AR Target System)
  * -----------------------------------------------------------------------------
  * Deterministic AR Biofeedback for Stroke Upper-Limb Rehabilitation:
- *   1. 🦾 Elbow Extension & Flexion (elbow_ext)
- *   2. 🏋️ Shoulder Elevation / Shrug (shoulder_raise)
- *   3. 🖐️ Hand Open & Close (palm_open)
- *   4. 🙌 Horizontal Wrist Up & Down (wrist_stretch)
- *   5. 🎯 Diagonal Reach & Hold (Endurance) (ataxia_hold)
- *   6. ➡️ Two-Target Horizontal Glide (ataxia_push)
- *   7. 🔄 Open Palm Left & Right Rotation (parm_rotate)
- *   8. 🛸 Dynamic Moving Target Pursuit (moving_target_pursuit)
- *   9. 🤏 Virtual Pincer Grasp & Release (apraxia_pinch)
+ *   1. 🦾 Elbow Extension & Flexion (elbow_ext) — Top Corner Target (≥150°)
+ *   2. 🏋️ Shoulder Elevation / Shrug (shoulder_raise) — Shrug Target (Slightly Above Baseline)
+ *   3. 🖐️ Hand Open & Close (palm_open) — Fist to Wide Open Palm Targets
+ *   4. 🙌 Horizontal Wrist Up & Down (wrist_stretch) — Floating Upward Target (≥20°)
+ *   5. 🎯 Diagonal Reach & Hold (Endurance) (ataxia_hold) — Diagonal Radar Target (3s)
+ *   6. ➡️ Two-Target Horizontal Glide (ataxia_push) — S1 & S2 Guideway Targets
+ *   7. 🔄 Open Palm Left & Right Rotation (parm_rotate) — Left & Right Rotational Targets
+ *   8. 🛸 Dynamic Moving Target Pursuit (moving_target_pursuit) — Smooth Gliding Orb (10s Countdown)
+ *   9. 🤏 Virtual Pincer Grasp & Release (apraxia_pinch) — Caliper Target
  *
  * Rep Counting Architecture:
  *   - Half Reps (0.5): Awarded on reaching target / peak contraction with 🔔 chime + audio prompt
  *   - Full Reps (1.0): Completed on controlled return to baseline with 🎉 chime
- *   - Moving Pursuit: Continuous 10s reverse countdown inside target; resets on exit
+ *   - Continuous 60 FPS Canvas Rendering: Target circles are ALWAYS visible and pulsating
  *   - Anti-cheat trunk lock: E1 tilt > 10° freezes workout progression
  */
 
@@ -53,7 +53,7 @@ document.addEventListener("DOMContentLoaded", () => {
     return `${String((s / 60) | 0).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
   };
 
-  // ---------- AR Skeleton & Target Overlay --------------------------------
+  // ---------- AR Skeleton & High-Visibility Target Overlay ----------------
   const overlayCanvas = $("overlay-canvas");
   const oCtx = overlayCanvas.getContext("2d");
 
@@ -79,25 +79,133 @@ document.addEventListener("DOMContentLoaded", () => {
     [5, 9], [9, 13], [13, 17],            // Palm knuckle base
   ];
 
+  /**
+   * High-Visibility Clinical AR Target Circle Drawer
+   * Draws a glowing, high-contrast circular target with crosshairs, bullseye,
+   * pulsating radar rings, circular hold progress gauge, and dark floating badge pill.
+   */
+  function drawTargetCircle(x, y, radius, label, color = "#38BDF8", isHit = false, progressPct = 0, centerText = "") {
+    oCtx.save();
+    const activeColor = isHit ? "#00FF66" : color;
+    const pulse = Math.sin(Date.now() / 200) * 5;
+
+    // 1. Semi-transparent glowing backdrop fill (makes target visible on ANY camera background)
+    oCtx.beginPath();
+    oCtx.arc(x, y, radius, 0, Math.PI * 2);
+    oCtx.fillStyle = isHit
+      ? "rgba(0, 255, 102, 0.32)"
+      : (color === "#FBBF24" ? "rgba(251, 191, 36, 0.28)" : (color === "#10B981" ? "rgba(16, 185, 129, 0.28)" : "rgba(56, 189, 248, 0.28)"));
+    oCtx.fill();
+
+    // 2. Outer pulsating radar wave ring
+    oCtx.beginPath();
+    oCtx.arc(x, y, radius + 9 + pulse, 0, Math.PI * 2);
+    oCtx.strokeStyle = isHit ? "rgba(0, 255, 102, 0.75)" : (color === "#FBBF24" ? "rgba(251, 191, 36, 0.65)" : "rgba(56, 189, 248, 0.65)");
+    oCtx.lineWidth = 2.5;
+    oCtx.stroke();
+
+    // 3. Main target perimeter circle
+    oCtx.beginPath();
+    oCtx.arc(x, y, radius, 0, Math.PI * 2);
+    oCtx.strokeStyle = activeColor;
+    oCtx.lineWidth = isHit ? 5 : 4;
+    oCtx.stroke();
+
+    // 4. Inner concentric guide ring
+    oCtx.beginPath();
+    oCtx.arc(x, y, radius * 0.52, 0, Math.PI * 2);
+    oCtx.strokeStyle = isHit ? "rgba(0, 255, 102, 0.9)" : "rgba(255, 255, 255, 0.6)";
+    oCtx.lineWidth = 2;
+    oCtx.stroke();
+
+    // 5. High-contrast Crosshairs (+)
+    oCtx.beginPath();
+    oCtx.moveTo(x - radius * 0.9, y); oCtx.lineTo(x - radius * 0.22, y);
+    oCtx.moveTo(x + radius * 0.22, y); oCtx.lineTo(x + radius * 0.9, y);
+    oCtx.moveTo(x, y - radius * 0.9); oCtx.lineTo(x, y - radius * 0.22);
+    oCtx.moveTo(x, y + radius * 0.22); oCtx.lineTo(x, y + radius * 0.9);
+    oCtx.strokeStyle = isHit ? "#00FF66" : "#FFFFFF";
+    oCtx.lineWidth = 2.2;
+    oCtx.stroke();
+
+    // 6. Solid Bullseye Center Dot
+    oCtx.beginPath();
+    oCtx.arc(x, y, 6.5, 0, Math.PI * 2);
+    oCtx.fillStyle = isHit ? "#00FF66" : "#FFFFFF";
+    oCtx.fill();
+    oCtx.strokeStyle = "#070D18";
+    oCtx.lineWidth = 2;
+    oCtx.stroke();
+
+    // 7. Circular hold progress bar (fills when holding inside target)
+    if (progressPct > 0) {
+      oCtx.beginPath();
+      oCtx.arc(x, y, radius + 7, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.min(1.0, progressPct));
+      oCtx.strokeStyle = "#00FF66";
+      oCtx.lineWidth = 6;
+      oCtx.lineCap = "round";
+      oCtx.stroke();
+    }
+
+    // 8. Large center text (e.g. countdown seconds or status)
+    if (centerText) {
+      oCtx.font = "900 17px Segoe UI, sans-serif";
+      oCtx.textAlign = "center";
+      oCtx.textBaseline = "middle";
+      oCtx.fillStyle = isHit ? "#00FF66" : "#FFFFFF";
+      oCtx.shadowColor = "rgba(0, 0, 0, 0.9)";
+      oCtx.shadowBlur = 8;
+      oCtx.fillText(centerText, x, y + 1);
+      oCtx.shadowBlur = 0;
+    }
+
+    // 9. Floating badge pill
+    if (label) {
+      oCtx.font = "bold 13px Segoe UI, sans-serif";
+      oCtx.textAlign = "center";
+      oCtx.textBaseline = "alphabetic";
+      const tw = oCtx.measureText(label).width;
+      const pw = tw + 24;
+      const ph = 26;
+      const px = x - pw / 2;
+      const py = y - radius - 20;
+
+      oCtx.fillStyle = "rgba(7, 13, 24, 0.94)";
+      oCtx.beginPath();
+      if (oCtx.roundRect) oCtx.roundRect(px, py - 18, pw, ph, 8);
+      else oCtx.rect(px, py - 18, pw, ph);
+      oCtx.fill();
+
+      oCtx.strokeStyle = isHit ? "#00FF66" : activeColor;
+      oCtx.lineWidth = 2;
+      oCtx.stroke();
+
+      oCtx.fillStyle = isHit ? "#00FF66" : "#FFFFFF";
+      oCtx.fillText(label, x, py);
+    }
+
+    oCtx.restore();
+  }
+
   function drawOverlay(res) {
     try {
       const W = overlayCanvas.width, H = overlayCanvas.height;
       oCtx.clearRect(0, 0, W, H);
-      if (!res) return;
 
-      const X = (p) => p.x * W, Y = (p) => p.y * H;
+      const X = (p) => (p ? p.x * W : 0), Y = (p) => (p ? p.y * H : 0);
       oCtx.lineCap = "round";
       oCtx.lineJoin = "round";
 
       const ex = S.ex;
       const exKey = ex ? ex.key : "";
       const M = S.metrics || {};
+      const now = Date.now();
 
       // 1. Arm skeleton (OpenCV Spec: Green bones #00C853, Yellow joints #FFEB3B)
-      const c = res.chain || (res.pose && (
+      const c = res && (res.chain || (res.pose && (
         (res.pose[12] && res.pose[14] && res.pose[16] && { sh: res.pose[12], el: res.pose[14], wr: res.pose[16] }) ||
         (res.pose[11] && res.pose[13] && res.pose[15] && { sh: res.pose[11], el: res.pose[13], wr: res.pose[15] })
-      ));
+      )));
 
       if (c && c.sh && c.el && c.wr && (c.sh.x !== 0 || c.sh.y !== 0)) {
         oCtx.strokeStyle = "rgba(0, 200, 83, 0.95)";
@@ -175,7 +283,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       // 2. Full 21 Hand Landmarks & Connecting Bones
-      if (res.hand && res.hand[0]) {
+      if (res && res.hand && res.hand[0]) {
         // Draw hand bones: Bright Green (#00FF00)
         oCtx.strokeStyle = "#00FF00";
         oCtx.lineWidth = 2.5;
@@ -213,148 +321,76 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       }
 
-      // 3. Exercise-Specific AR Visual Targets & Real-time Hold Rings
+      // 3. Exercise-Specific AR Visual Target Circles (ALWAYS DRAWN & PULSATING)
       if (S.phase === "workout" && exKey) {
-        const now = Date.now();
 
         /* --- EXERCISE 1: Elbow Extension & Flexion (Top Corner Target) --- */
         if (exKey === "elbow_ext") {
           const isLeft = (c && c.sh && c.sh.x < 0.5);
-          const cx = (isLeft ? 0.18 : 0.82) * W;
-          const cy = 0.18 * H;
-          const r = Math.min(52, W * 0.08);
+          const cx = (isLeft ? 0.20 : 0.80) * W;
+          const cy = 0.20 * H;
+          const r = 50;
 
-          // Glowing corner target ring
-          oCtx.beginPath();
-          oCtx.arc(cx, cy, r, 0, Math.PI * 2);
-          oCtx.strokeStyle = M.cornerHit ? "#10B981" : "#38BDF8";
-          oCtx.lineWidth = M.cornerHit ? 3.5 : 2.5;
-          oCtx.setLineDash(M.cornerHit ? [] : [6, 4]);
-          oCtx.stroke();
-          oCtx.setLineDash([]);
-
-          // Bullseye center dot
-          oCtx.beginPath();
-          oCtx.arc(cx, cy, 6, 0, Math.PI * 2);
-          oCtx.fillStyle = M.cornerHit ? "#10B981" : "#38BDF8";
-          oCtx.fill();
-
-          // Target label
-          oCtx.font = "bold 12px Segoe UI, sans-serif";
-          oCtx.textAlign = "center";
-          oCtx.fillStyle = "#FFFFFF";
-          oCtx.fillText("CORNER TARGET (≥150°)", cx, cy - r - 10);
-
-          // 1-second Circular Hold Gauge
-          if (S.step === 0 && M.cornerHit && M.elbowMax != null && M.elbowMax >= 150 && S.holdStart > 0) {
-            const held = Math.min(1.0, (now - S.holdStart) / 1000);
-            oCtx.beginPath();
-            oCtx.arc(cx, cy, r + 8, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * held);
-            oCtx.strokeStyle = "#10B981";
-            oCtx.lineWidth = 5;
-            oCtx.stroke();
-
-            // Hold countdown text
-            oCtx.font = "bold 14px Segoe UI, sans-serif";
-            oCtx.fillStyle = "#10B981";
-            oCtx.fillText(`${Math.max(0, 1.0 - held).toFixed(1)}s`, cx, cy + 5);
+          if (S.step === 0) {
+            const held = (M.cornerHit && M.elbowMax != null && M.elbowMax >= 150 && S.holdStart > 0)
+              ? Math.min(1.0, (now - S.holdStart) / 1000) : 0;
+            const centerText = held > 0 ? `${Math.max(0, 1.0 - held).toFixed(1)}s` : (M.elbowMax != null ? `${Math.round(M.elbowMax)}°` : "≥150°");
+            drawTargetCircle(cx, cy, r, "🎯 CORNER TARGET: EXTEND WRIST (≥150°)", "#38BDF8", (M.cornerHit && M.elbowMax != null && M.elbowMax >= 150), held, centerText);
+          } else {
+            // Step 1: Flex elbow back in (< 120°)
+            const isFlexed = M.elbowMax != null && M.elbowMax < 120;
+            drawTargetCircle(cx, cy, r, "🎯 STEP 2: BEND ELBOW BACK IN (<120°)", "#FBBF24", isFlexed, 0, M.elbowMax != null ? `${Math.round(M.elbowMax)}°` : "<120°");
           }
         }
 
         /* --- EXERCISE 2: Shoulder Elevation / Shrug (Slightly Above Shoulder) --- */
         else if (exKey === "shoulder_raise") {
           const sh = c ? c.sh : null;
-          const baseY = S.shoulderBaselineY != null ? S.shoulderBaselineY : (sh ? sh.y : 0.40);
-          const sx = sh ? X(sh) : 0.70 * W;
-          const targetY = (baseY - 0.075) * H;
-          const r = Math.min(45, W * 0.07);
+          const sx = (sh && sh.x > 0) ? X(sh) : 0.65 * W;
+          const baseY = S.shoulderBaselineY != null ? S.shoulderBaselineY : ((sh && sh.y > 0) ? sh.y : 0.45);
+          const targetY = Math.max(0.18 * H, (baseY - 0.08) * H);
+          const r = 46;
 
-          // Shrug target circle
-          oCtx.beginPath();
-          oCtx.arc(sx, targetY, r, 0, Math.PI * 2);
-          oCtx.strokeStyle = M.shoulderShrugHit ? "#10B981" : "#FBBF24";
-          oCtx.lineWidth = 3;
-          oCtx.stroke();
-
-          // Shrug UP arrow
-          oCtx.beginPath();
-          oCtx.moveTo(sx, targetY + 12);
-          oCtx.lineTo(sx, targetY - 12);
-          oCtx.lineTo(sx - 8, targetY - 4);
-          oCtx.moveTo(sx, targetY - 12);
-          oCtx.lineTo(sx + 8, targetY - 4);
-          oCtx.strokeStyle = M.shoulderShrugHit ? "#10B981" : "#FBBF24";
-          oCtx.lineWidth = 3;
-          oCtx.stroke();
-
-          // Label
-          oCtx.font = "bold 12px Segoe UI, sans-serif";
-          oCtx.textAlign = "center";
-          oCtx.fillStyle = "#FFFFFF";
-          oCtx.fillText(S.step === 0 ? "LIFT SHOULDER HERE" : "LOWER SHOULDER TO REST", sx, targetY - r - 10);
-
-          // 2.0-second hold progress ring
-          if (S.step === 0 && M.shoulderShrugHit && S.holdStart > 0) {
-            const held = Math.min(2.0, (now - S.holdStart) / 1000);
-            oCtx.beginPath();
-            oCtx.arc(sx, targetY, r + 8, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * (held / 2.0));
-            oCtx.strokeStyle = "#10B981";
-            oCtx.lineWidth = 5;
-            oCtx.stroke();
-
-            oCtx.font = "bold 14px Segoe UI, sans-serif";
-            oCtx.fillStyle = "#10B981";
-            oCtx.fillText(`${Math.max(0, 2.0 - held).toFixed(1)}s`, sx, targetY + 28);
+          if (S.step === 0) {
+            const held = (M.shoulderShrugHit && S.holdStart > 0) ? Math.min(2.0, (now - S.holdStart) / 1000) : 0;
+            const centerText = held > 0 ? `${Math.max(0, 2.0 - held).toFixed(1)}s` : "SHRUG ⬆️";
+            drawTargetCircle(sx, targetY, r, "🎯 SHRUG TARGET: LIFT SHOULDER HERE (HOLD 2s)", "#FBBF24", M.shoulderShrugHit, (held / 2.0), centerText);
+          } else {
+            drawTargetCircle(sx, baseY * H, r, "🎯 LOWER SHOULDER BACK TO REST POSITION", "#10B981", M.shoulderRelaxed, 0, "REST ⬇️");
           }
         }
 
         /* --- EXERCISE 3: Hand Open & Close (Fist to Open Palm) --- */
-        else if (exKey === "palm_open" && res.hand && res.hand[0] && res.hand[9]) {
-          const cx = X({ x: (res.hand[0].x + res.hand[9].x) / 2 });
-          const cy = Y({ y: (res.hand[0].y + res.hand[9].y) / 2 });
+        else if (exKey === "palm_open") {
+          const hx = (res && res.hand && res.hand[0]) ? X(res.hand[0]) : 0.58 * W;
+          const hy = (res && res.hand && res.hand[0]) ? Y(res.hand[0]) : 0.48 * H;
+          const r = 54;
 
-          oCtx.beginPath();
-          oCtx.arc(cx, cy, 55, 0, Math.PI * 2);
-          oCtx.strokeStyle = (S.step === 0 && M.isFist) || (S.step === 1 && M.isOpenPalm) ? "#10B981" : "#38BDF8";
-          oCtx.lineWidth = 2.5;
-          oCtx.setLineDash([5, 5]);
-          oCtx.stroke();
-          oCtx.setLineDash([]);
-
-          oCtx.font = "bold 12px Segoe UI, sans-serif";
-          oCtx.textAlign = "center";
-          oCtx.fillStyle = "#FFFFFF";
-          oCtx.fillText(S.step === 0 ? "✊ CURL FINGERS INTO FIST" : "🖐️ SPREAD ALL 5 FINGERS WIDE", cx, cy - 65);
+          if (S.step === 0) {
+            const held = (M.isFist && S.holdStart > 0) ? Math.min(0.5, (now - S.holdStart) / 1000) : 0;
+            drawTargetCircle(hx, hy, r, "🎯 TARGET: CURL FINGERS INTO FIST ✊", "#F59E0B", M.isFist, (held / 0.5), "FIST ✊");
+          } else {
+            const held = (M.isOpenPalm && S.holdStart > 0) ? Math.min(0.7, (now - S.holdStart) / 1000) : 0;
+            drawTargetCircle(hx, hy, r, "🎯 TARGET: SPREAD ALL 5 FINGERS WIDE 🖐️", "#10B981", M.isOpenPalm, (held / 0.7), "OPEN 🖐️");
+          }
         }
 
         /* --- EXERCISE 4: Horizontal Wrist Up & Down --- */
-        else if (exKey === "wrist_stretch" && res.hand && res.hand[0]) {
-          const wx = X(res.hand[0]);
-          const wy = Y(res.hand[0]);
-          const targetY = wy - 75;
+        else if (exKey === "wrist_stretch") {
+          const wx = (res && res.hand && res.hand[0]) ? X(res.hand[0]) : 0.58 * W;
+          const wy = (res && res.hand && res.hand[0]) ? (Y(res.hand[0]) - 80) : 0.35 * H;
+          const r = 46;
 
-          // Target zone floating above wrist
-          oCtx.beginPath();
-          oCtx.arc(wx, targetY, 36, 0, Math.PI * 2);
-          oCtx.strokeStyle = (M.wristPitch != null && M.wristPitch >= 20) ? "#10B981" : "#38BDF8";
-          oCtx.lineWidth = 2.5;
-          oCtx.stroke();
-
-          // Upward cock arrow
-          oCtx.beginPath();
-          oCtx.moveTo(wx, targetY + 10);
-          oCtx.lineTo(wx, targetY - 10);
-          oCtx.lineTo(wx - 7, targetY - 3);
-          oCtx.moveTo(wx, targetY - 10);
-          oCtx.lineTo(wx + 7, targetY - 3);
-          oCtx.strokeStyle = (M.wristPitch != null && M.wristPitch >= 20) ? "#10B981" : "#38BDF8";
-          oCtx.lineWidth = 2.5;
-          oCtx.stroke();
-
-          oCtx.font = "bold 12px Segoe UI, sans-serif";
-          oCtx.textAlign = "center";
-          oCtx.fillStyle = "#FFFFFF";
-          oCtx.fillText(S.step === 0 ? "TILT WRIST UP (≥20°)" : "RETURN DOWN TO LEVEL (≤8°)", wx, targetY - 45);
+          if (S.step === 0) {
+            const isUp = (M.wristPitch != null && M.wristPitch >= 20);
+            const held = (isUp && S.holdStart > 0) ? Math.min(0.8, (now - S.holdStart) / 1000) : 0;
+            const centerText = M.wristPitch != null ? `${M.wristPitch}°` : "UP ⬆️";
+            drawTargetCircle(wx, wy, r, "🎯 TARGET: TILT WRIST UP ⬆️ (≥20°)", "#38BDF8", isUp, (held / 0.8), centerText);
+          } else {
+            const isDown = (M.wristPitch != null && M.wristPitch <= 8);
+            const centerText = M.wristPitch != null ? `${M.wristPitch}°` : "LEVEL ↔️";
+            drawTargetCircle(wx, wy, r, "🎯 RETURN WRIST DOWN TO LEVEL (≤8°)", "#10B981", isDown, 0, centerText);
+          }
         }
 
         /* --- EXERCISE 5: Diagonal Reach & Hold (Endurance) --- */
@@ -362,164 +398,112 @@ document.addEventListener("DOMContentLoaded", () => {
           const isLeft = (c && c.sh && c.sh.x < 0.5);
           const dx = (isLeft ? 0.22 : 0.78) * W;
           const dy = 0.22 * H;
-          const r = Math.min(50, W * 0.08);
+          const r = 52;
 
-          oCtx.beginPath();
-          oCtx.arc(dx, dy, r, 0, Math.PI * 2);
-          oCtx.strokeStyle = M.diagonalHit ? "#10B981" : "#10B981";
-          oCtx.lineWidth = M.diagonalHit ? 3.5 : 2;
-          oCtx.stroke();
-
-          // Crosshairs
-          oCtx.beginPath();
-          oCtx.moveTo(dx - 15, dy); oCtx.lineTo(dx + 15, dy);
-          oCtx.moveTo(dx, dy - 15); oCtx.lineTo(dx, dy + 15);
-          oCtx.strokeStyle = "#10B981";
-          oCtx.lineWidth = 1.5;
-          oCtx.stroke();
-
-          oCtx.font = "bold 12px Segoe UI, sans-serif";
-          oCtx.textAlign = "center";
-          oCtx.fillStyle = "#FFFFFF";
-          oCtx.fillText("DIAGONAL HOLD TARGET (3s)", dx, dy - r - 10);
-
-          if (M.diagonalHit && S.holdStart > 0) {
-            const held = Math.min(3.0, (now - S.holdStart) / 1000);
-            oCtx.beginPath();
-            oCtx.arc(dx, dy, r + 8, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * (held / 3.0));
-            oCtx.strokeStyle = "#10B981";
-            oCtx.lineWidth = 5;
-            oCtx.stroke();
-
-            oCtx.font = "bold 15px Segoe UI, sans-serif";
-            oCtx.fillStyle = "#10B981";
-            oCtx.fillText(`${Math.max(0, 3.0 - held).toFixed(1)}s`, dx, dy + 5);
-          }
+          const held = (M.diagonalHit && S.holdStart > 0) ? Math.min(3.0, (now - S.holdStart) / 1000) : 0;
+          const centerText = held > 0 ? `${Math.max(0, 3.0 - held).toFixed(1)}s` : "HOLD 🎯";
+          drawTargetCircle(dx, dy, r, "🎯 TARGET: DIAGONAL STEADY HOLD (3s)", "#10B981", M.diagonalHit, (held / 3.0), centerText);
         }
 
         /* --- EXERCISE 6: Two-Target Horizontal Glide --- */
         else if (exKey === "ataxia_push") {
           const s1x = 0.28 * W, s1y = 0.55 * H;
           const s2x = 0.72 * W, s2y = 0.55 * H;
-          const r = Math.min(42, W * 0.07);
+          const r = 44;
 
           // Horizontal guide rail
           oCtx.beginPath();
-          oCtx.setLineDash([6, 6]);
+          oCtx.setLineDash([8, 6]);
           oCtx.moveTo(s1x, s1y);
           oCtx.lineTo(s2x, s2y);
-          oCtx.strokeStyle = "rgba(148, 163, 184, 0.4)";
+          oCtx.strokeStyle = "rgba(56, 189, 248, 0.6)";
           oCtx.lineWidth = 3;
           oCtx.stroke();
           oCtx.setLineDash([]);
 
-          // Station 1 (Left)
-          oCtx.beginPath();
-          oCtx.arc(s1x, s1y, r, 0, Math.PI * 2);
-          oCtx.strokeStyle = (S.step === 1 && M.s1Hit) ? "#10B981" : "#38BDF8";
-          oCtx.lineWidth = (S.step === 1) ? 3.5 : 2;
-          oCtx.stroke();
+          // Station 1 (Left Target Circle)
+          const s1Held = (S.step === 1 && M.s1Hit && S.holdStart > 0) ? Math.min(1.0, (now - S.holdStart) / 1000) : 0;
+          drawTargetCircle(s1x, s1y, r, "🎯 STATION 1 (LEFT)", "#38BDF8", M.s1Hit, s1Held, "S1");
 
-          // Station 2 (Right)
-          oCtx.beginPath();
-          oCtx.arc(s2x, s2y, r, 0, Math.PI * 2);
-          oCtx.strokeStyle = (S.step === 0 && M.s2Hit) ? "#10B981" : "#FBBF24";
-          oCtx.lineWidth = (S.step === 0) ? 3.5 : 2;
-          oCtx.stroke();
-
-          oCtx.font = "bold 12px Segoe UI, sans-serif";
-          oCtx.textAlign = "center";
-          oCtx.fillStyle = "#38BDF8";
-          oCtx.fillText("STATION 1 (LEFT)", s1x, s1y - r - 8);
-          oCtx.fillStyle = "#FBBF24";
-          oCtx.fillText("STATION 2 (RIGHT)", s2x, s2y - r - 8);
+          // Station 2 (Right Target Circle)
+          const s2Held = (S.step === 0 && M.s2Hit && S.holdStart > 0) ? Math.min(1.0, (now - S.holdStart) / 1000) : 0;
+          drawTargetCircle(s2x, s2y, r, "🎯 STATION 2 (RIGHT)", "#FBBF24", M.s2Hit, s2Held, "S2");
         }
 
         /* --- EXERCISE 7: Open Palm Left & Right Rotation --- */
-        else if (exKey === "parm_rotate" && res.hand && res.hand[0] && res.hand[9]) {
-          const cx = X(res.hand[0]);
-          const cy = Y(res.hand[0]);
+        else if (exKey === "parm_rotate") {
+          const cx = (res && res.hand && res.hand[0]) ? X(res.hand[0]) : 0.58 * W;
+          const cy = (res && res.hand && res.hand[0]) ? Y(res.hand[0]) : 0.50 * H;
+          const r = 44;
 
-          // Left arc
-          oCtx.beginPath();
-          oCtx.arc(cx, cy, 65, Math.PI * 0.8, Math.PI * 1.3);
-          oCtx.strokeStyle = (S.step === 0 && M.rotateLeftHit) ? "#10B981" : "#38BDF8";
-          oCtx.lineWidth = (S.step === 0) ? 4 : 2;
-          oCtx.stroke();
+          // Left Rotational Target Circle
+          const lHeld = (S.step === 0 && M.rotateLeftHit && S.holdStart > 0) ? Math.min(0.6, (now - S.holdStart) / 1000) : 0;
+          drawTargetCircle(cx - 100, cy, r, "🎯 TARGET: ROTATE LEFT ⬅️", "#38BDF8", M.rotateLeftHit, (lHeld / 0.6), "LEFT ⬅️");
 
-          // Right arc
-          oCtx.beginPath();
-          oCtx.arc(cx, cy, 65, -Math.PI * 0.3, Math.PI * 0.2);
-          oCtx.strokeStyle = (S.step === 1 && M.rotateRightHit) ? "#10B981" : "#FBBF24";
-          oCtx.lineWidth = (S.step === 1) ? 4 : 2;
-          oCtx.stroke();
-
-          oCtx.font = "bold 12px Segoe UI, sans-serif";
-          oCtx.textAlign = "center";
-          oCtx.fillStyle = "#FFFFFF";
-          oCtx.fillText(S.step === 0 ? "ROTATE PALM LEFT ⬅️" : "ROTATE PALM RIGHT ➡️", cx, cy - 80);
+          // Right Rotational Target Circle
+          const rHeld = (S.step === 1 && M.rotateRightHit && S.holdStart > 0) ? Math.min(0.6, (now - S.holdStart) / 1000) : 0;
+          drawTargetCircle(cx + 100, cy, r, "🎯 TARGET: ROTATE RIGHT ➡️", "#FBBF24", M.rotateRightHit, (rHeld / 0.6), "RIGHT ➡️");
         }
 
         /* --- EXERCISE 8: Dynamic Moving Target Pursuit --- */
-        else if (exKey === "moving_target_pursuit" && M.movingTarget) {
-          const tx = M.movingTarget.x * W;
-          const ty = M.movingTarget.y * H;
-          const r = Math.min(48, W * 0.08);
+        else if (exKey === "moving_target_pursuit") {
+          // Dynamic trajectory computed continuously
+          const t = (now - S.exStart) / 1000;
+          const movX = 0.50 + 0.26 * Math.sin(t * 0.75);
+          const movY = 0.45 + 0.10 * Math.sin(t * 1.5);
+          const tx = movX * W;
+          const ty = movY * H;
+          const r = 52;
 
-          // Moving orb
-          oCtx.beginPath();
-          oCtx.arc(tx, ty, r, 0, Math.PI * 2);
-          oCtx.fillStyle = M.movingTargetHit ? "rgba(16, 185, 129, 0.25)" : "rgba(245, 158, 11, 0.15)";
-          oCtx.fill();
-          oCtx.strokeStyle = M.movingTargetHit ? "#10B981" : "#F59E0B";
-          oCtx.lineWidth = 3.5;
-          oCtx.stroke();
+          // Motion tail trail behind the moving target
+          for (let trail = 1; trail <= 4; trail++) {
+            const trailT = t - trail * 0.12;
+            const trX = (0.50 + 0.26 * Math.sin(trailT * 0.75)) * W;
+            const trY = (0.45 + 0.10 * Math.sin(trailT * 1.5)) * H;
+            oCtx.beginPath();
+            oCtx.arc(trX, trY, r * (1 - trail * 0.18), 0, Math.PI * 2);
+            oCtx.fillStyle = M.movingTargetHit ? `rgba(0, 255, 102, ${0.25 / trail})` : `rgba(245, 158, 11, ${0.25 / trail})`;
+            oCtx.fill();
+          }
 
-          // Orbital pulse ring
-          oCtx.beginPath();
-          oCtx.arc(tx, ty, r + 8, 0, Math.PI * 2);
-          oCtx.strokeStyle = M.movingTargetHit ? "rgba(16, 185, 129, 0.4)" : "rgba(245, 158, 11, 0.3)";
-          oCtx.lineWidth = 2;
-          oCtx.stroke();
-
-          // Reverse countdown text inside the moving target
           const rem = M.pursuitRemaining != null ? M.pursuitRemaining : 10.0;
-          oCtx.font = "bold 16px Segoe UI, sans-serif";
-          oCtx.textAlign = "center";
-          oCtx.fillStyle = M.movingTargetHit ? "#10B981" : "#F59E0B";
-          oCtx.fillText(`${rem.toFixed(1)}s`, tx, ty + 6);
+          const centerText = `${rem.toFixed(1)}s`;
+          const heldProgress = (10.0 - rem) / 10.0;
+          const label = M.movingTargetHit ? "🎯 WRIST IN TARGET — COUNTING DOWN!" : "⚠️ KEEP WRIST INSIDE TARGET (10s)";
 
-          oCtx.font = "bold 11px Segoe UI, sans-serif";
-          oCtx.fillStyle = "#FFFFFF";
-          oCtx.fillText(M.movingTargetHit ? "HOLD WRIST INSIDE 🎯" : "WRIST OUTSIDE ⚠️ (RESET 10s)", tx, ty - r - 10);
+          drawTargetCircle(tx, ty, r, label, M.movingTargetHit ? "#00FF66" : "#F59E0B", M.movingTargetHit, heldProgress, centerText);
         }
 
         /* --- EXERCISE 9: Virtual Pincer Grasp & Release --- */
-        else if (exKey === "apraxia_pinch" && res.hand && res.hand[4] && res.hand[8]) {
-          const p4 = { x: X(res.hand[4]), y: Y(res.hand[4]) };
-          const p8 = { x: X(res.hand[8]), y: Y(res.hand[8]) };
+        else if (exKey === "apraxia_pinch") {
+          const px = (res && res.hand && res.hand[8]) ? X(res.hand[8]) : 0.58 * W;
+          const py = (res && res.hand && res.hand[8]) ? Y(res.hand[8]) : 0.50 * H;
+          const r = 48;
 
-          // Caliper line
-          oCtx.beginPath();
-          oCtx.moveTo(p4.x, p4.y);
-          oCtx.lineTo(p8.x, p8.y);
-          oCtx.strokeStyle = (M.pinchRatio != null && M.pinchRatio <= 0.22) ? "#10B981" : "#38BDF8";
-          oCtx.lineWidth = 2.5;
-          oCtx.stroke();
-
-          const mx = (p4.x + p8.x) / 2;
-          const my = (p4.y + p8.y) / 2;
-
-          oCtx.font = "bold 12px Segoe UI, sans-serif";
-          oCtx.textAlign = "center";
-          oCtx.fillStyle = "#FFFFFF";
-          oCtx.fillText(S.step === 0 ? "🤏 PINCH THUMB & INDEX" : "🖐️ OPEN FINGERS WIDE", mx, my - 20);
+          if (S.step === 0) {
+            const isPinched = (M.pinchRatio != null && M.pinchRatio <= 0.22);
+            const held = (isPinched && S.holdStart > 0) ? Math.min(0.8, (now - S.holdStart) / 1000) : 0;
+            drawTargetCircle(px, py, r, "🎯 TARGET: PINCH THUMB & INDEX 🤏", "#10B981", isPinched, (held / 0.8), "PINCH 🤏");
+          } else {
+            const isReleased = (M.pinchRatio != null && M.pinchRatio >= 0.45);
+            drawTargetCircle(px, py, r + 6, "🎯 TARGET: RELEASE FINGERS WIDE 🖐️", "#38BDF8", isReleased, 0, "OPEN 🖐️");
+          }
         }
       }
     } catch (err) {
       console.warn("[Therapy] drawOverlay error caught defensively:", err);
     }
   }
+
+  // Continuous 60 FPS Render Loop (Ensures target circles are ALWAYS visible and pulsating)
+  let lastVisionRes = null;
+  function renderLoop() {
+    if (screens.workout && screens.workout.classList.contains("active")) {
+      drawOverlay(lastVisionRes);
+    }
+    requestAnimationFrame(renderLoop);
+  }
+  requestAnimationFrame(renderLoop);
 
   // ---------- Config UI -------------------------------------------------
   const profilePills = $("profile-pills");
@@ -703,6 +687,13 @@ document.addEventListener("DOMContentLoaded", () => {
       rotateRightHit: false, wristRotX: 0, movingTargetHit: false,
       movingPursuitComplete: false, pursuitRemaining: 10.0, pinchRatio: null,
     };
+
+    // Dynamic Moving Target Pursuit kinematics (ALWAYS calculated every frame)
+    const t = (Date.now() - S.exStart) / 1000;
+    const movX = 0.50 + 0.26 * Math.sin(t * 0.75);
+    const movY = 0.45 + 0.10 * Math.sin(t * 1.5);
+    M.movingTarget = { x: movX, y: movY, r: 0.12 };
+
     if (!res) return M;
 
     try {
@@ -772,44 +763,46 @@ document.addEventListener("DOMContentLoaded", () => {
 
         // Top corner target hit for Elbow Extension (adaptive left/right side)
         const isLeft = (c && c.sh && c.sh.x < 0.5);
-        const cornerX = isLeft ? 0.18 : 0.82;
-        const cornerY = 0.18;
+        const cornerX = isLeft ? 0.20 : 0.80;
+        const cornerY = 0.20;
         const dCorner = Math.hypot(wrist.x - cornerX, (wrist.y - cornerY) * 0.75);
-        M.cornerHit = (dCorner <= 0.14);
+        M.cornerHit = (dCorner <= 0.15);
 
         // Diagonal reach target hit for Ataxia Hold
         const diagX = isLeft ? 0.22 : 0.78;
         const diagY = 0.22;
         const dDiag = Math.hypot(wrist.x - diagX, (wrist.y - diagY) * 0.75);
-        M.diagonalHit = (dDiag <= 0.13);
+        M.diagonalHit = (dDiag <= 0.14);
 
         // Two-target horizontal stations (S1 & S2) for Ataxia Push
-        M.s1Hit = Math.hypot(wrist.x - 0.28, (wrist.y - 0.55) * 0.75) <= 0.12;
-        M.s2Hit = Math.hypot(wrist.x - 0.72, (wrist.y - 0.55) * 0.75) <= 0.12;
+        M.s1Hit = Math.hypot(wrist.x - 0.28, (wrist.y - 0.55) * 0.75) <= 0.13;
+        M.s2Hit = Math.hypot(wrist.x - 0.72, (wrist.y - 0.55) * 0.75) <= 0.13;
 
-        // Dynamic Moving Target Pursuit kinematics
-        const t = (Date.now() - S.exStart) / 1000;
-        const movX = 0.50 + 0.25 * Math.sin(t * 0.75);
-        const movY = 0.45 + 0.10 * Math.sin(t * 1.5);
-        M.movingTarget = { x: movX, y: movY, r: 0.12 };
+        // Moving pursuit hit check
         const dMov = Math.hypot(wrist.x - movX, (wrist.y - movY) * 0.75);
-        M.movingTargetHit = (dMov <= 0.12);
+        M.movingTargetHit = (dMov <= 0.13);
+      } else {
+        M.movingTargetHit = false;
+        M.cornerHit = false;
+        M.diagonalHit = false;
+        M.s1Hit = false;
+        M.s2Hit = false;
+      }
 
-        // Moving pursuit reverse timer
-        if (S.ex && S.ex.key === "moving_target_pursuit" && S.phase === "workout" && !S.paused) {
-          const now = Date.now();
-          const dt = Math.min(0.2, (now - S.pursuitLastTime) / 1000);
-          S.pursuitLastTime = now;
+      // Moving pursuit reverse timer
+      if (S.ex && S.ex.key === "moving_target_pursuit" && S.phase === "workout" && !S.paused) {
+        const now = Date.now();
+        const dt = Math.min(0.2, (now - S.pursuitLastTime) / 1000);
+        S.pursuitLastTime = now;
 
-          if (M.movingTargetHit) {
-            S.pursuitRemaining = Math.max(0, S.pursuitRemaining - dt);
-          } else {
-            // Re-sets back to initial starting countdown (10.0s) whenever wrist leaves target
-            S.pursuitRemaining = 10.0;
-          }
-          M.pursuitRemaining = S.pursuitRemaining;
-          M.movingPursuitComplete = (S.pursuitRemaining <= 0.05);
+        if (M.movingTargetHit) {
+          S.pursuitRemaining = Math.max(0, S.pursuitRemaining - dt);
+        } else {
+          // Re-sets back to initial starting countdown (10.0s) whenever wrist leaves target
+          S.pursuitRemaining = 10.0;
         }
+        M.pursuitRemaining = S.pursuitRemaining;
+        M.movingPursuitComplete = (S.pursuitRemaining <= 0.05);
       }
 
       // 3. Hand 21 Landmark Biometrics
@@ -1207,10 +1200,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function onFrame(res) {
     try {
+      lastVisionRes = res;
       if (S.phase === "workout") {
         handleWorkoutFrame(res);
       }
-      drawOverlay(res);
     } catch (err) {
       console.warn("[Therapy] onFrame handled error:", err);
     }
