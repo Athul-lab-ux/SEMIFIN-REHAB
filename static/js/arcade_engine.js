@@ -1081,79 +1081,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     [5, 9], [9, 13], [13, 17],            // Knuckle base
   ];
 
-  function drawHammerGraphic(ctx, wrist, knuckle, W, H) {
-    const wx = wrist.x * W, wy = wrist.y * H;
-    const kx = knuckle.x * W, ky = knuckle.y * H;
-    const angle = Math.atan2(ky - wy, kx - wx);
-    const handleLen = 80;
 
-    ctx.save();
-    ctx.translate(wx, wy);
-    ctx.rotate(angle);
-
-    // Hammer handle (sturdy wood and bronze)
-    ctx.fillStyle = "#8B4513";
-    ctx.strokeStyle = "#D97706";
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.roundRect(0, -6, handleLen, 12, 5);
-    ctx.fill();
-    ctx.stroke();
-
-    // Grip wrapping ribs
-    ctx.strokeStyle = "#FDE68A";
-    ctx.lineWidth = 2;
-    for (let i = 12; i < handleLen - 15; i += 8) {
-      ctx.beginPath();
-      ctx.moveTo(i, -6);
-      ctx.lineTo(i + 4, 6);
-      ctx.stroke();
-    }
-
-    // Impact aura when curling wrist or snapping
-    const headX = handleLen;
-    const isSwinging = Math.abs(engine.vy) > 0.6 || Math.abs(engine.dy) > 0.02;
-    if (isSwinging) {
-      ctx.save();
-      ctx.shadowColor = "#F59E0B";
-      ctx.shadowBlur = 20;
-      ctx.fillStyle = "rgba(245, 158, 11, 0.45)";
-      ctx.beginPath();
-      ctx.arc(headX + 12, 0, 36, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
-    }
-
-    // Metallic hammer head
-    const grad = ctx.createLinearGradient(headX - 8, -24, headX + 32, 24);
-    grad.addColorStop(0, "#94A3B8");
-    grad.addColorStop(0.5, "#F1F5F9");
-    grad.addColorStop(1, "#475569");
-
-    ctx.fillStyle = grad;
-    ctx.strokeStyle = "#CBD5E1";
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.roundRect(headX - 6, -24, 32, 48, 5);
-    ctx.fill();
-    ctx.stroke();
-
-    // Striking face bevel
-    ctx.fillStyle = "#E2E8F0";
-    ctx.fillRect(headX + 26, -22, 6, 44);
-
-    // Claw / back bevel
-    ctx.fillStyle = "#64748B";
-    ctx.fillRect(headX - 10, -18, 5, 36);
-
-    // Hammer icon
-    ctx.font = "18px sans-serif";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText("⚡", headX + 10, 0);
-
-    ctx.restore();
-  }
 
   // ---------------- Canvas Skeleton Overlay ----------------------------
   function drawOverlay(res) {
@@ -1223,12 +1151,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         oCtx.stroke();
       }
 
-      // 3. Dynamic hammer attached to wrist & knuckle in Wrist Hammer game
-      if (engine.key === "hammer" && hand[0] && (hand[9] || hand[5])) {
-        const wrist = hand[0];
-        const knuckle = hand[9] || hand[5];
-        drawHammerGraphic(oCtx, wrist, knuckle, W, H);
-      }
+
     }
 
     // Draw hand tip reticle
@@ -1351,15 +1274,23 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
-  gameCanvas.addEventListener("pointerdown", () => {
+  gameCanvas.addEventListener("pointerdown", (e) => {
+    const rect = gameCanvas.getBoundingClientRect();
+    const nx = (e.clientX - rect.left) / rect.width;
+    const ny = (e.clientY - rect.top) / rect.height;
+    if (!engine.tipFromCamera) {
+      engine.tip = { x: nx, y: ny };
+    }
     if (engine.game && engine.playing && !engine.paused) {
       if (engine.key === "flappy" && engine.game.bird) {
         engine.game.bird.y -= 35;
       }
-      if (engine.key === "hammer") {
-        engine.wristPitch = 25;
-        setTimeout(() => { engine.wristPitch = -15; }, 200);
-        setTimeout(() => { engine.wristPitch = 0; }, 400);
+      if (engine.key === "balloonbounce" && engine.game.balloons) {
+        for (const b of engine.game.balloons) {
+          if (Math.abs(b.x - nx * gameCanvas.width) < 60) {
+            b.vy = -7.5;
+          }
+        }
       }
     }
   });
