@@ -1,12 +1,17 @@
 /**
- * RehabOpt AR — Stroke Exercise Library (Standardized 4-Step Clinical Protocol)
+ * RehabOpt AR — Stroke Exercise Library (Standardized Clinical Protocol)
  * -----------------------------------------------------------------------------
  * 100% Deterministic Goniometry & Biomechanical Vector Geometry.
- * Every exercise is structured into EXACTLY 4 sequential clinical gates:
- *   Step 1: Starting Position (Neutral baseline alignment)
- *   Step 2: Trajectory Initiation (Smooth kinematic drive)
- *   Step 3: Target Achievement & Controlled Hold (Terminal ROM gate + isometric hold)
- *   Step 4: Controlled Eccentric Return (Anti-gravity deceleration to neutral)
+ * Exactly 9 calibrated clinical exercises (Exercise 10 omitted):
+ *   1. 🦾 Elbow Extension & Flexion (elbow_ext)
+ *   2. 🏋️ Shoulder Elevation / Shrug (shoulder_raise)
+ *   3. 🖐️ Hand Open & Close (palm_open)
+ *   4. 🙌 Horizontal Wrist Up & Down (wrist_stretch)
+ *   5. 🎯 Diagonal Reach & Hold (Endurance) (ataxia_hold)
+ *   6. ➡️ Two-Target Horizontal Glide (ataxia_push)
+ *   7. 🔄 Open Palm Left & Right Rotation (parm_rotate)
+ *   8. 🛸 Dynamic Moving Target Pursuit (moving_target_pursuit)
+ *   9. 🤏 Virtual Pincer Grasp & Release (apraxia_pinch)
  *
  * Each step renders a high-definition anatomical skeletal card:
  *   - Dark navy-black viewport (#070D18)
@@ -15,6 +20,7 @@
  */
 
 const StrokeProfiles = [
+  { key: "All", emoji: "🌟", label: "All 9 Clinical Exercises" },
   { key: "Hemiparesis", emoji: "🦾", label: "Upper-Limb Hemiparesis" },
   { key: "Flexor Spasticity", emoji: "✋", label: "Flexor Spasticity" },
   { key: "Motor Ataxia", emoji: "🎯", label: "Motor Ataxia / Dysmetria" },
@@ -23,131 +29,157 @@ const StrokeProfiles = [
   { key: "Wrist Drop", emoji: "🤚", label: "Wrist Drop (Extensor Paresis)" },
 ];
 
-// Helper: step definition
+// Helper: step definition with hold duration (seconds)
 const S = (label, test, hold = 0) => ({ label, test, hold });
 
 const EXERCISES = [
-  /* ============ 1 · HEMIPARESIS (active weakness / ROM loss) ============ */
+  /* ============ 1 · HEMIPARESIS: ELBOW EXTENSION & FLEXION ============ */
   {
-    key: "elbow_ext", profile: "Hemiparesis", emoji: "🦾", name: "Elbow Extension & Flexion",
-    metric: "ELBOW °", hint: "Start with bent elbow, straighten arm outward past 115°, hold, then bend elbow back down.",
+    key: "elbow_ext",
+    profile: "Hemiparesis",
+    profiles: ["Hemiparesis", "All"],
+    emoji: "🦾",
+    name: "Elbow Extension & Flexion",
+    metric: "ELBOW °",
+    hint: "Straighten arm to top corner target (≥150°) and hold 1s (0.5 Rep), then bend elbow back in (<120°) to complete 1 Rep.",
     steps: [
-      S("Step 1: Start with elbow flexed / bent (≤95°)", (m) => m.elbowMax != null && m.elbowMax <= 95),
-      S("Step 2: Reach and straighten arm outward (>95°)", (m) => m.elbowMax != null && m.elbowMax > 95 && m.elbowMax < 115),
-      S("Step 3: Lock straight elbow extension (≥115°)", (m) => m.elbowMax != null && m.elbowMax >= 115, 0.8),
-      S("Step 4: Bend elbow back down (≤95° - 1 Rep)", (m) => m.elbowMax != null && m.elbowMax <= 95),
-    ],
-  },
-  {
-    key: "shoulder_raise", profile: "Hemiparesis", emoji: "🏋️", name: "Shoulder Raise (High Shelf)",
-    metric: "ELEV °", hint: "Elevate your affected arm overhead without shrugging your shoulder.",
-    steps: [
-      S("Arm resting down at side (<35°)", (m) => m.elevMax != null && m.elevMax < 35),
-      S("Raise arm toward eye level (35°-55°)", (m) => m.elevMax != null && m.elevMax >= 35 && m.elevMax < 55),
-      S("Overhead reach target & hold (≥55°)", (m) => m.elevMax != null && m.elevMax >= 55, 0.8),
-      S("Slowly lower arm to side (<35° - 1 Rep)", (m) => m.elevMax != null && m.elevMax < 35),
+      S("Step 1: Extend Arm (≥150°) & Hold Corner Target (1.0s)", (m) => m.elbowMax != null && m.elbowMax >= 150 && m.cornerHit, 1.0),
+      S("Step 2: Bend Elbow Back In (<120°)", (m) => m.elbowMax != null && m.elbowMax < 120),
     ],
   },
 
-  /* ============ 2 · FLEXOR SPASTICITY (involuntary tightness) ============ */
+  /* ============ 2 · HEMIPARESIS: SHOULDER ELEVATION / SHRUG ============ */
   {
-    key: "palm_open", profile: "Flexor Spasticity", emoji: "🖐️", name: "Hand Open & Close (Fist to Open Palm)",
-    metric: "PALM", hint: "Start in closed fist, open your palm wide with fingers spread, hold, then close fist again.",
+    key: "shoulder_raise",
+    profile: "Hemiparesis",
+    profiles: ["Hemiparesis", "All"],
+    emoji: "🏋️",
+    name: "Shoulder Elevation / Shrug",
+    metric: "SHOULDER",
+    hint: "Shrug your shoulder up into the target and hold 2s (0.5 Rep), then lower your shoulder back down to complete 1 Rep.",
     steps: [
-      S("Step 1: Start with closed fist / curled fingers", (m) => m.spread != null && m.spread <= 0.075),
-      S("Step 2: Unfurl and open hand wide outward", (m) => m.spread != null && m.spread > 0.075 && m.spread < 0.088),
-      S("Step 3: Hold wide open palm stretch", (m) => m.spread != null && m.spread >= 0.085, 0.8),
-      S("Step 4: Close fingers tightly back into fist (1 Rep)", (m) => m.spread != null && m.spread <= 0.075),
-    ],
-  },
-  {
-    key: "wrist_stretch", profile: "Flexor Spasticity", emoji: "🙌", name: "Horizontal Wrist Extension Stretch",
-    metric: "WRIST °", hint: "Hold forearm horizontal. Tilt wrist UP against gravity, hold stretch, then bring wrist DOWN.",
-    steps: [
-      S("Step 1: Neutral horizontal wrist (|angle| ≤12°)", (m) => (m.wristPitch != null && Math.abs(m.wristPitch) <= 12) || (m.dev != null && Math.abs(m.dev) <= 8)),
-      S("Step 2: Tilt wrist UPward (>14°)", (m) => (m.wristPitch != null && m.wristPitch > 14 && m.wristPitch < 20) || (m.dev != null && m.dev > 8 && m.dev < 14)),
-      S("Step 3: Hold upward wrist stretch (≥18°)", (m) => (m.wristPitch != null && m.wristPitch >= 18) || (m.dev != null && m.dev >= 14), 0.8),
-      S("Step 4: Return wrist DOWN to level (≤8° - 1 Rep)", (m) => (m.wristPitch != null && m.wristPitch <= 8) || (m.dev != null && m.dev <= 8)),
+      S("Step 1: Shrug Shoulder Up into Target & Hold (2.0s)", (m) => !!m.shoulderShrugHit, 2.0),
+      S("Step 2: Lower Shoulder Back Down to Rest Position", (m) => !!m.shoulderRelaxed),
     ],
   },
 
-  /* ============ 3 · MOTOR ATAXIA (overshoot / uncoordinated reach) ============ */
+  /* ============ 3 · FLEXOR SPASTICITY: HAND OPEN & CLOSE ============ */
   {
-    key: "ataxia_hold", profile: "Motor Ataxia", emoji: "🎯", name: "Target Center Hold",
-    metric: "STABLE", hint: "Damp terminal oscillation by holding your index fingertip steady in the center.",
+    key: "palm_open",
+    profile: "Flexor Spasticity",
+    profiles: ["Flexor Spasticity", "All"],
+    emoji: "🖐️",
+    name: "Hand Open & Close (Fist to Open Palm)",
+    metric: "PALM",
+    hint: "Close fingers into a tight fist (0.5 Rep), then spread all 5 fingers wide into an open palm to complete 1 Rep.",
     steps: [
-      S("Resting hand outside center zone (x<0.35)", (m) => m.tipX != null && m.tipX < 0.35),
-      S("Navigate fingertip toward target ring", (m) => m.tipX != null && m.tipX >= 0.35 && m.tipX <= 0.65),
-      S("Lock dead-center & hold steady (1.5s)", (m) => m.tipX != null && m.tipX > 0.38 && m.tipX < 0.62 && m.tipY > 0.38 && m.tipY < 0.62, 1.5),
-      S("Controlled withdrawal to edge (x<0.35)", (m) => m.tipX != null && m.tipX < 0.35),
-    ],
-  },
-  {
-    key: "ataxia_push", profile: "Motor Ataxia", emoji: "➡️", name: "Corridor Linear Push",
-    metric: "PATH", hint: "Push your hand along a horizontal rail without vertical wandering.",
-    steps: [
-      S("Align on the left entry corridor (x<0.30)", (m) => m.tipX != null && m.tipX < 0.30),
-      S("Glide steadily through center corridor", (m) => m.tipX != null && m.tipX >= 0.30 && m.tipX < 0.70 && (m.speed == null || m.speed < 1.2)),
-      S("Reach right terminal zone & hold (x>0.70)", (m) => m.tipX != null && m.tipX >= 0.70, 0.8),
-      S("Smoothly return back to left rail (x<0.30)", (m) => m.tipX != null && m.tipX < 0.30),
+      S("Step 1: Close Hand into Fist ✊ & Hold (0.5s)", (m) => !!m.isFist, 0.5),
+      S("Step 2: Open Palm Wide 🖐️ & Hold (0.7s)", (m) => !!m.isOpenPalm, 0.7),
     ],
   },
 
-  /* ============ 4 · INTENTION TREMOR (terminal shaking) ============ */
+  /* ============ 4 · FLEXOR SPASTICITY / WRIST DROP: HORIZONTAL WRIST UP & DOWN ============ */
   {
-    key: "tremor_hold", profile: "Intention Tremor", emoji: "🤚", name: "Endpoint Stabilization Hold",
-    metric: "STILL 2s", hint: "Reach the target and quiet terminal tremor through isometric stabilization.",
+    key: "wrist_stretch",
+    profile: "Flexor Spasticity",
+    profiles: ["Flexor Spasticity", "Wrist Drop", "All"],
+    emoji: "🙌",
+    name: "Horizontal Wrist Up & Down",
+    metric: "WRIST °",
+    hint: "Hold forearm horizontal. Tilt wrist UP into target (≥20°) and hold (0.5 Rep), then bring wrist DOWN to level to complete 1 Rep.",
     steps: [
-      S("Rest beside the target (x<0.35)", (m) => m.tipX != null && m.tipX < 0.35),
-      S("Move hand into target zone", (m) => m.tipX != null && m.tipX >= 0.35 && m.tipX <= 0.65),
-      S("Quiet all oscillation & hold (2.0s)", (m) => m.tipX != null && m.tipX > 0.38 && m.tipX < 0.62 && m.tipY > 0.38 && m.tipY < 0.62, 2.0),
-      S("Smoothly withdraw to edge (x<0.35)", (m) => m.tipX != null && m.tipX < 0.35),
-    ],
-  },
-  {
-    key: "tremor_hover", profile: "Intention Tremor", emoji: "🧘", name: "Mid-Air Hover Zone",
-    metric: "HOLD 2.5s", hint: "Keep your hand floating high and steady without sinking.",
-    steps: [
-      S("Arm resting down low (y>0.60)", (m) => m.tipY != null && m.tipY > 0.60),
-      S("Ascend into upper hover ceiling", (m) => m.tipY != null && m.tipY <= 0.60 && m.tipY > 0.30),
-      S("Hover steady inside ceiling (2.5s)", (m) => m.tipY != null && m.tipY <= 0.35 && m.tipX > 0.25 && m.tipX < 0.75, 2.5),
-      S("Controlled lowering to resting base", (m) => m.tipY != null && m.tipY > 0.60),
+      S("Step 1: Cock Wrist UPward (≥20°) & Hold (0.8s)", (m) => m.wristPitch != null && m.wristPitch >= 20, 0.8),
+      S("Step 2: Return Wrist DOWN to Level (≤8°)", (m) => m.wristPitch != null && m.wristPitch <= 8),
     ],
   },
 
-  /* ============ 5 · MOTOR APRAXIA (sequencing / motor memory) ============ */
+  /* ============ 5 · MOTOR ATAXIA: DIAGONAL REACH & HOLD (ENDURANCE) ============ */
   {
-    key: "apraxia_pinch", profile: "Motor Apraxia", emoji: "🤏", name: "Virtual Pincer Grasp & Release",
-    metric: "PINCH", hint: "Execute fine-motor sequence: open wide, pinch virtual peg, release wide.",
+    key: "ataxia_hold",
+    profile: "Motor Ataxia",
+    profiles: ["Motor Ataxia", "All"],
+    emoji: "🎯",
+    name: "Diagonal Reach & Hold (Endurance)",
+    metric: "HOLD",
+    hint: "Reach wrist diagonally upward into target circle and hold steady for 3 seconds.",
     steps: [
-      S("Open hand wide (pinch >0.08)", (m) => m.pinch != null && m.pinch > 0.08),
-      S("Approach thumb and index together", (m) => m.pinch != null && m.pinch <= 0.08 && m.pinch > 0.05),
-      S("Lock tight pincer grasp & hold (pinch <0.05)", (m) => m.pinch != null && m.pinch < 0.05, 0.8),
-      S("Release back to wide open hand (>0.08)", (m) => m.pinch != null && m.pinch > 0.08),
+      S("Reach Wrist into Diagonal Target & Hold Steady (3.0s)", (m) => !!m.diagonalHit, 3.0),
     ],
   },
 
-  /* ============ 6 · WRIST DROP (extensor paresis) ============ */
+  /* ============ 6 · MOTOR ATAXIA: TWO-TARGET HORIZONTAL GLIDE ============ */
   {
-    key: "wrist_cockup", profile: "Wrist Drop", emoji: "📈", name: "Horizontal Wrist Up & Down",
-    metric: "WRIST °", hint: "Hold forearm horizontally across chest with closed fist. Tilt wrist UP, hold, then bring DOWN.",
+    key: "ataxia_push",
+    profile: "Motor Ataxia",
+    profiles: ["Motor Ataxia", "All"],
+    emoji: "➡️",
+    name: "Two-Target Horizontal Glide",
+    metric: "GLIDE",
+    hint: "Glide wrist horizontally from Station 1 to Station 2 (0.5 Rep), then glide back to Station 1 to complete 1 Rep.",
     steps: [
-      S("Step 1: Forearm horizontal & closed fist (|angle| ≤12°)", (m) => (m.wristPitch != null && Math.abs(m.wristPitch) <= 12) || (m.dev != null && Math.abs(m.dev) <= 8)),
-      S("Step 2: Cock wrist UPward (>14°)", (m) => (m.wristPitch != null && m.wristPitch > 14 && m.wristPitch < 20) || (m.dev != null && m.dev > 8 && m.dev < 14)),
-      S("Step 3: Hold peak wrist UP position (≥18°)", (m) => (m.wristPitch != null && m.wristPitch >= 18) || (m.dev != null && m.dev >= 14), 0.8),
-      S("Step 4: Lower wrist DOWN to neutral (≤8° - 1 Rep)", (m) => (m.wristPitch != null && m.wristPitch <= 8) || (m.dev != null && m.dev <= 8)),
+      S("Step 1: Glide Wrist to Station 2 (Right) & Hold (1.0s)", (m) => !!m.s2Hit, 1.0),
+      S("Step 2: Glide Wrist Back to Station 1 (Left) & Hold (1.0s)", (m) => !!m.s1Hit, 1.0),
+    ],
+  },
+
+  /* ============ 7 · INTENTION TREMOR / WRIST DROP: OPEN PALM LEFT & RIGHT ROTATION ============ */
+  {
+    key: "parm_rotate",
+    profile: "Intention Tremor",
+    profiles: ["Intention Tremor", "Wrist Drop", "All"],
+    emoji: "🔄",
+    name: "Open Palm Left & Right Rotation",
+    metric: "ROTATE",
+    hint: "Keep palm wide open. Rotate hand Left (0.5 Rep), then rotate hand Right to complete 1 Rep.",
+    steps: [
+      S("Step 1: Rotate Open Palm Left ⬅️ & Hold (0.6s)", (m) => !!m.rotateLeftHit, 0.6),
+      S("Step 2: Rotate Open Palm Right ➡️ & Hold (0.6s)", (m) => !!m.rotateRightHit, 0.6),
+    ],
+  },
+
+  /* ============ 8 · INTENTION TREMOR: DYNAMIC MOVING TARGET PURSUIT ============ */
+  {
+    key: "moving_target_pursuit",
+    profile: "Intention Tremor",
+    profiles: ["Intention Tremor", "All"],
+    emoji: "🛸",
+    name: "Dynamic Moving Target Pursuit",
+    metric: "PURSUIT",
+    hint: "Follow the moving target with your wrist. Keep inside for the 10s countdown. Moving outside resets the timer!",
+    steps: [
+      S("Follow Moving Target with Wrist for 10s Countdown", (m) => !!m.movingPursuitComplete),
+    ],
+  },
+
+  /* ============ 9 · MOTOR APRAXIA: VIRTUAL PINCER GRASP & RELEASE ============ */
+  {
+    key: "apraxia_pinch",
+    profile: "Motor Apraxia",
+    profiles: ["Motor Apraxia", "All"],
+    emoji: "🤏",
+    name: "Virtual Pincer Grasp & Release",
+    metric: "PINCH",
+    hint: "Pinch thumb and index fingertip together tightly (0.5 Rep), then release fingers wide open to complete 1 Rep.",
+    steps: [
+      S("Step 1: Pinch Thumb & Index Together 🤏 & Hold (0.8s)", (m) => m.pinchRatio != null && m.pinchRatio <= 0.22, 0.8),
+      S("Step 2: Release Fingers Wide Open 🖐️", (m) => m.pinchRatio != null && m.pinchRatio >= 0.45),
     ],
   },
 ];
 
-// Convenience grouping
+// Grouping by clinical profile
 const EXERCISES_BY_PROFILE = Object.fromEntries(
-  StrokeProfiles.map((p) => [p.key, EXERCISES.filter((e) => e.profile === p.key)])
+  StrokeProfiles.map((p) => [
+    p.key,
+    p.key === "All"
+      ? EXERCISES
+      : EXERCISES.filter((e) => e.profile === p.key || (Array.isArray(e.profiles) && e.profiles.includes(p.key))),
+  ])
 );
 
 /**
  * High-Definition Skeletal Visualizer (SVG)
- * Generates an anatomical stick posture for each of the 4 clinical steps:
+ * Generates an anatomical stick posture for each step:
  *  - Dark navy-black viewport (#070D18)
  *  - Light blue joint nodes (#38BDF8)
  *  - Yellow bone linkages (#FBBF24)
@@ -159,61 +191,81 @@ function getExerciseStepSvg(exKey, stepIndex, isActive = false, isDone = false) 
   const jointColor = isDone ? "#6EE7B7" : isActive ? "#38BDF8" : "#64748B";
   const glow = isActive ? `filter="url(#glow-${stepIndex})"` : "";
 
+  // Dedicated hand view for hand/wrist drills
+  if (exKey === "palm_open" || exKey === "wrist_stretch" || exKey === "parm_rotate" || exKey === "apraxia_pinch") {
+    return getHandStepSvg(exKey, stepIndex, isActive, isDone);
+  }
+
   // Base coordinates for stick figure centered in 120 x 90 box
   const hx = 60, hy = 18; // head
   const nx = 60, ny = 27; // neck
   const tx = 60, ty = 60; // torso pelvis
-  const lSh = { x: 44, y: 32 }, rSh = { x: 76, y: 32 };
-  // Non-active left arm resting
-  const lEl = { x: 40, y: 48 }, lWr = { x: 38, y: 64 };
+  let lSh = { x: 44, y: 32 }, rSh = { x: 76, y: 32 };
+  const lEl = { x: 40, y: 48 }, lWr = { x: 38, y: 64 }; // resting left arm
 
   // Calculate active right arm joints based on exercise type and step
   let rEl = { x: 80, y: 48 }, rWr = { x: 84, y: 64 };
-  let handShape = null; // optional hand detail
+  let targetGraphic = "";
 
-  if (exKey === "elbow_ext" || exKey === "slow_unfurl") {
-    if (stepIndex === 0) { rEl = { x: 80, y: 48 }; rWr = { x: 70, y: 38 }; } // flexed
-    else if (stepIndex === 1) { rEl = { x: 86, y: 46 }; rWr = { x: 92, y: 46 }; } // extending
-    else if (stepIndex === 2) { rEl = { x: 92, y: 42 }; rWr = { x: 108, y: 42 }; } // fully extended
-    else { rEl = { x: 82, y: 48 }; rWr = { x: 74, y: 40 }; } // returning
-  } else if (exKey === "shoulder_raise" || exKey === "apraxia_vert" || exKey === "tremor_hover") {
-    if (stepIndex === 0) { rEl = { x: 78, y: 48 }; rWr = { x: 80, y: 66 }; } // down
-    else if (stepIndex === 1) { rEl = { x: 88, y: 40 }; rWr = { x: 98, y: 42 }; } // mid
-    else if (stepIndex === 2) { rEl = { x: 84, y: 22 }; rWr = { x: 88, y: 8 }; } // high overhead
-    else { rEl = { x: 82, y: 44 }; rWr = { x: 82, y: 62 }; } // down
-  } else if (exKey === "fwd_reach" || exKey === "ataxia_push" || exKey === "tremor_slowstop") {
-    if (stepIndex === 0) { rEl = { x: 78, y: 48 }; rWr = { x: 78, y: 62 }; }
-    else if (stepIndex === 1) { rEl = { x: 88, y: 48 }; rWr = { x: 96, y: 52 }; }
-    else if (stepIndex === 2) { rEl = { x: 96, y: 44 }; rWr = { x: 112, y: 44 }; } // reach
-    else { rEl = { x: 82, y: 50 }; rWr = { x: 80, y: 60 }; }
-  } else if (exKey === "side_sweep" || exKey === "ataxia_stop") {
-    if (stepIndex === 0) { rEl = { x: 78, y: 48 }; rWr = { x: 80, y: 66 }; }
-    else if (stepIndex === 1) { rEl = { x: 92, y: 44 }; rWr = { x: 102, y: 48 }; }
-    else if (stepIndex === 2) { rEl = { x: 98, y: 32 }; rWr = { x: 114, y: 32 }; } // wide side sweep
-    else { rEl = { x: 82, y: 48 }; rWr = { x: 82, y: 64 }; }
-  } else if (exKey === "bimanual_push") {
+  if (exKey === "elbow_ext") {
     if (stepIndex === 0) {
-      lEl.x = 42; lEl.y = 48; lWr.x = 50; lWr.y = 42;
-      rEl = { x: 78, y: 48 }; rWr = { x: 70, y: 42 };
-    } else if (stepIndex === 1) {
-      lEl.x = 34; lEl.y = 44; lWr.x = 24; lWr.y = 44;
-      rEl = { x: 86, y: 44 }; rWr = { x: 96, y: 44 };
-    } else if (stepIndex === 2) {
-      lEl.x = 26; lEl.y = 40; lWr.x = 12; lWr.y = 40;
-      rEl = { x: 94, y: 40 }; rWr = { x: 108, y: 40 };
+      // Step 1: Arm fully extended reaching toward upper right target
+      rEl = { x: 90, y: 36 }; rWr = { x: 106, y: 22 };
+      targetGraphic = `
+        <circle cx="106" cy="22" r="7" fill="none" stroke="#38BDF8" stroke-width="1.8" stroke-dasharray="2 2" />
+        <circle cx="106" cy="22" r="2.5" fill="#38BDF8" />
+      `;
     } else {
-      lEl.x = 40; lEl.y = 48; lWr.x = 48; lWr.y = 44;
-      rEl = { x: 80, y: 48 }; rWr = { x: 72, y: 44 };
+      // Step 2: Elbow bent / flexed inward toward chest (<120°)
+      rEl = { x: 84, y: 48 }; rWr = { x: 72, y: 38 };
     }
-  } else if (exKey === "palm_open" || exKey === "finger_fan" || exKey === "fist_rhythm" || exKey === "wrist_cockup" || exKey === "wrist_stretch" || exKey === "wrist_slow" || exKey === "wrist_point" || exKey === "wrist_openlift" || exKey === "apraxia_pinch" || exKey === "apraxia_oco") {
-    // Detailed hand view for hand/wrist drills
-    return getHandStepSvg(exKey, stepIndex, isActive, isDone);
+  } else if (exKey === "shoulder_raise") {
+    if (stepIndex === 0) {
+      // Step 1: Shoulder shrugged upward toward target
+      rSh = { x: 76, y: 24 };
+      rEl = { x: 82, y: 42 }; rWr = { x: 84, y: 60 };
+      targetGraphic = `
+        <circle cx="76" cy="18" r="6" fill="none" stroke="#FBBF24" stroke-width="1.8" />
+        <path d="M 76 22 L 76 14 M 73 17 L 76 14 L 79 17" stroke="#FBBF24" stroke-width="1.5" stroke-linecap="round" />
+      `;
+    } else {
+      // Step 2: Shoulder lowered back down to baseline
+      rSh = { x: 76, y: 34 };
+      rEl = { x: 80, y: 50 }; rWr = { x: 82, y: 66 };
+    }
+  } else if (exKey === "ataxia_hold") {
+    // Diagonal reach & hold: arm extended into upper diagonal circle
+    rEl = { x: 88, y: 38 }; rWr = { x: 104, y: 24 };
+    targetGraphic = `
+      <circle cx="104" cy="24" r="8" fill="none" stroke="#10B981" stroke-width="1.5" />
+      <circle cx="104" cy="24" r="3" fill="#10B981" />
+      <line x1="94" y1="24" x2="114" y2="24" stroke="#10B981" stroke-width="1" stroke-dasharray="2 2" />
+      <line x1="104" y1="14" x2="104" y2="34" stroke="#10B981" stroke-width="1" stroke-dasharray="2 2" />
+    `;
+  } else if (exKey === "ataxia_push") {
+    // Horizontal corridor push
+    targetGraphic = `
+      <line x1="50" y1="52" x2="110" y2="52" stroke="#475569" stroke-width="2" stroke-dasharray="3 3" />
+      <circle cx="50" cy="52" r="5" fill="none" stroke="#38BDF8" stroke-width="1.5" />
+      <circle cx="110" cy="52" r="5" fill="none" stroke="#FBBF24" stroke-width="1.5" />
+    `;
+    if (stepIndex === 0) {
+      // Reaching across to right station
+      rEl = { x: 92, y: 46 }; rWr = { x: 110, y: 52 };
+    } else {
+      // Returning to left station
+      rEl = { x: 70, y: 48 }; rWr = { x: 50, y: 52 };
+    }
+  } else if (exKey === "moving_target_pursuit") {
+    // Arm pursuing moving target orb
+    rEl = { x: 88, y: 44 }; rWr = { x: 100, y: 42 };
+    targetGraphic = `
+      <circle cx="100" cy="42" r="9" fill="rgba(56, 189, 248, 0.2)" stroke="#38BDF8" stroke-width="2" />
+      <circle cx="100" cy="42" r="3" fill="#38BDF8" />
+      <path d="M 85 46 Q 95 36 108 44" fill="none" stroke="rgba(56, 189, 248, 0.5)" stroke-width="1.5" stroke-dasharray="2 2" />
+    `;
   } else {
-    // General coordination / target drills
-    if (stepIndex === 0) { rEl = { x: 78, y: 48 }; rWr = { x: 82, y: 64 }; }
-    else if (stepIndex === 1) { rEl = { x: 86, y: 46 }; rWr = { x: 94, y: 46 }; }
-    else if (stepIndex === 2) { rEl = { x: 92, y: 40 }; rWr = { x: 104, y: 38 }; }
-    else { rEl = { x: 80, y: 50 }; rWr = { x: 82, y: 62 }; }
+    rEl = { x: 80, y: 48 }; rWr = { x: 84, y: 64 };
   }
 
   return `
@@ -225,12 +277,13 @@ function getExerciseStepSvg(exKey, stepIndex, isActive = false, isDone = false) 
         </filter>
       </defs>
       <rect width="120" height="90" rx="8" fill="#070D18" stroke="${accentColor}" stroke-width="${isActive ? "2" : "1"}" />
+      ${targetGraphic}
       <!-- Head & Spine -->
       <circle cx="${hx}" cy="${hy}" r="8" fill="none" stroke="${boneColor}" stroke-width="2.5" ${glow} />
       <circle cx="${hx}" cy="${hy}" r="3" fill="${jointColor}" />
       <line x1="${nx}" y1="${ny}" x2="${tx}" y2="${ty}" stroke="${boneColor}" stroke-width="3" stroke-linecap="round" />
       <line x1="${lSh.x}" y1="${lSh.y}" x2="${rSh.x}" y2="${rSh.y}" stroke="${boneColor}" stroke-width="3" stroke-linecap="round" />
-      <!-- Left Arm (Resting or bimanual) -->
+      <!-- Left Arm (Resting) -->
       <line x1="${lSh.x}" y1="${lSh.y}" x2="${lEl.x}" y2="${lEl.y}" stroke="${boneColor}" stroke-width="2.5" stroke-linecap="round" />
       <line x1="${lEl.x}" y1="${lEl.y}" x2="${lWr.x}" y2="${lWr.y}" stroke="${boneColor}" stroke-width="2.5" stroke-linecap="round" />
       <circle cx="${lSh.x}" cy="${lSh.y}" r="3.5" fill="${jointColor}" />
@@ -261,30 +314,51 @@ function getHandStepSvg(exKey, stepIndex, isActive, isDone) {
   // Hand layout: wrist at bottom center (60, 75)
   const wx = 60, wy = 75;
   const palmCx = 60, palmCy = 52;
-  // 5 finger tips depending on step
   let spread = 1.0;
-  let wristAngle = 0; // degrees upward cock
+  let wristAngle = 0; // degrees upward cock or lateral rotation
+  let customGraphic = "";
 
-  if (exKey === "palm_open" || exKey === "apraxia_oco") {
-    spread = stepIndex === 0 ? 0.30 : stepIndex === 1 ? 0.75 : stepIndex === 2 ? 1.4 : 0.30;
-  } else if (exKey === "fist_rhythm") {
-    spread = stepIndex === 0 ? 0.5 : stepIndex === 1 ? 0.25 : stepIndex === 2 ? 1.4 : 0.5;
-  } else if (exKey === "finger_fan") {
-    spread = stepIndex === 0 ? 0.4 : stepIndex === 1 ? 0.8 : stepIndex === 2 ? 1.5 : 0.4;
-  } else if (exKey === "wrist_cockup" || exKey === "wrist_stretch" || exKey === "wrist_slow") {
-    wristAngle = stepIndex === 0 ? 0 : stepIndex === 1 ? -18 : stepIndex === 2 ? -34 : 0;
-    spread = 0.45;
+  if (exKey === "palm_open") {
+    // Step 0: Fist, Step 1: Wide Open Palm
+    spread = (stepIndex === 0) ? 0.35 : 1.45;
+  } else if (exKey === "wrist_stretch") {
+    // Step 0: Cocked UP (pitch >= 20°), Step 1: Return level (pitch <= 8°)
+    wristAngle = (stepIndex === 0) ? -32 : 0;
+    spread = 0.50;
+    if (stepIndex === 0) {
+      customGraphic = `
+        <path d="M 60 30 L 60 16 M 56 20 L 60 16 L 64 20" stroke="#38BDF8" stroke-width="2" stroke-linecap="round" />
+        <text x="60" y="12" font-size="8" font-weight="800" text-anchor="middle" fill="#38BDF8">UP ⬆️</text>
+      `;
+    }
+  } else if (exKey === "parm_rotate") {
+    // Step 0: Rotate Left, Step 1: Rotate Right
+    wristAngle = (stepIndex === 0) ? -28 : 28;
+    spread = 1.25;
+    const arrowPath = (stepIndex === 0)
+      ? `M 42 22 Q 32 30 36 42 M 38 22 L 42 22 L 42 26`
+      : `M 78 22 Q 88 30 84 42 M 82 22 L 78 22 L 78 26`;
+    customGraphic = `
+      <path d="${arrowPath}" fill="none" stroke="#FBBF24" stroke-width="2" stroke-linecap="round" />
+      <text x="${stepIndex === 0 ? 32 : 88}" y="16" font-size="8" font-weight="800" text-anchor="middle" fill="#FBBF24">${stepIndex === 0 ? "LEFT ⬅️" : "RIGHT ➡️"}</text>
+    `;
   } else if (exKey === "apraxia_pinch") {
-    spread = stepIndex === 0 ? 1.2 : stepIndex === 1 ? 0.6 : stepIndex === 2 ? 0.25 : 1.2;
-  } else {
-    spread = stepIndex === 2 ? 1.2 : 0.7;
-    wristAngle = stepIndex === 2 ? -20 : 0;
+    // Step 0: Tight pinch, Step 1: Release wide
+    spread = (stepIndex === 0) ? 0.28 : 1.40;
+    if (stepIndex === 0) {
+      customGraphic = `
+        <circle cx="56" cy="30" r="5" fill="none" stroke="#10B981" stroke-width="1.8" />
+        <text x="60" y="14" font-size="8" font-weight="800" text-anchor="middle" fill="#10B981">PINCH 🤏</text>
+      `;
+    }
   }
 
   // Generate 5 finger rays
   const fingers = [-24, -12, 0, 12, 24].map((baseAngle, i) => {
     const a = (baseAngle * spread + wristAngle - 90) * (Math.PI / 180);
-    const len = i === 2 ? 34 : (i === 1 || i === 3) ? 30 : 24;
+    const len = (spread < 0.4)
+      ? 14 // curled in fist
+      : i === 2 ? 34 : (i === 1 || i === 3) ? 30 : 24;
     return {
       x: palmCx + Math.cos(a) * len,
       y: palmCy + Math.sin(a) * len,
@@ -294,6 +368,7 @@ function getHandStepSvg(exKey, stepIndex, isActive, isDone) {
   return `
     <svg viewBox="0 0 120 90" class="step-skeletal-svg" xmlns="http://www.w3.org/2000/svg">
       <rect width="120" height="90" rx="8" fill="#070D18" stroke="${accentColor}" stroke-width="${isActive ? "2" : "1"}" />
+      ${customGraphic}
       <!-- Forearm & Wrist -->
       <line x1="${wx}" y1="88" x2="${wx}" y2="${wy}" stroke="${boneColor}" stroke-width="4" stroke-linecap="round" />
       <circle cx="${wx}" cy="${wy}" r="5" fill="${accentColor}" />
@@ -301,7 +376,7 @@ function getHandStepSvg(exKey, stepIndex, isActive, isDone) {
       <polygon points="${wx - 14},${wy} ${wx + 14},${wy} ${palmCx + 16},${palmCy} ${palmCx - 16},${palmCy}" fill="none" stroke="${boneColor}" stroke-width="2.5" />
       <circle cx="${palmCx}" cy="${palmCy}" r="4" fill="${jointColor}" />
       <!-- 5 Fingers -->
-      ${fingers.map((f, i) => `
+      ${fingers.map((f) => `
         <line x1="${palmCx}" y1="${palmCy}" x2="${f.x}" y2="${f.y}" stroke="${boneColor}" stroke-width="2.8" stroke-linecap="round" />
         <circle cx="${f.x}" cy="${f.y}" r="3.5" fill="${jointColor}" />
       `).join("")}

@@ -1,14 +1,24 @@
 /**
- * RehabOpt AR — Guided Therapy Engine (Wave 3)
- * ------------------------------------------------------------------
- * Patient flow: pick stroke profile → pick exercises → set reps/sets/
- * rest-between-sets/break-between-exercises → step-locked guided reps.
+ * RehabOpt AR — Guided Therapy Engine (Calibrated 9-Exercise Clinical System)
+ * -----------------------------------------------------------------------------
+ * Deterministic AR Biofeedback for Stroke Upper-Limb Rehabilitation:
+ *   1. 🦾 Elbow Extension & Flexion (elbow_ext)
+ *   2. 🏋️ Shoulder Elevation / Shrug (shoulder_raise)
+ *   3. 🖐️ Hand Open & Close (palm_open)
+ *   4. 🙌 Horizontal Wrist Up & Down (wrist_stretch)
+ *   5. 🎯 Diagonal Reach & Hold (Endurance) (ataxia_hold)
+ *   6. ➡️ Two-Target Horizontal Glide (ataxia_push)
+ *   7. 🔄 Open Palm Left & Right Rotation (parm_rotate)
+ *   8. 🛸 Dynamic Moving Target Pursuit (moving_target_pursuit)
+ *   9. 🤏 Virtual Pincer Grasp & Release (apraxia_pinch)
  *
- * Detection model: every exercise is a chain of numbered steps; a step
- * with a hold time must be held; a rep completes when the final step
- * finishes; a set completes at reps_target; rest follows between sets,
- * a break between exercises. Trunk tilt > 10° (E1) freezes progress.
+ * Rep Counting Architecture:
+ *   - Half Reps (0.5): Awarded on reaching target / peak contraction with 🔔 chime + audio prompt
+ *   - Full Reps (1.0): Completed on controlled return to baseline with 🎉 chime
+ *   - Moving Pursuit: Continuous 10s reverse countdown inside target; resets on exit
+ *   - Anti-cheat trunk lock: E1 tilt > 10° freezes workout progression
  */
+
 document.addEventListener("DOMContentLoaded", () => {
   // ---------- DOM -----------------------------------------------------
   const $ = (id) => document.getElementById(id);
@@ -19,14 +29,16 @@ document.addEventListener("DOMContentLoaded", () => {
   const toast = $("toast");
 
   function showToast(msg, type = "info") {
+    if (!toast) return;
     toast.textContent = msg;
     toast.className = `toast show ${type}`;
     setTimeout(() => { toast.className = "toast"; }, 2800);
   }
 
   function showScreen(name) {
-    Object.values(screens).forEach((el) => el.classList.remove("active"));
-    screens[name === "break" ? "break_" : name].classList.add("active");
+    Object.values(screens).forEach((el) => { if (el) el.classList.remove("active"); });
+    const target = screens[name === "break" ? "break_" : name];
+    if (target) target.classList.add("active");
     if (name === "workout") {
       setTimeout(() => {
         sizeOverlay();
@@ -41,9 +53,7 @@ document.addEventListener("DOMContentLoaded", () => {
     return `${String((s / 60) | 0).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
   };
 
-  // ---------- Single-arm skeleton overlay ----------------------------------
-  // Only the loader's ONE tracking chain (arm matched to the one detected
-  // hand) is drawn — never a second skeleton — on top of the mirrored video.
+  // ---------- AR Skeleton & Target Overlay --------------------------------
   const overlayCanvas = $("overlay-canvas");
   const oCtx = overlayCanvas.getContext("2d");
 
@@ -79,28 +89,9 @@ document.addEventListener("DOMContentLoaded", () => {
       oCtx.lineCap = "round";
       oCtx.lineJoin = "round";
 
-      // Determine exercise anatomical focus
       const ex = S.ex;
-      const isShoulderElbowEx = !!(ex && (
-        ex.key === "elbow_ext" ||
-        ex.key === "fwd_reach" ||
-        ex.key === "shoulder_raise" ||
-        ex.key === "slow_unfurl" ||
-        (ex.metric && (ex.metric.includes("ELBOW") || ex.metric.includes("ELEV") || ex.metric.includes("REACH"))) ||
-        (ex.name && (ex.name.toLowerCase().includes("elbow") || ex.name.toLowerCase().includes("shoulder") || ex.name.toLowerCase().includes("reach") || ex.name.toLowerCase().includes("unfurl")))
-      ));
-
-      const isHandWristEx = !!(ex && (
-        ex.key === "palm_open" ||
-        ex.key === "wrist_stretch" ||
-        ex.key === "apraxia_pinch" ||
-        ex.key === "apraxia_oco" ||
-        ex.key === "wrist_cockup" ||
-        ex.key === "wrist_sweep" ||
-        ex.key === "wrist_point" ||
-        ex.key === "wrist_openlift" ||
-        (ex.metric && (ex.metric.includes("PALM") || ex.metric.includes("PINCH") || ex.metric.includes("DEV") || ex.metric.includes("OPEN") || ex.metric.includes("POINT")))
-      ));
+      const exKey = ex ? ex.key : "";
+      const M = S.metrics || {};
 
       // 1. Arm skeleton (OpenCV Spec: Green bones #00C853, Yellow joints #FFEB3B)
       const c = res.chain || (res.pose && (
@@ -183,14 +174,11 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       }
 
-      // 2. Full 21 Hand Landmarks & Connecting Bones (Exact 6M Reference: Bright Green bones #00FF00, Red dots #FF0000)
-      // Rendered unconditionally whenever hand is detected in camera
+      // 2. Full 21 Hand Landmarks & Connecting Bones
       if (res.hand && res.hand[0]) {
         // Draw hand bones: Bright Green (#00FF00)
         oCtx.strokeStyle = "#00FF00";
         oCtx.lineWidth = 2.5;
-        oCtx.lineCap = "round";
-        oCtx.lineJoin = "round";
         for (const [i, j] of HAND_CONNECTIONS) {
           const p1 = res.hand[i], p2 = res.hand[j];
           if (p1 && p2) {
@@ -224,6 +212,310 @@ document.addEventListener("DOMContentLoaded", () => {
           oCtx.stroke();
         }
       }
+
+      // 3. Exercise-Specific AR Visual Targets & Real-time Hold Rings
+      if (S.phase === "workout" && exKey) {
+        const now = Date.now();
+
+        /* --- EXERCISE 1: Elbow Extension & Flexion (Top Corner Target) --- */
+        if (exKey === "elbow_ext") {
+          const isLeft = (c && c.sh && c.sh.x < 0.5);
+          const cx = (isLeft ? 0.18 : 0.82) * W;
+          const cy = 0.18 * H;
+          const r = Math.min(52, W * 0.08);
+
+          // Glowing corner target ring
+          oCtx.beginPath();
+          oCtx.arc(cx, cy, r, 0, Math.PI * 2);
+          oCtx.strokeStyle = M.cornerHit ? "#10B981" : "#38BDF8";
+          oCtx.lineWidth = M.cornerHit ? 3.5 : 2.5;
+          oCtx.setLineDash(M.cornerHit ? [] : [6, 4]);
+          oCtx.stroke();
+          oCtx.setLineDash([]);
+
+          // Bullseye center dot
+          oCtx.beginPath();
+          oCtx.arc(cx, cy, 6, 0, Math.PI * 2);
+          oCtx.fillStyle = M.cornerHit ? "#10B981" : "#38BDF8";
+          oCtx.fill();
+
+          // Target label
+          oCtx.font = "bold 12px Segoe UI, sans-serif";
+          oCtx.textAlign = "center";
+          oCtx.fillStyle = "#FFFFFF";
+          oCtx.fillText("CORNER TARGET (≥150°)", cx, cy - r - 10);
+
+          // 1-second Circular Hold Gauge
+          if (S.step === 0 && M.cornerHit && M.elbowMax != null && M.elbowMax >= 150 && S.holdStart > 0) {
+            const held = Math.min(1.0, (now - S.holdStart) / 1000);
+            oCtx.beginPath();
+            oCtx.arc(cx, cy, r + 8, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * held);
+            oCtx.strokeStyle = "#10B981";
+            oCtx.lineWidth = 5;
+            oCtx.stroke();
+
+            // Hold countdown text
+            oCtx.font = "bold 14px Segoe UI, sans-serif";
+            oCtx.fillStyle = "#10B981";
+            oCtx.fillText(`${Math.max(0, 1.0 - held).toFixed(1)}s`, cx, cy + 5);
+          }
+        }
+
+        /* --- EXERCISE 2: Shoulder Elevation / Shrug (Slightly Above Shoulder) --- */
+        else if (exKey === "shoulder_raise") {
+          const sh = c ? c.sh : null;
+          const baseY = S.shoulderBaselineY != null ? S.shoulderBaselineY : (sh ? sh.y : 0.40);
+          const sx = sh ? X(sh) : 0.70 * W;
+          const targetY = (baseY - 0.075) * H;
+          const r = Math.min(45, W * 0.07);
+
+          // Shrug target circle
+          oCtx.beginPath();
+          oCtx.arc(sx, targetY, r, 0, Math.PI * 2);
+          oCtx.strokeStyle = M.shoulderShrugHit ? "#10B981" : "#FBBF24";
+          oCtx.lineWidth = 3;
+          oCtx.stroke();
+
+          // Shrug UP arrow
+          oCtx.beginPath();
+          oCtx.moveTo(sx, targetY + 12);
+          oCtx.lineTo(sx, targetY - 12);
+          oCtx.lineTo(sx - 8, targetY - 4);
+          oCtx.moveTo(sx, targetY - 12);
+          oCtx.lineTo(sx + 8, targetY - 4);
+          oCtx.strokeStyle = M.shoulderShrugHit ? "#10B981" : "#FBBF24";
+          oCtx.lineWidth = 3;
+          oCtx.stroke();
+
+          // Label
+          oCtx.font = "bold 12px Segoe UI, sans-serif";
+          oCtx.textAlign = "center";
+          oCtx.fillStyle = "#FFFFFF";
+          oCtx.fillText(S.step === 0 ? "LIFT SHOULDER HERE" : "LOWER SHOULDER TO REST", sx, targetY - r - 10);
+
+          // 2.0-second hold progress ring
+          if (S.step === 0 && M.shoulderShrugHit && S.holdStart > 0) {
+            const held = Math.min(2.0, (now - S.holdStart) / 1000);
+            oCtx.beginPath();
+            oCtx.arc(sx, targetY, r + 8, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * (held / 2.0));
+            oCtx.strokeStyle = "#10B981";
+            oCtx.lineWidth = 5;
+            oCtx.stroke();
+
+            oCtx.font = "bold 14px Segoe UI, sans-serif";
+            oCtx.fillStyle = "#10B981";
+            oCtx.fillText(`${Math.max(0, 2.0 - held).toFixed(1)}s`, sx, targetY + 28);
+          }
+        }
+
+        /* --- EXERCISE 3: Hand Open & Close (Fist to Open Palm) --- */
+        else if (exKey === "palm_open" && res.hand && res.hand[0] && res.hand[9]) {
+          const cx = X({ x: (res.hand[0].x + res.hand[9].x) / 2 });
+          const cy = Y({ y: (res.hand[0].y + res.hand[9].y) / 2 });
+
+          oCtx.beginPath();
+          oCtx.arc(cx, cy, 55, 0, Math.PI * 2);
+          oCtx.strokeStyle = (S.step === 0 && M.isFist) || (S.step === 1 && M.isOpenPalm) ? "#10B981" : "#38BDF8";
+          oCtx.lineWidth = 2.5;
+          oCtx.setLineDash([5, 5]);
+          oCtx.stroke();
+          oCtx.setLineDash([]);
+
+          oCtx.font = "bold 12px Segoe UI, sans-serif";
+          oCtx.textAlign = "center";
+          oCtx.fillStyle = "#FFFFFF";
+          oCtx.fillText(S.step === 0 ? "✊ CURL FINGERS INTO FIST" : "🖐️ SPREAD ALL 5 FINGERS WIDE", cx, cy - 65);
+        }
+
+        /* --- EXERCISE 4: Horizontal Wrist Up & Down --- */
+        else if (exKey === "wrist_stretch" && res.hand && res.hand[0]) {
+          const wx = X(res.hand[0]);
+          const wy = Y(res.hand[0]);
+          const targetY = wy - 75;
+
+          // Target zone floating above wrist
+          oCtx.beginPath();
+          oCtx.arc(wx, targetY, 36, 0, Math.PI * 2);
+          oCtx.strokeStyle = (M.wristPitch != null && M.wristPitch >= 20) ? "#10B981" : "#38BDF8";
+          oCtx.lineWidth = 2.5;
+          oCtx.stroke();
+
+          // Upward cock arrow
+          oCtx.beginPath();
+          oCtx.moveTo(wx, targetY + 10);
+          oCtx.lineTo(wx, targetY - 10);
+          oCtx.lineTo(wx - 7, targetY - 3);
+          oCtx.moveTo(wx, targetY - 10);
+          oCtx.lineTo(wx + 7, targetY - 3);
+          oCtx.strokeStyle = (M.wristPitch != null && M.wristPitch >= 20) ? "#10B981" : "#38BDF8";
+          oCtx.lineWidth = 2.5;
+          oCtx.stroke();
+
+          oCtx.font = "bold 12px Segoe UI, sans-serif";
+          oCtx.textAlign = "center";
+          oCtx.fillStyle = "#FFFFFF";
+          oCtx.fillText(S.step === 0 ? "TILT WRIST UP (≥20°)" : "RETURN DOWN TO LEVEL (≤8°)", wx, targetY - 45);
+        }
+
+        /* --- EXERCISE 5: Diagonal Reach & Hold (Endurance) --- */
+        else if (exKey === "ataxia_hold") {
+          const isLeft = (c && c.sh && c.sh.x < 0.5);
+          const dx = (isLeft ? 0.22 : 0.78) * W;
+          const dy = 0.22 * H;
+          const r = Math.min(50, W * 0.08);
+
+          oCtx.beginPath();
+          oCtx.arc(dx, dy, r, 0, Math.PI * 2);
+          oCtx.strokeStyle = M.diagonalHit ? "#10B981" : "#10B981";
+          oCtx.lineWidth = M.diagonalHit ? 3.5 : 2;
+          oCtx.stroke();
+
+          // Crosshairs
+          oCtx.beginPath();
+          oCtx.moveTo(dx - 15, dy); oCtx.lineTo(dx + 15, dy);
+          oCtx.moveTo(dx, dy - 15); oCtx.lineTo(dx, dy + 15);
+          oCtx.strokeStyle = "#10B981";
+          oCtx.lineWidth = 1.5;
+          oCtx.stroke();
+
+          oCtx.font = "bold 12px Segoe UI, sans-serif";
+          oCtx.textAlign = "center";
+          oCtx.fillStyle = "#FFFFFF";
+          oCtx.fillText("DIAGONAL HOLD TARGET (3s)", dx, dy - r - 10);
+
+          if (M.diagonalHit && S.holdStart > 0) {
+            const held = Math.min(3.0, (now - S.holdStart) / 1000);
+            oCtx.beginPath();
+            oCtx.arc(dx, dy, r + 8, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * (held / 3.0));
+            oCtx.strokeStyle = "#10B981";
+            oCtx.lineWidth = 5;
+            oCtx.stroke();
+
+            oCtx.font = "bold 15px Segoe UI, sans-serif";
+            oCtx.fillStyle = "#10B981";
+            oCtx.fillText(`${Math.max(0, 3.0 - held).toFixed(1)}s`, dx, dy + 5);
+          }
+        }
+
+        /* --- EXERCISE 6: Two-Target Horizontal Glide --- */
+        else if (exKey === "ataxia_push") {
+          const s1x = 0.28 * W, s1y = 0.55 * H;
+          const s2x = 0.72 * W, s2y = 0.55 * H;
+          const r = Math.min(42, W * 0.07);
+
+          // Horizontal guide rail
+          oCtx.beginPath();
+          oCtx.setLineDash([6, 6]);
+          oCtx.moveTo(s1x, s1y);
+          oCtx.lineTo(s2x, s2y);
+          oCtx.strokeStyle = "rgba(148, 163, 184, 0.4)";
+          oCtx.lineWidth = 3;
+          oCtx.stroke();
+          oCtx.setLineDash([]);
+
+          // Station 1 (Left)
+          oCtx.beginPath();
+          oCtx.arc(s1x, s1y, r, 0, Math.PI * 2);
+          oCtx.strokeStyle = (S.step === 1 && M.s1Hit) ? "#10B981" : "#38BDF8";
+          oCtx.lineWidth = (S.step === 1) ? 3.5 : 2;
+          oCtx.stroke();
+
+          // Station 2 (Right)
+          oCtx.beginPath();
+          oCtx.arc(s2x, s2y, r, 0, Math.PI * 2);
+          oCtx.strokeStyle = (S.step === 0 && M.s2Hit) ? "#10B981" : "#FBBF24";
+          oCtx.lineWidth = (S.step === 0) ? 3.5 : 2;
+          oCtx.stroke();
+
+          oCtx.font = "bold 12px Segoe UI, sans-serif";
+          oCtx.textAlign = "center";
+          oCtx.fillStyle = "#38BDF8";
+          oCtx.fillText("STATION 1 (LEFT)", s1x, s1y - r - 8);
+          oCtx.fillStyle = "#FBBF24";
+          oCtx.fillText("STATION 2 (RIGHT)", s2x, s2y - r - 8);
+        }
+
+        /* --- EXERCISE 7: Open Palm Left & Right Rotation --- */
+        else if (exKey === "parm_rotate" && res.hand && res.hand[0] && res.hand[9]) {
+          const cx = X(res.hand[0]);
+          const cy = Y(res.hand[0]);
+
+          // Left arc
+          oCtx.beginPath();
+          oCtx.arc(cx, cy, 65, Math.PI * 0.8, Math.PI * 1.3);
+          oCtx.strokeStyle = (S.step === 0 && M.rotateLeftHit) ? "#10B981" : "#38BDF8";
+          oCtx.lineWidth = (S.step === 0) ? 4 : 2;
+          oCtx.stroke();
+
+          // Right arc
+          oCtx.beginPath();
+          oCtx.arc(cx, cy, 65, -Math.PI * 0.3, Math.PI * 0.2);
+          oCtx.strokeStyle = (S.step === 1 && M.rotateRightHit) ? "#10B981" : "#FBBF24";
+          oCtx.lineWidth = (S.step === 1) ? 4 : 2;
+          oCtx.stroke();
+
+          oCtx.font = "bold 12px Segoe UI, sans-serif";
+          oCtx.textAlign = "center";
+          oCtx.fillStyle = "#FFFFFF";
+          oCtx.fillText(S.step === 0 ? "ROTATE PALM LEFT ⬅️" : "ROTATE PALM RIGHT ➡️", cx, cy - 80);
+        }
+
+        /* --- EXERCISE 8: Dynamic Moving Target Pursuit --- */
+        else if (exKey === "moving_target_pursuit" && M.movingTarget) {
+          const tx = M.movingTarget.x * W;
+          const ty = M.movingTarget.y * H;
+          const r = Math.min(48, W * 0.08);
+
+          // Moving orb
+          oCtx.beginPath();
+          oCtx.arc(tx, ty, r, 0, Math.PI * 2);
+          oCtx.fillStyle = M.movingTargetHit ? "rgba(16, 185, 129, 0.25)" : "rgba(245, 158, 11, 0.15)";
+          oCtx.fill();
+          oCtx.strokeStyle = M.movingTargetHit ? "#10B981" : "#F59E0B";
+          oCtx.lineWidth = 3.5;
+          oCtx.stroke();
+
+          // Orbital pulse ring
+          oCtx.beginPath();
+          oCtx.arc(tx, ty, r + 8, 0, Math.PI * 2);
+          oCtx.strokeStyle = M.movingTargetHit ? "rgba(16, 185, 129, 0.4)" : "rgba(245, 158, 11, 0.3)";
+          oCtx.lineWidth = 2;
+          oCtx.stroke();
+
+          // Reverse countdown text inside the moving target
+          const rem = M.pursuitRemaining != null ? M.pursuitRemaining : 10.0;
+          oCtx.font = "bold 16px Segoe UI, sans-serif";
+          oCtx.textAlign = "center";
+          oCtx.fillStyle = M.movingTargetHit ? "#10B981" : "#F59E0B";
+          oCtx.fillText(`${rem.toFixed(1)}s`, tx, ty + 6);
+
+          oCtx.font = "bold 11px Segoe UI, sans-serif";
+          oCtx.fillStyle = "#FFFFFF";
+          oCtx.fillText(M.movingTargetHit ? "HOLD WRIST INSIDE 🎯" : "WRIST OUTSIDE ⚠️ (RESET 10s)", tx, ty - r - 10);
+        }
+
+        /* --- EXERCISE 9: Virtual Pincer Grasp & Release --- */
+        else if (exKey === "apraxia_pinch" && res.hand && res.hand[4] && res.hand[8]) {
+          const p4 = { x: X(res.hand[4]), y: Y(res.hand[4]) };
+          const p8 = { x: X(res.hand[8]), y: Y(res.hand[8]) };
+
+          // Caliper line
+          oCtx.beginPath();
+          oCtx.moveTo(p4.x, p4.y);
+          oCtx.lineTo(p8.x, p8.y);
+          oCtx.strokeStyle = (M.pinchRatio != null && M.pinchRatio <= 0.22) ? "#10B981" : "#38BDF8";
+          oCtx.lineWidth = 2.5;
+          oCtx.stroke();
+
+          const mx = (p4.x + p8.x) / 2;
+          const my = (p4.y + p8.y) / 2;
+
+          oCtx.font = "bold 12px Segoe UI, sans-serif";
+          oCtx.textAlign = "center";
+          oCtx.fillStyle = "#FFFFFF";
+          oCtx.fillText(S.step === 0 ? "🤏 PINCH THUMB & INDEX" : "🖐️ OPEN FINGERS WIDE", mx, my - 20);
+        }
+      }
     } catch (err) {
       console.warn("[Therapy] drawOverlay error caught defensively:", err);
     }
@@ -233,19 +525,20 @@ document.addEventListener("DOMContentLoaded", () => {
   const profilePills = $("profile-pills");
   const exGrid = $("ex-grid");
   const profileNote = $("profile-note");
-  let profile = localStorage.getItem("selectedCondition") || "Hemiparesis";
+  let profile = localStorage.getItem("selectedCondition") || "All";
   let selected = new Set();
 
   const PROFILE_NOTES = {
-    Hemiparesis: "Rebuild active range of motion and reach strength with trunk-compensation blocking.",
-    "Flexor Spasticity": "Slow, controlled opening and unfurling to quiet velocity-dependent tightness.",
-    "Motor Ataxia": "Zone-based precision drills to reduce overshoot and trajectory wandering.",
-    "Intention Tremor": "Endpoint stabilisation and steady hovering to retrain terminal motor control.",
-    "Motor Apraxia": "Sequenced multi-stage drills that rebuild motor memory step by step.",
-    "Wrist Drop": "Active wrist cock-up and sweeps to retrain radial-nerve extension.",
+    All: "Comprehensive upper-limb neuro-rehabilitation covering shoulder, elbow, wrist, and hand fine-motor control.",
+    Hemiparesis: "Rebuild active range of motion, elbow extension, and shoulder elevation with postural stability.",
+    "Flexor Spasticity": "Slow, controlled hand unfurling and wrist mobility to quiet velocity-dependent tightness.",
+    "Motor Ataxia": "Target precision and horizontal trajectory drills to reduce overshoot and dysmetria.",
+    "Intention Tremor": "Open-palm rotation and dynamic moving target pursuit to retrain terminal motor control.",
+    "Motor Apraxia": "Virtual pincer grasp and fine motor coordination retraining.",
+    "Wrist Drop": "Active horizontal wrist extension and rotation to retrain radial-nerve motor control.",
   };
 
-  // profile pills
+  // Profile pills initialization
   window.StrokeProfiles.forEach((p) => {
     const b = document.createElement("button");
     b.className = "profile-pill";
@@ -255,7 +548,6 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   function exerciseCard(ex) {
-    // <label> semantics toggle the checkbox on any card click
     const div = document.createElement("label");
     div.className = "ex-card" + (selected.has(ex.key) ? " picked" : "");
     const cb = document.createElement("input");
@@ -284,21 +576,13 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     const info = StrokeProfiles.find((p) => p.key === profile) || StrokeProfiles[0];
     profileNote.textContent = `${info.emoji} ${PROFILE_NOTES[profile] || ""}`;
-    // Keep selections that belong to the new profile, else preselect first 3
-    selected = new Set([...selected].filter((k) => EXERCISES.some((e) => e.key === k && e.profile === profile)));
-    if (!selected.size) EXERCISES_BY_PROFILE[profile].slice(0, 3).forEach((e) => selected.add(e.key));
-    exGrid.innerHTML = "";
-    EXERCISES_BY_PROFILE[profile].forEach((ex) => exGrid.appendChild(exerciseCard(ex)));
-    updateSummary();
-  }
 
-  function syncChecks() {
-    exGrid.querySelectorAll(".ex-card").forEach((card, i) => {
-      const cb = card.querySelector("input");
-      cb.value = EXERCISES_BY_PROFILE[profile][i].key;
-      cb.checked = selected.has(cb.value);
-      card.classList.toggle("picked", cb.checked);
-    });
+    selected = new Set([...selected].filter((k) => EXERCISES.some((e) => e.key === k && (profile === "All" || e.profile === profile || (Array.isArray(e.profiles) && e.profiles.includes(profile))))));
+    if (!selected.size) (EXERCISES_BY_PROFILE[profile] || EXERCISES).slice(0, 3).forEach((e) => selected.add(e.key));
+
+    exGrid.innerHTML = "";
+    (EXERCISES_BY_PROFILE[profile] || EXERCISES).forEach((ex) => exGrid.appendChild(exerciseCard(ex)));
+    updateSummary();
   }
 
   function currentSelection() {
@@ -313,20 +597,23 @@ document.addEventListener("DOMContentLoaded", () => {
     $("btn-start").disabled = currentSelection().length === 0;
   }
 
-  // ---------- Session state ----------------------------------------------
+  // ---------- Session State ----------------------------------------------
   const S = {
     phase: "config", queue: [], qi: 0, ex: null,
     set: 1, rep: 0, step: 0, holdStart: 0,
     repsTarget: 10, setsTarget: 3, restSec: 35, breakSec: 60,
     paused: false, cheat: false, stuckAt: 0, stepEnteredAt: 0,
     timerStart: 0, setStart: 0, exStart: 0, activeTimeMs: 0,
-    results: [], // per finished exercise
+    results: [],
     videoOn: false, lastTip: null, lastT: 0, speed: 0, metrics: null,
     hintOn: false, secTick: 0,
     lastActionTime: Date.now(), guidanceShowing: false,
+    shoulderBaselineY: null,
+    pursuitRemaining: 10.0,
+    pursuitLastTime: Date.now(),
   };
 
-  // ---------- 10s Guidance Popup System (Initial + 10s Inactivity / Stuck) --------
+  // ---------- Guidance Popup System ---------------------------------------
   let guidanceTimer = null;
   let guidanceInterval = null;
 
@@ -398,22 +685,33 @@ document.addEventListener("DOMContentLoaded", () => {
     guidanceTimer = null;
     guidanceInterval = null;
     S.guidanceShowing = false;
-    S.lastActionTime = Date.now(); // reset clock after dismissal
+    S.lastActionTime = Date.now();
   }
 
   const dismissBtn = $("tgp-dismiss");
-  if (dismissBtn) {
-    dismissBtn.addEventListener("click", hideGuidancePopup);
-  }
+  if (dismissBtn) dismissBtn.addEventListener("click", hideGuidancePopup);
 
-  // ---------- Metrics per frame ------------------------------------------
+  // ---------- Metrics Per Frame -------------------------------------------
   function computeMetrics(res) {
-    const M = { elbowMax: null, elbowMin: null, elevMax: null, reach: 0, tilt: 0,
-                spread: null, pinch: null, fan: null, dev: null, wristPitch: null,
-                wristVerticalAngle: null, tipX: null, tipY: null, speed: 0 };
+    const M = {
+      elbowMax: null, elbowMin: null, elevMax: null, reach: 0, tilt: 0,
+      spread: null, pinch: null, fan: null, dev: null, wristPitch: null,
+      wristVerticalAngle: null, tipX: null, tipY: null, speed: 0,
+      wristX: null, wristY: null, cornerHit: false, shoulderShrugHit: false,
+      shoulderRelaxed: false, isFist: false, isOpenPalm: false, tipDistRatio: null,
+      diagonalHit: false, s1Hit: false, s2Hit: false, rotateLeftHit: false,
+      rotateRightHit: false, wristRotX: 0, movingTargetHit: false,
+      movingPursuitComplete: false, pursuitRemaining: 10.0, pinchRatio: null,
+    };
     if (!res) return M;
+
     try {
-      // Pose arm metrics (either arm may drive the drill)
+      // 1. Arm pose evaluation
+      const c = res.chain || (res.pose && (
+        (res.pose[12] && res.pose[14] && res.pose[16] && { sh: res.pose[12], el: res.pose[14], wr: res.pose[16] }) ||
+        (res.pose[11] && res.pose[13] && res.pose[15] && { sh: res.pose[11], el: res.pose[13], wr: res.pose[15] })
+      ));
+
       if (res.pose) {
         const arms = [
           { sh: res.pose[11], el: res.pose[13], wr: res.pose[15] },
@@ -423,9 +721,17 @@ document.addEventListener("DOMContentLoaded", () => {
         arms.forEach((a) => {
           if (a.sh && a.el && a.wr && (a.sh.x !== 0 || a.sh.y !== 0)) {
             try {
+              let ang = null;
               if (window.Kinematics && typeof Kinematics.calculateJointAngle === "function") {
-                elbows.push(Kinematics.calculateJointAngle(a.sh, a.el, a.wr));
+                ang = Kinematics.calculateJointAngle(a.sh, a.el, a.wr);
+              } else {
+                const v1x = a.sh.x - a.el.x, v1y = a.sh.y - a.el.y;
+                const v2x = a.wr.x - a.el.x, v2y = a.wr.y - a.el.y;
+                const dot = v1x * v2x + v1y * v2y;
+                const mag = Math.hypot(v1x, v1y) * Math.hypot(v2x, v2y);
+                if (mag > 0.0001) ang = (Math.acos(Math.max(-1, Math.min(1, dot / mag))) * 180) / Math.PI;
               }
+              if (ang != null && !isNaN(ang)) elbows.push(ang);
               const dx = Math.abs(a.el.x - a.sh.x), dy = Math.abs(a.el.y - a.sh.y);
               elevs.push((Math.atan2(dx, dy) * 180) / Math.PI);
               M.reach = Math.max(M.reach, Math.abs(a.wr.x - a.sh.x));
@@ -434,50 +740,132 @@ document.addEventListener("DOMContentLoaded", () => {
         });
         if (elbows.length) { M.elbowMax = Math.max(...elbows); M.elbowMin = Math.min(...elbows); }
         if (elevs.length) M.elevMax = Math.max(...elevs);
+
+        // Trunk compensation detection (tilt > 10°)
         if (res.pose[11] && res.pose[12] && window.Kinematics && typeof Kinematics.calculateTrunkTilt === "function") {
           try {
             M.tilt = Kinematics.calculateTrunkTilt(res.pose[11], res.pose[12]).tiltDegrees || 0;
           } catch (e) {}
         }
       }
-      // Hand metrics
-      if (res.hand && res.hand.length >= 21) {
-        const pts = [];
-        for (let i = 0; i < 21; i++) pts.push(res.hand[i] || { x: 0, y: 0 });
-        M.spread = handVariance(pts);
-        M.pinch = res.hand[4] && res.hand[8]
-          ? Math.sqrt((res.hand[4].x - res.hand[8].x) ** 2 + (res.hand[4].y - res.hand[8].y) ** 2) : null;
-        M.fan = res.hand[8] && res.hand[20]
-          ? Math.sqrt((res.hand[8].x - res.hand[20].x) ** 2 + (res.hand[8].y - res.hand[20].y) ** 2) : null;
-        if (res.hand[5] && res.hand[0] && res.hand[12] && window.Kinematics && typeof Kinematics.calculateWristDeviation === "function") {
-          try {
-            M.dev = Kinematics.calculateWristDeviation(
-              { x: res.hand[5].x, y: res.hand[5].y },
-              { x: res.hand[0].x, y: res.hand[0].y },
-              { x: res.hand[12].x, y: res.hand[12].y }
-            );
-          } catch (e) {}
-        }
 
-        // Horizontal Wrist Up & Down (Exact 7M Posture: horizontal forearm across body with closed fist)
-        // dy is positive when fist cocks UPward toward ceiling (kn.y < wr.y in canvas coords)
+      // Active shoulder tracking for Shoulder Elevation / Shrug
+      if (c && c.sh && (c.sh.x !== 0 || c.sh.y !== 0)) {
+        M.sh = c.sh;
+        if (S.shoulderBaselineY == null && c.sh.y > 0) {
+          S.shoulderBaselineY = c.sh.y;
+        }
+        if (S.shoulderBaselineY != null) {
+          // Shrug target achieved when shoulder lifts up by >= 0.045
+          M.shoulderShrugHit = (c.sh.y <= S.shoulderBaselineY - 0.045);
+          // Shoulder lowered back down to resting baseline
+          M.shoulderRelaxed = (c.sh.y >= S.shoulderBaselineY - 0.02);
+        }
+      }
+
+      // 2. Active wrist point tracking
+      const wrist = (res.hand && res.hand[0]) || (c && c.wr) || (res.pose && (res.pose[16] || res.pose[15]));
+      if (wrist) {
+        M.wrist = wrist;
+        M.wristX = wrist.x;
+        M.wristY = wrist.y;
+
+        // Top corner target hit for Elbow Extension (adaptive left/right side)
+        const isLeft = (c && c.sh && c.sh.x < 0.5);
+        const cornerX = isLeft ? 0.18 : 0.82;
+        const cornerY = 0.18;
+        const dCorner = Math.hypot(wrist.x - cornerX, (wrist.y - cornerY) * 0.75);
+        M.cornerHit = (dCorner <= 0.14);
+
+        // Diagonal reach target hit for Ataxia Hold
+        const diagX = isLeft ? 0.22 : 0.78;
+        const diagY = 0.22;
+        const dDiag = Math.hypot(wrist.x - diagX, (wrist.y - diagY) * 0.75);
+        M.diagonalHit = (dDiag <= 0.13);
+
+        // Two-target horizontal stations (S1 & S2) for Ataxia Push
+        M.s1Hit = Math.hypot(wrist.x - 0.28, (wrist.y - 0.55) * 0.75) <= 0.12;
+        M.s2Hit = Math.hypot(wrist.x - 0.72, (wrist.y - 0.55) * 0.75) <= 0.12;
+
+        // Dynamic Moving Target Pursuit kinematics
+        const t = (Date.now() - S.exStart) / 1000;
+        const movX = 0.50 + 0.25 * Math.sin(t * 0.75);
+        const movY = 0.45 + 0.10 * Math.sin(t * 1.5);
+        M.movingTarget = { x: movX, y: movY, r: 0.12 };
+        const dMov = Math.hypot(wrist.x - movX, (wrist.y - movY) * 0.75);
+        M.movingTargetHit = (dMov <= 0.12);
+
+        // Moving pursuit reverse timer
+        if (S.ex && S.ex.key === "moving_target_pursuit" && S.phase === "workout" && !S.paused) {
+          const now = Date.now();
+          const dt = Math.min(0.2, (now - S.pursuitLastTime) / 1000);
+          S.pursuitLastTime = now;
+
+          if (M.movingTargetHit) {
+            S.pursuitRemaining = Math.max(0, S.pursuitRemaining - dt);
+          } else {
+            // Re-sets back to initial starting countdown (10.0s) whenever wrist leaves target
+            S.pursuitRemaining = 10.0;
+          }
+          M.pursuitRemaining = S.pursuitRemaining;
+          M.movingPursuitComplete = (S.pursuitRemaining <= 0.05);
+        }
+      }
+
+      // 3. Hand 21 Landmark Biometrics
+      if (res.hand && res.hand.length >= 21) {
+        // Palm scale (wrist 0 to middle MCP 9)
+        const palmScale = Math.max(0.04, Math.hypot(res.hand[9].x - res.hand[0].x, res.hand[9].y - res.hand[0].y));
+        const palmCenter = { x: (res.hand[0].x + res.hand[9].x) / 2, y: (res.hand[0].y + res.hand[9].y) / 2 };
+
+        // Scale-invariant finger extension ratio
+        let sumDist = 0;
+        [4, 8, 12, 16, 20].forEach((idx) => {
+          if (res.hand[idx]) sumDist += Math.hypot(res.hand[idx].x - palmCenter.x, res.hand[idx].y - palmCenter.y);
+        });
+        const tipDistRatio = (sumDist / 5) / palmScale;
+        M.tipDistRatio = tipDistRatio;
+        M.spread = tipDistRatio;
+        M.isFist = (tipDistRatio <= 0.82);
+        M.isOpenPalm = (tipDistRatio >= 1.15);
+
+        // Horizontal Wrist Up & Down (Pitch angle: wrist 0 vs middle knuckle 9)
         if (res.hand[0] && (res.hand[9] || res.hand[12])) {
           const wr = res.hand[0];
           const kn = res.hand[9] || res.hand[12];
           const dy = wr.y - kn.y;
           const dx = Math.abs(kn.x - wr.x);
-          const pitch = (Math.atan2(dy, Math.max(0.03, dx)) * 180) / Math.PI;
+          const pitch = (Math.atan2(dy, Math.max(0.02, dx)) * 180) / Math.PI;
           M.wristPitch = Math.round(pitch);
           M.wristVerticalAngle = M.wristPitch;
-          if (M.dev == null) M.dev = M.wristPitch;
+          M.dev = M.wristPitch;
         }
 
+        // Open Palm Left & Right Rotation (Knuckle lateral offset vs wrist)
+        if (res.hand[0] && (res.hand[9] || res.hand[12])) {
+          const wr = res.hand[0];
+          const kn = res.hand[9] || res.hand[12];
+          const rotX = kn.x - wr.x;
+          M.wristRotX = rotX;
+          const isPalmOpen = (M.isOpenPalm || tipDistRatio >= 1.0);
+          M.rotateLeftHit = isPalmOpen && (rotX < -0.10);
+          M.rotateRightHit = isPalmOpen && (rotX > 0.10);
+        }
+
+        // Scale-invariant Virtual Pincer Grasp (Thumb 4 to Index 8 / palmScale)
+        if (res.hand[4] && res.hand[8]) {
+          const pinchDist = Math.hypot(res.hand[4].x - res.hand[8].x, res.hand[4].y - res.hand[8].y);
+          M.pinch = pinchDist;
+          M.pinchRatio = pinchDist / palmScale;
+        }
+
+        // Speed calculation
         const tip = res.hand[8];
         if (tip) {
           M.tipX = tip.x; M.tipY = tip.y;
           const now = Date.now(), dt = (now - S.lastT) / 1000;
           if (S.lastTip && dt > 0) {
-            S.speed = Math.sqrt((tip.x - S.lastTip.x) ** 2 + (tip.y - S.lastTip.y) ** 2) / dt;
+            S.speed = Math.hypot(tip.x - S.lastTip.x, tip.y - S.lastTip.y) / dt;
             M.speed = S.speed;
           }
           S.lastTip = { x: tip.x, y: tip.y }; S.lastT = now;
@@ -489,44 +877,45 @@ document.addEventListener("DOMContentLoaded", () => {
     return M;
   }
 
-  function handVariance(pts) {
-    let cx = 0, cy = 0, n = 0;
-    for (const p of pts) { if (p) { cx += p.x; cy += p.y; n++; } }
-    if (n < 5) return 1;
-    cx /= n; cy /= n;
-    let s = 0;
-    for (const p of pts) { if (p) s += (p.x - cx) ** 2 + (p.y - cy) ** 2; }
-    return Math.sqrt(s / n);
-  }
-
-  // ---------- Metric readout ---------------------------------------------
+  // ---------- Metric Readout ----------------------------------------------
   function metricReadout(ex, M) {
-    switch (ex.metric) {
-      case "ELBOW °": return M.elbowMax != null ? `${Math.round(M.elbowMax)}°` : "—";
-      case "ELEV °": return M.elevMax != null ? `${Math.round(M.elevMax)}°` : "—";
-      case "REACH": return M.reach != null ? `${Math.round(M.reach * 100)}%` : "—";
-      case "BOTH ELBOW": return M.elbowMin != null ? `${Math.round(M.elbowMin)}°` : "—";
-      case "PALM": case "CYCLE": {
-        if (M.spread == null) return "—";
-        if (M.spread >= 0.088) return "OPEN PALM 🖐️";
-        if (M.spread <= 0.070) return "CLOSED FIST ✊";
-        return "OPENING... ✋";
-      }
-      case "FAN": return M.fan != null ? `${Math.round(M.fan * 100)}` : "—";
-      case "WRIST °":
-      case "DEV °": {
-        const ang = M.wristPitch != null ? Math.round(M.wristPitch) : (M.dev != null ? Math.round(M.dev) : null);
-        if (ang == null) return "—";
-        if (ang >= 14) return `${ang}° UP ⬆️`;
-        if (ang <= -8) return `${Math.abs(ang)}° DOWN ⬇️`;
-        return `${ang}° LEVEL ↔️`;
-      }
-      case "PINCH": return M.pinch != null ? `${Math.round(M.pinch * 100)}` : "—";
-      default: return M.tipY != null ? `x ${Math.round(M.tipX * 100)} · y ${Math.round(M.tipY * 100)}` : "—";
+    if (!ex || !M) return "—";
+    switch (ex.key) {
+      case "elbow_ext":
+        return M.elbowMax != null ? `${Math.round(M.elbowMax)}° ${M.cornerHit ? "🎯 HIT" : ""}` : "—";
+      case "shoulder_raise":
+        return M.shoulderShrugHit ? "SHRUG REACHED ⭐" : (M.shoulderRelaxed ? "REST BASELINE" : "LIFT SHOULDER");
+      case "palm_open":
+        if (M.isOpenPalm) return "OPEN PALM 🖐️";
+        if (M.isFist) return "CLOSED FIST ✊";
+        return "MOVING...";
+      case "wrist_stretch":
+        if (M.wristPitch == null) return "—";
+        if (M.wristPitch >= 20) return `${M.wristPitch}° UP ⬆️`;
+        if (M.wristPitch <= 8) return `${M.wristPitch}° LEVEL ↔️`;
+        return `${M.wristPitch}°`;
+      case "ataxia_hold":
+        return M.diagonalHit ? "LOCKED IN TARGET 🎯" : "REACH TARGET";
+      case "ataxia_push":
+        if (M.s1Hit) return "STATION 1 📍";
+        if (M.s2Hit) return "STATION 2 🎯";
+        return "GLIDING ➡️";
+      case "parm_rotate":
+        if (M.rotateLeftHit) return "ROTATED LEFT ⬅️";
+        if (M.rotateRightHit) return "ROTATED RIGHT ➡️";
+        return "ROTATE HAND 🔄";
+      case "moving_target_pursuit":
+        return M.movingTargetHit ? `${M.pursuitRemaining.toFixed(1)}s INSIDE 🛸` : "OUTSIDE (RESET) ⚠️";
+      case "apraxia_pinch":
+        if (M.pinchRatio != null && M.pinchRatio <= 0.22) return "PINCH LOCKED 🤏";
+        if (M.pinchRatio != null && M.pinchRatio >= 0.45) return "OPEN WIDE 🖐️";
+        return "PINCHING...";
+      default:
+        return M.elbowMax != null ? `${Math.round(M.elbowMax)}°` : "—";
     }
   }
 
-  // ---------- Step engine -------------------------------------------------
+  // ---------- Step Engine -------------------------------------------------
   const stepBoxes = $("step-boxes");
 
   function renderSteps(ex, activeIdx) {
@@ -586,44 +975,66 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!S.ex || !S.ex.steps) return;
       const step = S.ex.steps[S.step];
       if (!step || typeof step.test !== "function") return;
-      const ok = step.test(M);
+
+      const ok = step.test(M, S, res);
       const now = Date.now();
       if (M.speed > 0.04 || ok) S.lastActionTime = now;
 
+      // Update hold timer display on HUD
+      if (S.ex.key === "moving_target_pursuit") {
+        $("hold-display").textContent = `${Math.max(0, S.pursuitRemaining).toFixed(1)}s`;
+      } else if (step.hold > 0 && ok) {
+        if (!S.holdStart) S.holdStart = now;
+        const held = (now - S.holdStart) / 1000;
+        $("hold-display").textContent = `${Math.max(0, step.hold - held).toFixed(1)}s`;
+      } else if (step.hold > 0) {
+        $("hold-display").textContent = `${step.hold}s`;
+      } else {
+        $("hold-display").textContent = "—";
+      }
+
       if (ok) {
-        // Pitch-tone sonification for elbow ROM drills
+        // Pitch-tone sonification for elbow ROM
         if (window.RehabBio) {
           if (S.ex.metric && S.ex.metric.indexOf("ELBOW") === 0 && M.elbowMax != null) {
-            window.RehabBio.setRomTone(M.elbowMax, { minAngle: 30, maxAngle: 150 });
-          } else if (S.ex.metric === "DEV °" && M.dev != null) {
-            window.RehabBio.setRomTone(Math.abs(M.dev), { minAngle: 0, maxAngle: 25, minHz: 220, maxHz: 700 });
+            window.RehabBio.setRomTone(M.elbowMax, { minAngle: 40, maxAngle: 160 });
           } else {
             window.RehabBio.stopRomTone();
           }
         }
+
         if (step.hold > 0) {
           if (!S.holdStart) S.holdStart = now;
           const held = (now - S.holdStart) / 1000;
-          $("hold-display").textContent = `${Math.max(0, step.hold - held).toFixed(1)}s`;
           if (held < step.hold) { S.hintOn = false; return; }
         }
-        // Step complete
+
+        // Step completed successfully!
         S.holdStart = 0;
         S.step++;
         S.hintOn = false;
         S.stuckAt = 0;
         S.lastActionTime = now;
         if (S.guidanceShowing) hideGuidancePopup();
-        const line = $("feedback-line");
-        if (window.RehabBio) window.RehabBio.playBeep(880, 0.06, 0.3);
-        if (S.step >= S.ex.steps.length) completeRep();
-        else {
-          speakStep(S.ex, S.step);
+
+        if (window.RehabBio) window.RehabBio.playBeep(1046.5, 0.12, 0.35); // Pleasant chime
+
+        if (S.step >= S.ex.steps.length) {
+          // Full rep complete!
+          completeRep();
+        } else {
+          // Half-rep feedback (e.g. 0.5 of 2-step clinical drill)
+          if (S.step === 1 && S.ex.steps.length === 2) {
+            $("rep-display").textContent = `${S.rep + 0.5} / ${S.repsTarget}`;
+            $("feedback-line").textContent = `⭐ Half Rep (0.5) Complete! Next: ${S.ex.steps[1].label}`;
+            if (window.RehabBio) window.RehabBio.speak("Half rep complete! Now follow step 2.");
+          } else {
+            speakStep(S.ex, S.step);
+          }
           renderSteps(S.ex, S.step);
-          line.textContent = "";
         }
       } else {
-        // Not achieved yet
+        // Step condition not yet satisfied
         if (window.RehabBio) window.RehabBio.stopRomTone();
         S.holdStart = 0;
         if (!S.stuckAt) S.stuckAt = now;
@@ -632,7 +1043,7 @@ document.addEventListener("DOMContentLoaded", () => {
           $("hint-line").textContent = `💡 Try: ${step.label}`;
           if (window.RehabBio) window.RehabBio.speak(`Try: ${step.label}`);
         }
-        // 10s Stuck Guidance Alert: show popup for 10s with current step instructions
+        // 10s Inactivity / Stuck Guidance Alert
         if (now - S.stuckAt >= 10000 && !S.guidanceShowing) {
           showGuidancePopup(10, true);
           S.stuckAt = now;
@@ -647,17 +1058,19 @@ document.addEventListener("DOMContentLoaded", () => {
     S.rep++;
     S.step = 0;
     S.stuckAt = 0;
+    S.pursuitRemaining = 10.0;
     S.lastActionTime = Date.now();
     renderSteps(S.ex, 0);
     $("rep-display").textContent = `${S.rep} / ${S.repsTarget}`;
+    $("hold-display").textContent = "—";
     $("hint-line").textContent = "";
-    $("feedback-line").textContent = "";
-    const praise = ["Nice!", "Great form!", "Keep going!", "Excellent!", "Beautiful rep!"];
+
+    const praise = ["Nice form!", "Great reach!", "Keep it going!", "Excellent rep!", "Superb control!"];
     $("feedback-line").textContent = `${praise[(S.rep - 1) % praise.length]} Rep ${S.rep}/${S.repsTarget} ✅`;
+
     if (window.RehabBio) window.RehabBio.playRepChime();
-    if (S.rep === 5 || S.rep === S.repsTarget) {
-      if (window.RehabBio) window.RehabBio.speak(`Repetition ${S.rep} complete. ${Math.max(0, S.repsTarget - S.rep)} remaining.`);
-    }
+    if (window.RehabBio) window.RehabBio.speak(`Repetition ${S.rep} complete.`);
+
     if (S.rep >= S.repsTarget) {
       // Set finished
       S.set++;
@@ -673,7 +1086,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // ---------- Set / exercise / program flow --------------------------------
+  // ---------- Set / Exercise Flow -----------------------------------------
   function finishExercise() {
     hideGuidancePopup();
     S.results.push({
@@ -698,11 +1111,16 @@ document.addEventListener("DOMContentLoaded", () => {
   function startNextExercise() {
     S.ex = S.queue[S.qi];
     S.set = 1; S.rep = 0; S.step = 0; S.holdStart = 0; S.stuckAt = 0;
+    S.shoulderBaselineY = null;
+    S.pursuitRemaining = 10.0;
+    S.pursuitLastTime = Date.now();
     S.exStart = Date.now();
     S.lastActionTime = Date.now();
+
     $("wo-now").textContent = `${S.ex.emoji} ${S.ex.name}`;
     $("wo-set").textContent = `Set 1/${S.setsTarget}`;
     $("rep-display").textContent = `0 / ${S.repsTarget}`;
+    $("hold-display").textContent = "—";
     $("metric-label").textContent = S.ex.metric;
     $("hint-line").textContent = ""; $("feedback-line").textContent = "";
     renderSteps(S.ex, 0);
@@ -712,11 +1130,12 @@ document.addEventListener("DOMContentLoaded", () => {
     showGuidancePopup(4);
   }
 
-  // ---------- Countdowns (warm-up / rest / break) -------------------------
+  // ---------- Countdowns (Warm-up / Rest / Break) -------------------------
   function renderRest() {
     $("rest-counter").textContent = S.countdown;
     $("rest-fill").style.width = "0%";
   }
+
   function updateCountdownUI() {
     if (S.phase === "warmup") {
       $("warmup-counter").textContent = Math.max(1, Math.ceil(S.countdown));
@@ -797,7 +1216,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // ---------- Start / controls ---------------------------------------------
+  // ---------- Workout Launch & Controls -----------------------------------
   let countdownTimer = null;
   function runStageCountdown(label, seconds, onComplete) {
     const overlay = $("therapy-countdown-overlay");
@@ -882,7 +1301,7 @@ document.addEventListener("DOMContentLoaded", () => {
   async function launchWorkout(isInitial = false) {
     let queue = currentSelection();
     if (!queue.length) {
-      const exs = (window.EXERCISE_LIBRARY && (window.EXERCISE_LIBRARY[profile] || window.EXERCISE_LIBRARY["Hemiparesis"])) || [];
+      const exs = EXERCISES;
       if (exs.length) queue = [exs[0]];
     }
     if (!queue.length) {
@@ -900,16 +1319,21 @@ document.addEventListener("DOMContentLoaded", () => {
     // Load first exercise into state and HUD
     S.ex = S.queue[S.qi];
     S.set = 1; S.rep = 0; S.step = 0; S.holdStart = 0; S.stuckAt = 0;
+    S.shoulderBaselineY = null;
+    S.pursuitRemaining = 10.0;
+    S.pursuitLastTime = Date.now();
     S.exStart = Date.now();
     S.lastActionTime = Date.now();
+
     $("wo-now").textContent = `${S.ex.emoji} ${S.ex.name}`;
     $("wo-set").textContent = `Set 1/${S.setsTarget}`;
     $("rep-display").textContent = `0 / ${S.repsTarget}`;
+    $("hold-display").textContent = "—";
     $("metric-label").textContent = S.ex.metric;
     $("hint-line").textContent = ""; $("feedback-line").textContent = "";
     renderSteps(S.ex, 0);
 
-    // Show workout stage IMMEDIATELY so video element is unhidden in the active DOM tree!
+    // Show workout stage IMMEDIATELY
     S.phase = "workout";
     showScreen("workout");
 
@@ -970,7 +1394,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // Dynamic Mirror Mode Toggle (P7: Natural Left = Left)
+  // Dynamic Mirror Mode Toggle
   const mirrorToggleBtn = $("mirror-toggle-btn");
   if (mirrorToggleBtn) {
     const isM = VisionLoader.isMirrored();
@@ -1004,7 +1428,7 @@ document.addEventListener("DOMContentLoaded", () => {
   $("skip-break").addEventListener("click", () => startNextExercise());
   $("again-btn").addEventListener("click", () => window.location.reload());
 
-  // ---------- Logging --------------------------------------------------------
+  // ---------- Logging -----------------------------------------------------
   async function logExercise(result) {
     try {
       const peakRom = S.metrics && S.metrics.elbowMax != null ? Math.round(S.metrics.elbowMax) : (S.metrics && S.metrics.wristPitch != null ? Math.round(Math.abs(S.metrics.wristPitch)) : 75);
@@ -1049,7 +1473,7 @@ document.addEventListener("DOMContentLoaded", () => {
       ${list}`;
   }
 
-  // ---------- Boot ----------------------------------------------------------
+  // ---------- Boot -------------------------------------------------------
   ["cfg-reps", "cfg-sets", "cfg-rest", "cfg-break"].forEach((id) => {
     $(id).addEventListener("input", updateSummary);
   });

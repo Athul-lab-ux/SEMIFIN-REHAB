@@ -170,14 +170,14 @@ class TestRehabOptSystem(unittest.TestCase):
         self.assertIn('👉 CURRENT STEP: DO THIS NOW', engine)
         self.assertIn('peak_elbow_rom_deg', engine)
 
-        # 2. Verify exercise_library.js has exactly 10 simple exercises across 6 stroke profiles
+        # 2. Verify exercise_library.js has exactly 9 clinical exercises across stroke profiles
         lib_path = os.path.join(os.path.dirname(__file__), '..', 'static', 'js', 'exercise_library.js')
         with open(lib_path, 'r', encoding='utf-8') as f:
             lib = f.read()
         import re
         ex_block = lib.split('const EXERCISES = [')[1].split('];')[0]
         ex_keys = re.findall(r'key:\s*"([^"]+)"', ex_block)
-        self.assertEqual(len(ex_keys), 10, f"Expected exactly 10 simple exercises, found {len(ex_keys)}")
+        self.assertEqual(len(ex_keys), 9, f"Expected exactly 9 clinical exercises, found {len(ex_keys)}")
         self.assertIn('Horizontal Wrist Up & Down', lib)
         self.assertIn('Hand Open & Close', lib)
         self.assertIn('Elbow Extension & Flexion', lib)
