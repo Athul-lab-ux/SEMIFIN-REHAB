@@ -5,14 +5,14 @@
  * ultra-low-latency hands-only MediaPipe vision pipeline, and touch / pointer fallback.
  *
  * 8 Active Therapeutic Games:
- *  1. 🍎 Fruit Slash    — Index finger blade slicing & reaction speed
- *  2. 🪙 Coin Catcher   — Horizontal planar reaching & basket steering
- *  3. ⭐ Sky Pop        — Top-to-bottom target interception & pointing
- *  4. 🫧 Bubble Burst   — Precision index fingertip bubble popping
- *  5. 🐦 Flappy Bird    — Index fingertip elevation & flight control
- *  6. ⚡ Laser Blast    — Target pointing & rapid reactive beam bursts
- *  7. 🎈 Balloon Bounce — Upward reach & continuous dynamic tracking
- *  8. 🎯 Target Tap     — Spatial reaching & precision bullseye tapping
+ *  1. 🍎 Fruit Slash     — Index finger blade slicing & reaction speed
+ *  2. 🧱 Brick Breaker   — Fixed bottom horizontal slider paddle & box smashing
+ *  3. ⭐ Sky Pop         — Top-to-bottom target interception & pointing
+ *  4. 🫧 Bubble Burst    — Precision index fingertip bubble popping
+ *  5. 🐦 Flappy Bird     — Index fingertip elevation & flight control
+ *  6. ⚡ Laser Blast     — Target pointing & rapid reactive beam bursts
+ *  7. 🎈 Hot Air Balloon — Google Play offline classic: rising balloon obstacle dodging
+ *  8. 🐍 Slither Snake   — Nokia Snake 2.0: snake head locked directly to index fingertip
  */
 document.addEventListener("DOMContentLoaded", async () => {
   // ---------------- DOM Elements --------------------------------------
@@ -184,98 +184,181 @@ document.addEventListener("DOMContentLoaded", async () => {
       },
     },
 
-    // 2. Coin Catcher (Horizontal Reaching & Catching)
-    coincatcher: {
-      name: "Coin Catcher", emoji: "🪙", trains: "Horizontal reaching & hand-eye coordination",
-      guide: "Move your hand left and right to steer the basket! Catch gold coins (+10) and gems (+25), avoid falling rocks 🪨 (-5)!",
-      lives: false,
+    // 2. Brick Breaker (Fixed Bottom Horizontal Slider & Ball Bounce)
+    brickbreaker: {
+      name: "Brick Breaker", emoji: "🧱", trains: "Horizontal reaching & wrist steering",
+      guide: "Show your index finger 👉 to slide the paddle left & right! Bounce the ball to smash colorful boxes (+15 pts)!",
+      lives: true,
       init() {
-        this.items = [];
-        this.timer = 0;
-        this.basketX = 0.5;
+        this.paddleX = 0.5;
+        this.paddleW = 120;
+        this.paddleH = 18;
+        this.ball = { x: 300, y: 300, vx: 3.8, vy: -5.0, r: 10, active: true };
+        this.bricks = [];
+        this.resetBricks(600, 400);
+        this.wave = 1;
+      },
+      resetBricks(W, H) {
+        this.bricks = [];
+        const cols = 7;
+        const rows = 4;
+        const padX = 14;
+        const padY = 10;
+        const totalPadX = (cols + 1) * padX;
+        const brickW = Math.max(45, (W - totalPadX) / cols);
+        const brickH = 24;
+        const colors = ["#EF4444", "#F59E0B", "#10B981", "#3B82F6"];
+
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols; c++) {
+            this.bricks.push({
+              x: padX + c * (brickW + padX),
+              y: 55 + r * (brickH + padY),
+              w: brickW,
+              h: brickH,
+              color: colors[r % colors.length],
+              pts: 15,
+            });
+          }
+        }
       },
       update(res, W, H) {
+        // Track index finger strictly on horizontal axis
         const targetX = engine.tip ? engine.tip.x : 0.5;
-        this.basketX += (targetX - this.basketX) * 0.35;
+        this.paddleX += (targetX - this.paddleX) * 0.38;
 
-        if (++this.timer > Math.max(14, 34 / this.$speed)) {
-          this.timer = 0;
-          const roll = Math.random();
-          let type, emoji, color, pts;
-          if (roll < 0.60) {
-            type = "coin"; emoji = "🪙"; color = "#FBBF24"; pts = 10;
-          } else if (roll < 0.82) {
-            type = "gem"; emoji = "💎"; color = "#38BDF8"; pts = 25;
-          } else {
-            type = "rock"; emoji = "🪨"; color = "#64748B"; pts = -5;
-          }
-          this.items.push({
-            x: rand(0.08, 0.92) * W,
-            y: -30,
-            vy: rand(2.8, 4.8) * this.$speed,
-            type, emoji, color, pts,
-            r: 24,
-            caught: false,
-          });
-        }
+        const paddlePx = clamp(this.paddleX * W, this.paddleW / 2 + 10, W - this.paddleW / 2 - 10);
+        const paddleY = H - 45; // strictly locked on bottom horizontal axis
 
-        const basketPx = this.basketX * W;
-        const basketY = H - 55;
-        const basketW = 110;
-        const basketH = 34;
+        const b = this.ball;
+        if (b.active) {
+          b.x += b.vx * this.$speed;
+          b.y += b.vy * this.$speed;
 
-        for (const it of this.items) {
-          it.y += it.vy;
-          if (!it.caught && it.y >= basketY - 15 && it.y <= basketY + basketH && Math.abs(it.x - basketPx) < (basketW / 2 + it.r * 0.6)) {
-            it.caught = true;
-            if (it.type === "rock") {
-              this.$engine.deductScore(5);
-              spawnParticles(it.x, it.y, "#EF4444", 16);
-              addScorePopup(it.x, it.y - 20, "−5 🪨 ROCK!", "#EF4444");
-              if (window.RehabBio) window.RehabBio.playCheatBuzz();
-            } else {
-              this.$engine.addScore(it.pts);
-              spawnParticles(it.x, it.y, it.color, 20);
-              addScorePopup(it.x, it.y - 20, `+${it.pts} ${it.emoji}!`, it.color);
-              if (window.RehabBio && typeof window.RehabBio.playBeep === "function") {
-                window.RehabBio.playBeep(it.type === "gem" ? 1200 : 980, 0.06, 0.3);
-              }
+          // Wall collision: left & right
+          if (b.x - b.r <= 10) { b.x = 10 + b.r; b.vx = Math.abs(b.vx); }
+          if (b.x + b.r >= W - 10) { b.x = W - 10 - b.r; b.vx = -Math.abs(b.vx); }
+          // Wall collision: top
+          if (b.y - b.r <= 10) { b.y = 10 + b.r; b.vy = Math.abs(b.vy); }
+
+          // Paddle collision (strictly horizontal bottom bar)
+          if (
+            b.vy > 0 &&
+            b.y + b.r >= paddleY &&
+            b.y - b.r <= paddleY + this.paddleH &&
+            b.x >= paddlePx - this.paddleW / 2 - 8 &&
+            b.x <= paddlePx + this.paddleW / 2 + 8
+          ) {
+            b.y = paddleY - b.r;
+            b.vy = -Math.abs(b.vy);
+            const offset = (b.x - paddlePx) / (this.paddleW / 2);
+            b.vx = clamp(offset * 6.5, -7.5, 7.5);
+
+            spawnParticles(b.x, paddleY, "#38BDF8", 12);
+            if (window.RehabBio && typeof window.RehabBio.playBeep === "function") {
+              window.RehabBio.playBeep(650, 0.04, 0.25);
             }
           }
+
+          // Ball falls past bottom
+          if (b.y > H + 25) {
+            this.$engine.loseLife();
+            b.x = paddlePx;
+            b.y = paddleY - 25;
+            b.vy = -5.2;
+            b.vx = rand(-2.5, 2.5);
+            spawnParticles(paddlePx, paddleY, "#EF4444", 20);
+          }
+
+          // Brick collisions
+          for (let i = this.bricks.length - 1; i >= 0; i--) {
+            const br = this.bricks[i];
+            if (
+              b.x + b.r >= br.x &&
+              b.x - b.r <= br.x + br.w &&
+              b.y + b.r >= br.y &&
+              b.y - b.r <= br.y + br.h
+            ) {
+              b.vy = -b.vy;
+              this.$engine.addScore(br.pts);
+              spawnParticles(br.x + br.w / 2, br.y + br.h / 2, br.color, 18);
+              addScorePopup(br.x + br.w / 2, br.y - 10, "+15 🧱 SMASH!", br.color);
+              if (window.RehabBio && typeof window.RehabBio.playBeep === "function") {
+                window.RehabBio.playBeep(980 + Math.min(300, (28 - this.bricks.length) * 15), 0.06, 0.3);
+              }
+              this.bricks.splice(i, 1);
+              break;
+            }
+          }
+
+          // All bricks cleared -> next wave!
+          if (this.bricks.length === 0) {
+            this.wave++;
+            this.$engine.addScore(50);
+            addScorePopup(W / 2, H * 0.35, "🎉 WAVE CLEARED! +50", "#10B981");
+            spawnParticles(W / 2, H * 0.35, "#FBBF24", 32);
+            if (window.RehabBio && typeof window.RehabBio.playSetChime === "function") {
+              window.RehabBio.playSetChime();
+            }
+            this.resetBricks(W, H);
+            b.x = paddlePx;
+            b.y = paddleY - 30;
+            b.vy = -5.5;
+            b.vx = rand(-2.5, 2.5);
+          }
         }
-        this.items = this.items.filter((it) => !it.caught && it.y < H + 50);
       },
       draw(ctx, W, H) {
-        const bx = this.basketX * W;
-        const by = H - 55;
-        const bw = 110;
-        const bh = 34;
+        const paddlePx = clamp(this.paddleX * W, this.paddleW / 2 + 10, W - this.paddleW / 2 - 10);
+        const paddleY = H - 45;
 
-        for (const it of this.items) {
-          ctx.save();
-          ctx.font = "32px Segoe UI Emoji, sans-serif";
-          ctx.textAlign = "center";
-          ctx.textBaseline = "middle";
-          ctx.fillText(it.emoji, it.x, it.y);
-          ctx.restore();
+        // Draw horizontal rail guideline
+        ctx.save();
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.12)";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(15, paddleY + this.paddleH / 2);
+        ctx.lineTo(W - 15, paddleY + this.paddleH / 2);
+        ctx.stroke();
+
+        // Draw bricks
+        for (const br of this.bricks) {
+          ctx.fillStyle = br.color;
+          ctx.beginPath();
+          ctx.roundRect(br.x, br.y, br.w, br.h, 6);
+          ctx.fill();
+
+          ctx.fillStyle = "rgba(255, 255, 255, 0.35)";
+          ctx.fillRect(br.x + 3, br.y + 2, br.w - 6, 4);
         }
 
-        ctx.save();
-        ctx.fillStyle = "rgba(245, 158, 11, 0.9)";
-        ctx.strokeStyle = "#FDE68A";
-        ctx.lineWidth = 3;
+        // Draw slider paddle
+        ctx.fillStyle = "#38BDF8";
+        ctx.strokeStyle = "#FFFFFF";
+        ctx.lineWidth = 2.5;
         ctx.beginPath();
-        ctx.roundRect(bx - bw / 2, by, bw, bh, 10);
+        ctx.roundRect(paddlePx - this.paddleW / 2, paddleY, this.paddleW, this.paddleH, 8);
         ctx.fill();
         ctx.stroke();
 
-        ctx.fillStyle = "#D97706";
-        ctx.fillRect(bx - bw / 2 + 6, by + 4, bw - 12, 6);
+        ctx.fillStyle = "#0284C7";
+        ctx.fillRect(paddlePx - 15, paddleY + 4, 30, this.paddleH - 8);
 
-        ctx.font = "18px Segoe UI Emoji, sans-serif";
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.fillText("🧺", bx, by + bh / 2 + 2);
+        // Draw bouncing ball
+        const b = this.ball;
+        ctx.beginPath();
+        ctx.arc(b.x, b.y, b.r + 3, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(251, 191, 36, 0.35)";
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+        ctx.fillStyle = "#FBBF24";
+        ctx.fill();
+        ctx.strokeStyle = "#FFFFFF";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
         ctx.restore();
       },
     },
@@ -563,197 +646,292 @@ document.addEventListener("DOMContentLoaded", async () => {
       },
     },
 
-    // 7. Balloon Bounce (Upward Reach & Continuous Dynamic Tracking)
-    balloonbounce: {
-      name: "Balloon Bounce", emoji: "🎈", trains: "Upward reach & dynamic tracking",
-      guide: "Keep balloons in the air! Move your hand underneath falling balloons to bounce them upward (+10 pts)!",
-      lives: false,
+    // 7. Hot Air Balloon (Google Play Store Offline Game Classic)
+    hotairballoon: {
+      name: "Hot Air Balloon", emoji: "🎈", trains: "Horizontal obstacle dodging & trajectory tracking",
+      guide: "Show your index finger 👉 to steer the rising balloon left & right! Dodge storm clouds ⛈️ and collect golden coins (+10 pts)!",
+      lives: true,
       init() {
-        this.balloons = [
-          { x: 200, y: 150, vx: 1.2, vy: 0, r: 36, color: "#EF4444", stringLen: 28, bounces: 0 },
-          { x: 450, y: 100, vx: -1.0, vy: 0, r: 34, color: "#3B82F6", stringLen: 28, bounces: 0 },
-        ];
-        this.spawnTimer = 0;
+        this.balloonX = 0.5;
+        this.balloonY = 0.68;
+        this.obstacles = [];
+        this.pickups = [];
+        this.timer = 0;
+        this.invulnerableTimer = 0;
       },
       update(res, W, H) {
-        const tip = engine.tip ? { x: engine.tip.x * W, y: engine.tip.y * H } : null;
+        if (this.invulnerableTimer > 0) this.invulnerableTimer--;
 
-        if (this.balloons.length < 2 && ++this.spawnTimer > 60) {
-          this.spawnTimer = 0;
-          const colors = ["#EF4444", "#3B82F6", "#10B981", "#F59E0B", "#8B5CF6"];
-          this.balloons.push({
-            x: rand(0.2, 0.8) * W,
-            y: 60,
-            vx: rand(-1.2, 1.2),
-            vy: rand(0.5, 1.5),
-            r: rand(32, 38),
-            color: colors[(Math.random() * colors.length) | 0],
-            stringLen: 28,
-            bounces: 0,
+        // Horizontal index finger steering
+        const targetX = engine.tip ? engine.tip.x : 0.5;
+        this.balloonX += (targetX - this.balloonX) * 0.35;
+
+        const bx = clamp(this.balloonX * W, 40, W - 40);
+        const by = this.balloonY * H;
+        const balloonR = 34;
+
+        // Spawn falling storm clouds / spikes
+        if (++this.timer % Math.max(28, Math.round(52 / this.$speed)) === 0) {
+          const isSpike = Math.random() < 0.35;
+          this.obstacles.push({
+            x: rand(0.1, 0.9) * W,
+            y: -40,
+            vy: rand(2.2, 4.0) * this.$speed,
+            r: isSpike ? 24 : 32,
+            emoji: isSpike ? "🪨" : "⛈️",
+            color: isSpike ? "#64748B" : "#475569",
+            hit: false,
           });
         }
 
-        for (const b of this.balloons) {
-          b.vy += 0.08 * this.$speed;
-          b.x += b.vx * this.$speed;
-          b.y += b.vy;
+        // Spawn falling coins & stars
+        if (this.timer % Math.max(22, Math.round(38 / this.$speed)) === 0) {
+          const isStar = Math.random() < 0.3;
+          this.pickups.push({
+            x: rand(0.12, 0.88) * W,
+            y: -30,
+            vy: rand(2.4, 3.8) * this.$speed,
+            r: 22,
+            emoji: isStar ? "⭐" : "🪙",
+            color: isStar ? "#FBBF24" : "#F59E0B",
+            pts: isStar ? 25 : 10,
+            collected: false,
+          });
+        }
 
-          if (b.x - b.r < 10) { b.x = b.r + 10; b.vx = Math.abs(b.vx); }
-          if (b.x + b.r > W - 10) { b.x = W - 10 - b.r; b.vx = -Math.abs(b.vx); }
-          if (b.y - b.r < 10) { b.y = b.r + 10; b.vy = Math.abs(b.vy) * 0.5; }
-
-          if (tip) {
-            const dx = b.x - tip.x;
-            const dy = b.y - tip.y;
-            const dist = Math.hypot(dx, dy);
-            if (dist < b.r + 34 && dy < 15 && b.vy > -1) {
-              b.vy = -rand(6.5, 8.5) * Math.min(1.3, this.$speed);
-              b.vx += clamp(dx * 0.08, -2.5, 2.5);
-              b.bounces++;
-              this.$engine.addScore(10);
-              spawnParticles(b.x, b.y + b.r, b.color, 18);
-              addScorePopup(b.x, b.y - 20, "+10 🎈 BOUNCE!", b.color);
-              if (window.RehabBio && typeof window.RehabBio.playBeep === "function") {
-                window.RehabBio.playBeep(880 + Math.min(400, b.bounces * 40), 0.06, 0.3);
-              }
+        // Update obstacles
+        for (const o of this.obstacles) {
+          o.y += o.vy;
+          if (!o.hit && this.invulnerableTimer <= 0 && Math.hypot(bx - o.x, by - o.y) < balloonR + o.r - 8) {
+            o.hit = true;
+            this.invulnerableTimer = 55;
+            this.$engine.loseLife();
+            spawnParticles(bx, by, "#EF4444", 22);
+            addScorePopup(bx, by - 25, `⚠️ ${o.emoji} HIT!`, "#EF4444");
+            if (window.RehabBio && typeof window.RehabBio.playCheatBuzz === "function") {
+              window.RehabBio.playCheatBuzz();
             }
           }
+        }
+        this.obstacles = this.obstacles.filter((o) => !o.hit && o.y < H + 50);
 
-          if (b.y > H + 50) {
-            b.y = 50;
-            b.x = rand(0.2, 0.8) * W;
-            b.vy = rand(0.5, 1.5);
-            b.vx = rand(-1.2, 1.2);
-            b.bounces = 0;
+        // Update pickups
+        for (const p of this.pickups) {
+          p.y += p.vy;
+          if (!p.collected && Math.hypot(bx - p.x, by - p.y) < balloonR + p.r) {
+            p.collected = true;
+            this.$engine.addScore(p.pts);
+            spawnParticles(p.x, p.y, p.color, 16);
+            addScorePopup(p.x, p.y - 15, `+${p.pts} ${p.emoji}!`, p.color);
+            if (window.RehabBio && typeof window.RehabBio.playBeep === "function") {
+              window.RehabBio.playBeep(p.pts > 15 ? 1200 : 960, 0.06, 0.3);
+            }
           }
         }
+        this.pickups = this.pickups.filter((p) => !p.collected && p.y < H + 40);
       },
       draw(ctx, W, H) {
-        const tip = engine.tip ? { x: engine.tip.x * W, y: engine.tip.y * H } : null;
+        const bx = clamp(this.balloonX * W, 40, W - 40);
+        const by = this.balloonY * H;
+        const balloonR = 34;
 
-        if (tip) {
-          ctx.save();
-          ctx.strokeStyle = "rgba(56, 189, 248, 0.9)";
-          ctx.fillStyle = "rgba(56, 189, 248, 0.25)";
-          ctx.lineWidth = 4;
-          ctx.beginPath();
-          ctx.ellipse(tip.x, tip.y, 42, 18, 0, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.stroke();
-          ctx.restore();
+        ctx.save();
+
+        // Draw pickups
+        for (const p of this.pickups) {
+          ctx.font = "28px Segoe UI Emoji, sans-serif";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText(p.emoji, p.x, p.y);
         }
 
-        for (const b of this.balloons) {
-          ctx.save();
-          ctx.strokeStyle = "rgba(255, 255, 255, 0.6)";
-          ctx.lineWidth = 1.5;
-          ctx.beginPath();
-          ctx.moveTo(b.x, b.y + b.r);
-          ctx.quadraticCurveTo(b.x + Math.sin(b.y * 0.05) * 8, b.y + b.r + 14, b.x, b.y + b.r + b.stringLen);
-          ctx.stroke();
-
-          ctx.fillStyle = b.color;
-          ctx.beginPath();
-          ctx.moveTo(b.x - 4, b.y + b.r + 4);
-          ctx.lineTo(b.x + 4, b.y + b.r + 4);
-          ctx.lineTo(b.x, b.y + b.r);
-          ctx.closePath();
-          ctx.fill();
-
-          ctx.beginPath();
-          ctx.ellipse(b.x, b.y, b.r * 0.88, b.r, 0, 0, Math.PI * 2);
-          ctx.fillStyle = b.color;
-          ctx.globalAlpha = 0.88;
-          ctx.fill();
-          ctx.globalAlpha = 1.0;
-          ctx.strokeStyle = "#FFFFFF";
-          ctx.lineWidth = 2;
-          ctx.stroke();
-
-          ctx.fillStyle = "rgba(255, 255, 255, 0.75)";
-          ctx.beginPath();
-          ctx.ellipse(b.x - b.r * 0.3, b.y - b.r * 0.35, b.r * 0.22, b.r * 0.14, -0.4, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.restore();
+        // Draw obstacles
+        for (const o of this.obstacles) {
+          ctx.font = "34px Segoe UI Emoji, sans-serif";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText(o.emoji, o.x, o.y);
         }
+
+        // Draw Hot Air Balloon
+        if (this.invulnerableTimer > 0 && Math.floor(this.invulnerableTimer / 5) % 2 === 0) {
+          ctx.globalAlpha = 0.4;
+        }
+
+        // Suspension ropes
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.7)";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(bx - 16, by + balloonR * 0.8);
+        ctx.lineTo(bx - 10, by + balloonR + 18);
+        ctx.moveTo(bx + 16, by + balloonR * 0.8);
+        ctx.lineTo(bx + 10, by + balloonR + 18);
+        ctx.stroke();
+
+        // Small wicker basket
+        ctx.fillStyle = "#B45309";
+        ctx.beginPath();
+        ctx.roundRect(bx - 12, by + balloonR + 18, 24, 18, 4);
+        ctx.fill();
+
+        // Balloon canopy
+        ctx.beginPath();
+        ctx.arc(bx, by, balloonR, 0, Math.PI * 2);
+        ctx.fillStyle = "#EF4444";
+        ctx.fill();
+        ctx.strokeStyle = "#FFFFFF";
+        ctx.lineWidth = 2.5;
+        ctx.stroke();
+
+        // Colorful center stripe (Cyan & Yellow)
+        ctx.fillStyle = "#FBBF24";
+        ctx.beginPath();
+        ctx.ellipse(bx, by, balloonR * 0.45, balloonR, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = "#38BDF8";
+        ctx.beginPath();
+        ctx.ellipse(bx, by, balloonR * 0.22, balloonR, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.restore();
       },
     },
 
-    // 8. Target Tap (Spatial Reaching & Precision Pointing)
-    targettap: {
-      name: "Target Tap", emoji: "🎯", trains: "Spatial reaching & precision pointing",
-      guide: "Pulsing bullseye targets appear around the screen! Reach out and tap each one before it shrinks (+15 pts)!",
-      lives: false,
+    // 8. Slither Snake (Finger-Tip Nokia Snake 2.0)
+    slithersnake: {
+      name: "Slither Snake", emoji: "🐍", trains: "Fingertip spatial exploration & path coordination",
+      guide: "The snake's head is locked directly to your index fingertip! Touch food balls 🍎 to eat & grow longer, but don't bite your own tail!",
+      lives: true,
       init() {
-        this.targets = [];
-        this.timer = 0;
+        this.trail = [];
+        this.targetLength = 24;
+        this.food = { x: 300, y: 200, pulse: 0 };
+        this.hitCooldown = 0;
       },
       update(res, W, H) {
-        if (++this.timer > Math.max(18, 40 / this.$speed) && this.targets.length < 3) {
-          this.timer = 0;
-          this.targets.push({
-            x: rand(0.15, 0.85) * W,
-            y: rand(0.18, 0.82) * H,
-            maxR: rand(38, 48),
-            pulse: 0,
-            life: 180,
-            maxLife: 180,
-            tapped: false,
-          });
+        if (this.hitCooldown > 0) this.hitCooldown--;
+
+        // Snake head sits directly on the index fingertip!
+        const tip = engine.tip
+          ? { x: clamp(engine.tip.x * W, 20, W - 20), y: clamp(engine.tip.y * H, 20, H - 20) }
+          : { x: W * 0.5, y: H * 0.5 };
+
+        // Append to historical trail
+        const last = this.trail[0];
+        if (!last || Math.hypot(tip.x - last.x, tip.y - last.y) > 4) {
+          this.trail.unshift({ x: tip.x, y: tip.y });
         }
 
-        const tip = engine.tip ? { x: engine.tip.x * W, y: engine.tip.y * H } : null;
+        // Trim trail to current target length
+        while (this.trail.length > this.targetLength) {
+          this.trail.pop();
+        }
 
-        for (const t of this.targets) {
-          t.pulse += 0.08;
-          t.life--;
+        // Food eating check
+        this.food.pulse += 0.08;
+        if (Math.hypot(tip.x - this.food.x, tip.y - this.food.y) < 32) {
+          this.$engine.addScore(10);
+          this.targetLength += 16;
+          spawnParticles(this.food.x, this.food.y, "#10B981", 20);
+          addScorePopup(this.food.x, this.food.y - 20, "+10 🍎 CRUNCH!", "#10B981");
+          if (window.RehabBio && typeof window.RehabBio.playBeep === "function") {
+            window.RehabBio.playBeep(880 + Math.min(450, (this.targetLength - 24) * 6), 0.06, 0.3);
+          }
+          this.food.x = rand(0.12, 0.88) * W;
+          this.food.y = rand(0.15, 0.85) * H;
+        }
 
-          if (tip && Math.hypot(tip.x - t.x, tip.y - t.y) < t.maxR + 15) {
-            t.tapped = true;
-            this.$engine.addScore(15);
-            spawnParticles(t.x, t.y, "#10B981", 24);
-            addScorePopup(t.x, t.y - 15, "+15 🎯 BULLSEYE!", "#10B981");
-            if (window.RehabBio && typeof window.RehabBio.playBeep === "function") {
-              window.RehabBio.playBeep(1080, 0.08, 0.35);
+        // Self-collision (head bites trailing tail, buffer of 22 segments near neck)
+        if (this.trail.length > 32 && this.hitCooldown <= 0) {
+          for (let i = 22; i < this.trail.length; i++) {
+            const pt = this.trail[i];
+            if (Math.hypot(tip.x - pt.x, tip.y - pt.y) < 14) {
+              this.hitCooldown = 60;
+              this.$engine.loseLife();
+              spawnParticles(tip.x, tip.y, "#EF4444", 24);
+              addScorePopup(tip.x, tip.y - 25, "⚠️ TAIL BITE!", "#EF4444");
+              if (window.RehabBio && typeof window.RehabBio.playCheatBuzz === "function") {
+                window.RehabBio.playCheatBuzz();
+              }
+              this.targetLength = Math.max(24, this.targetLength - 16);
+              break;
             }
           }
         }
-        this.targets = this.targets.filter((t) => !t.tapped && t.life > 0);
       },
       draw(ctx, W, H) {
-        for (const t of this.targets) {
-          const progress = t.life / t.maxLife;
-          const r = t.maxR * (0.5 + 0.5 * progress);
+        ctx.save();
 
-          ctx.save();
-          ctx.strokeStyle = `rgba(16, 185, 129, ${0.4 + 0.3 * Math.sin(t.pulse)})`;
-          ctx.lineWidth = 3;
-          ctx.beginPath();
-          ctx.arc(t.x, t.y, r + 8 + Math.sin(t.pulse) * 4, 0, Math.PI * 2);
-          ctx.stroke();
+        // 1. Draw glowing Food Ball
+        const fx = this.food.x;
+        const fy = this.food.y;
+        const pulseR = 20 + Math.sin(this.food.pulse) * 3;
 
-          ctx.fillStyle = "rgba(239, 68, 68, 0.85)";
+        ctx.beginPath();
+        ctx.arc(fx, fy, pulseR + 8, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(239, 68, 68, 0.22)";
+        ctx.fill();
+
+        ctx.font = "32px Segoe UI Emoji, sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("🍎", fx, fy);
+
+        // 2. Draw Snake Body trailing behind fingertip
+        const n = this.trail.length;
+        for (let i = n - 1; i >= 0; i--) {
+          const pt = this.trail[i];
+          const progress = 1 - i / Math.max(1, n);
+          const r = 6 + progress * 8;
+
           ctx.beginPath();
-          ctx.arc(t.x, t.y, r, 0, Math.PI * 2);
+          ctx.arc(pt.x, pt.y, r, 0, Math.PI * 2);
+          ctx.fillStyle = i % 2 === 0 ? "#10B981" : "#059669";
           ctx.fill();
-
-          ctx.fillStyle = "#FFFFFF";
-          ctx.beginPath();
-          ctx.arc(t.x, t.y, r * 0.66, 0, Math.PI * 2);
-          ctx.fill();
-
-          ctx.fillStyle = "#EF4444";
-          ctx.beginPath();
-          ctx.arc(t.x, t.y, r * 0.33, 0, Math.PI * 2);
-          ctx.fill();
-
-          ctx.strokeStyle = "#FBBF24";
-          ctx.lineWidth = 4;
-          ctx.beginPath();
-          ctx.arc(t.x, t.y, r + 16, -Math.PI / 2, -Math.PI / 2 + progress * Math.PI * 2);
-          ctx.stroke();
-          ctx.restore();
         }
+
+        // 3. Draw Snake Head directly at index fingertip
+        const tip = this.trail[0] || (engine.tip ? { x: engine.tip.x * W, y: engine.tip.y * H } : { x: W * 0.5, y: H * 0.5 });
+        const second = this.trail[4] || tip;
+        const angle = Math.atan2(tip.y - second.y, tip.x - second.x);
+
+        ctx.save();
+        ctx.translate(tip.x, tip.y);
+        ctx.rotate(angle);
+
+        ctx.fillStyle = "#22C55E";
+        ctx.strokeStyle = "#FFFFFF";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.ellipse(0, 0, 18, 14, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = "#FFFFFF";
+        ctx.beginPath();
+        ctx.arc(6, -6, 4, 0, Math.PI * 2);
+        ctx.arc(6, 6, 4, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = "#0F172A";
+        ctx.beginPath();
+        ctx.arc(8, -6, 2, 0, Math.PI * 2);
+        ctx.arc(8, 6, 2, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.strokeStyle = "#EF4444";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(16, 0);
+        ctx.lineTo(24, 0);
+        ctx.lineTo(28, -3);
+        ctx.moveTo(24, 0);
+        ctx.lineTo(28, 3);
+        ctx.stroke();
+
+        ctx.restore();
+        ctx.restore();
       },
     },
   };
@@ -1235,9 +1413,9 @@ document.addEventListener("DOMContentLoaded", async () => {
       // Live metrics readout
       metricEl.textContent =
         engine.key === "fruit" ? `Fingertip Blade · v=${engine.vel.toFixed(1)}` :
-        engine.key === "coincatcher" ? `Basket Steering · x=${Math.round((engine.tip ? engine.tip.x : 0.5) * 100)}%` :
-        engine.key === "balloonbounce" ? `Paddle Bounce Tracking` :
-        engine.key === "targettap" ? `Target Precision Tap` :
+        engine.key === "brickbreaker" ? `Paddle Slider · x=${Math.round((engine.tip ? engine.tip.x : 0.5) * 100)}%` :
+        engine.key === "hotairballoon" ? `Balloon Steering · x=${Math.round((engine.tip ? engine.tip.x : 0.5) * 100)}%` :
+        engine.key === "slithersnake" ? `Snake Length · ${engine.game ? engine.game.targetLength : 24} segments` :
         engine.key === "flappy" ? `Index Finger Flight` :
         engine.key === "starcatch" ? `Sky Pop Tracking` :
         engine.key === "bubblepop" ? `Bubble Target Pop` :
@@ -1285,12 +1463,11 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (engine.key === "flappy" && engine.game.bird) {
         engine.game.bird.y -= 35;
       }
-      if (engine.key === "balloonbounce" && engine.game.balloons) {
-        for (const b of engine.game.balloons) {
-          if (Math.abs(b.x - nx * gameCanvas.width) < 60) {
-            b.vy = -7.5;
-          }
-        }
+      if (engine.key === "hotairballoon" && engine.game) {
+        engine.game.balloonX = nx;
+      }
+      if (engine.key === "brickbreaker" && engine.game) {
+        engine.game.paddleX = nx;
       }
     }
   });
