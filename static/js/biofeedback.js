@@ -7,12 +7,10 @@
  *    - Bright dual-tone harmonic chime (523.25 Hz + 659.25 Hz) on a
  *      valid rep completion.
  *    - Low-frequency alert buzz (120 Hz) on compensatory trunk lean.
- * 2. Automated Spoken Guidance (SpeechSynthesis)
- *    - Phase instructions, rep milestones, and inactivity watchdog
- *      announcements.
  *
- * Muted state persists in localStorage ("rehab_sound_enabled") and is
- * honored by the clinical top bar audio toggle.
+ * Voice guidance has been removed — sessions no longer speak. Only the
+ * tonal cues above remain. Muted state persists in localStorage
+ * ("rehab_sound_enabled") and is honored by the clinical top bar toggle.
  */
 
 const Biofeedback = (() => {
@@ -21,7 +19,6 @@ const Biofeedback = (() => {
   let activeTone = null; // oscillator of the continuous ROM tone
 
   const soundEnabled = () => localStorage.getItem("rehab_sound_enabled") !== "0";
-  const speechEnabled = () => localStorage.getItem("rehab_voice_enabled") !== "0";
 
   function ensureCtx() {
     if (!audioCtx) {
@@ -120,23 +117,6 @@ const Biofeedback = (() => {
   };
   const playBeep = (freq = 880, dur = 0.08, gain = 0.3) => tone({ freq, dur, gain });
 
-  /* --- Spoken guidance -------------------------------------------- */
-  function speak(text, { rate = 0.95, pitch = 1, priority = false } = {}) {
-    if (!speechEnabled()) return;
-    if (!("speechSynthesis" in window)) return;
-    try {
-      if (priority) window.speechSynthesis.cancel();
-      const u = new SpeechSynthesisUtterance(text);
-      u.rate = rate;
-      u.pitch = pitch;
-      u.lang = "en-US";
-      window.speechSynthesis.speak(u);
-    } catch (e) { /* voice unavailable — silent fallback */ }
-  }
-  const stopSpeech = () => {
-    if ("speechSynthesis" in window) window.speechSynthesis.cancel();
-  };
-
   /** Unlock audio on first user gesture (required by mobile browsers). */
   function unlock() {
     ensureCtx();
@@ -145,7 +125,6 @@ const Biofeedback = (() => {
 
   return Object.freeze({
     soundEnabled,
-    speechEnabled,
     unlock,
     setRomTone,
     stopRomTone,
@@ -154,8 +133,6 @@ const Biofeedback = (() => {
     playWorkoutFanfare,
     playCheatBuzz,
     playBeep,
-    speak,
-    stopSpeech,
   });
 })();
 

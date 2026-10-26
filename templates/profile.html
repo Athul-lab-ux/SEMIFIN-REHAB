@@ -1,113 +1,171 @@
 {% extends "app_shell.html" %}
 {% block extra_head %}
-  <link rel="stylesheet" href="/static/css/profile.css" />
+  <link rel="stylesheet" href="/static/css/profile.css?v=20261026c" />
 {% endblock %}
 
 {% block content %}
-<div class="profile-container">
-  <!-- Page Header -->
+<div class="profile-container" id="profile-root">
+
+  <!-- ================= Page bar ================= -->
   <header class="profile-page-header">
-    <div>
-      <h1 class="profile-title">👤 Patient Medical Profile</h1>
-      <p class="profile-subtitle">Permanent clinical records, stroke deficit settings, and personal identity.</p>
+    <div class="pph-titles">
+      <h1 class="profile-title">Patient Profile</h1>
+      <p class="profile-subtitle">Your recovery record, clinical settings and personal details in one place.</p>
     </div>
     <div class="profile-header-actions">
-      <a href="/dashboard" class="clin-btn clin-btn-ghost">← Back to Dashboard</a>
-      <button id="save-profile-btn" class="clin-btn clin-btn-primary">💾 Save Changes</button>
+      <a href="/dashboard" class="clin-btn clin-btn-ghost">← Dashboard</a>
+      <button id="save-profile-btn" class="clin-btn clin-btn-primary" type="button">💾 Save changes</button>
     </div>
   </header>
 
-  <!-- Layout Grid -->
+  <!-- ================= Hero ================= -->
+  <section class="pf-hero" aria-label="Profile summary">
+    <span class="pf-hero-glow" aria-hidden="true"></span>
+
+    <div class="pf-hero-top">
+      <div class="pf-identity">
+        <div class="avatar-wrap">
+          <div class="avatar-ring">
+            <div class="avatar-circle" id="avatar-preview">
+              <span id="avatar-initials">P</span>
+              <img id="avatar-img" src="" alt="Profile photo" style="display:none;" />
+            </div>
+          </div>
+          <label for="photo-input" class="avatar-upload-badge" title="Change profile photo">
+            📷<span class="aub-text">Change</span>
+          </label>
+          <input type="file" id="photo-input" accept="image/*" style="display:none;" />
+        </div>
+
+        <div class="pf-id-block">
+          <div class="pf-name-row">
+            <h2 class="patient-display-name" id="disp-name">Patient</h2>
+            <span class="pf-status-chip"><span class="pf-dot"></span>Active Patient</span>
+          </div>
+
+          <div class="pf-chip-row">
+            <span class="pf-chip pf-chip-id">
+              <span class="pchip-lab">ID</span>
+              <span class="pid-text" id="disp-patient-id">SP-000000001</span>
+              <button type="button" id="copy-id-btn" class="btn-copy-id" title="Copy patient ID">Copy</button>
+            </span>
+            <span class="pf-chip pf-chip-condition" id="disp-condition-chip">
+              <span id="disp-condition">Hemiparesis</span>
+            </span>
+            <span class="pf-chip pf-chip-side" id="disp-side-chip">Left side</span>
+            <span class="pf-chip pf-chip-streak" id="disp-streak-wrap">
+              <span class="psp-icon">🔥</span>
+              <span id="disp-streak">1 Day Streak</span>
+            </span>
+          </div>
+
+          <div class="pf-meta-row">
+            <span>Member since <b id="disp-created">—</b></span>
+            <span class="pf-meta-sep">·</span>
+            <span>Latest session <b id="disp-last-session">—</b></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="pf-hero-side">
+        <div class="pf-completion">
+          <div class="pf-completion-head">
+            <span>Profile completeness</span>
+            <b id="profile-completion">0%</b>
+          </div>
+          <div class="pf-completion-track">
+            <div class="pf-completion-fill" id="profile-completion-bar"></div>
+          </div>
+          <p class="pf-completion-hint" id="profile-completion-hint">
+            Fill in your details so your therapist has the full picture.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="pf-stat-strip">
+      <div class="pf-stat">
+        <span class="pf-stat-ico">🗓️</span>
+        <div class="pf-stat-body">
+          <span class="pf-stat-val" id="stat-sessions">0</span>
+          <span class="pf-stat-lab">Sessions</span>
+        </div>
+      </div>
+      <div class="pf-stat">
+        <span class="pf-stat-ico">⏱️</span>
+        <div class="pf-stat-body">
+          <span class="pf-stat-val" id="stat-minutes">0</span>
+          <span class="pf-stat-lab">Rehab minutes</span>
+        </div>
+      </div>
+      <div class="pf-stat">
+        <span class="pf-stat-ico">📐</span>
+        <div class="pf-stat-body">
+          <span class="pf-stat-val" id="stat-best-rom">—</span>
+          <span class="pf-stat-lab">Best range</span>
+        </div>
+      </div>
+      <div class="pf-stat">
+        <span class="pf-stat-ico">📈</span>
+        <div class="pf-stat-body">
+          <span class="pf-stat-val" id="stat-rom">Getting started</span>
+          <span class="pf-stat-lab">Movement profile</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= Body ================= -->
   <div class="profile-grid">
-    <!-- Left Column: Patient Identity & Avatar Card -->
-    <aside class="profile-sidebar-card">
-      <div class="avatar-wrap">
-        <div class="avatar-circle" id="avatar-preview">
-          <span id="avatar-initials">P</span>
-          <img id="avatar-img" src="" alt="Profile Photo" style="display:none;" />
-        </div>
-        <label for="photo-input" class="avatar-upload-badge" title="Change Profile Photo">
-          📷 <span class="aub-text">Change</span>
-        </label>
-        <input type="file" id="photo-input" accept="image/*" style="display:none;" />
-      </div>
-
-      <h2 class="patient-display-name" id="disp-name">Patient</h2>
-      <div class="patient-id-badge">
-        <span class="pid-text" id="disp-patient-id">SP-000000001</span>
-        <button id="copy-id-btn" class="btn-copy-id" title="Copy Patient ID">📋 Copy</button>
-      </div>
-
-      <div class="profile-streak-pill" id="disp-streak-wrap">
-        <span class="psp-icon">🔥</span>
-        <span class="psp-text" id="disp-streak">1 Day Streak</span>
-      </div>
-
-      <!-- Quick Lifetime Stats -->
-      <div class="profile-stat-box">
-        <div class="psb-item">
-          <span class="psb-val" id="stat-sessions">0</span>
-          <span class="psb-label">Sessions</span>
-        </div>
-        <div class="psb-item">
-          <span class="psb-val" id="stat-minutes">0</span>
-          <span class="psb-label">Rehab Mins</span>
-        </div>
-        <div class="psb-item">
-          <span class="psb-val" id="stat-rom" style="font-size:16px;">Getting started</span>
-          <span class="psb-label">Movement</span>
-        </div>
-      </div>
-
-      <div class="account-meta">
-        <div class="meta-row">
-          <span class="mr-label">Account Status</span>
-          <span class="mr-val active">● Active Patient</span>
-        </div>
-        <div class="meta-row">
-          <span class="mr-label">Login Identifier</span>
-          <span class="mr-val" id="disp-email">—</span>
-        </div>
-        <div class="meta-row">
-          <span class="mr-label">Member Since</span>
-          <span class="mr-val" id="disp-created">—</span>
-        </div>
-      </div>
-    </aside>
-
-    <!-- Right Column: Medical & Personal Profile Settings -->
     <main class="profile-main-content">
-      <!-- Section 1: Personal Details -->
+
+      <!-- Personal -->
       <section class="prof-card">
-        <h3 class="prof-card-title"><span class="pct-icon">🪪</span> Personal Identification</h3>
-        <div class="form-row-2">
-          <div class="form-field">
-            <label for="input-name">Full Name / Display Name</label>
-            <input type="text" id="input-name" placeholder="Your name (e.g. Athul)" />
-          </div>
-          <div class="form-field">
-            <label for="input-email">Permanent Email / Username</label>
-            <input type="text" id="input-email" disabled title="Permanent account login identifier" />
+        <div class="prof-card-head">
+          <span class="pct-icon">🪪</span>
+          <div>
+            <h3 class="prof-card-title">Personal identification</h3>
+            <p class="prof-card-desc">How your name appears across sessions, reports and therapist views.</p>
           </div>
         </div>
+
         <div class="form-row-2">
           <div class="form-field">
-            <label for="input-dob">Date of Birth</label>
+            <label for="input-name">Full name / display name</label>
+            <input type="text" id="input-name" placeholder="Your name (e.g. Athul)" autocomplete="name" />
+          </div>
+          <div class="form-field">
+            <label for="input-email">Login identifier</label>
+            <input type="text" id="input-email" disabled title="Permanent account login identifier" />
+            <span class="field-hint">Permanent — used to sign in.</span>
+          </div>
+        </div>
+
+        <div class="form-row-2">
+          <div class="form-field">
+            <label for="input-dob">Date of birth</label>
             <input type="date" id="input-dob" />
           </div>
           <div class="form-field">
-            <label for="input-phone">Contact Phone Number</label>
-            <input type="tel" id="input-phone" placeholder="+1 (555) 000-0000" />
+            <label for="input-phone">Contact phone</label>
+            <input type="tel" id="input-phone" placeholder="+1 (555) 000-0000" autocomplete="tel" />
           </div>
         </div>
       </section>
 
-      <!-- Section 2: Clinical Stroke Rehabilitation Details -->
+      <!-- Clinical -->
       <section class="prof-card">
-        <h3 class="prof-card-title"><span class="pct-icon">🧠</span> Clinical Deficit & Condition</h3>
+        <div class="prof-card-head">
+          <span class="pct-icon">🧠</span>
+          <div>
+            <h3 class="prof-card-title">Clinical deficit &amp; condition</h3>
+            <p class="prof-card-desc">These settings decide which exercises and game sessions are matched to you.</p>
+          </div>
+        </div>
+
         <div class="form-row-2">
           <div class="form-field">
-            <label for="select-condition">Assigned Stroke Category</label>
+            <label for="select-condition">Assigned stroke category</label>
             <select id="select-condition">
               <option value="Hemiparesis">🦾 Hemiparesis (One-Sided Weakness)</option>
               <option value="Flexor Spasticity">✋ Flexor Spasticity (Clenched Hand)</option>
@@ -118,19 +176,20 @@
             </select>
           </div>
           <div class="form-field">
-            <label for="select-side">Paretic / Affected Side</label>
+            <label for="select-side">Paretic / affected side</label>
             <select id="select-side">
-              <option value="left">Left Side</option>
-              <option value="right">Right Side</option>
-              <option value="both">Bilateral / Both Sides</option>
+              <option value="left">Left side</option>
+              <option value="right">Right side</option>
+              <option value="both">Bilateral / both sides</option>
             </select>
           </div>
         </div>
+
         <div class="form-row-2">
           <div class="form-field">
-            <label for="select-onset">Time Since Stroke Event</label>
+            <label for="select-onset">Time since stroke event</label>
             <select id="select-onset">
-              <option value="<1m">Less than 1 month</option>
+              <option value="&lt;1m">Less than 1 month</option>
               <option value="1-3m">1 to 3 months</option>
               <option value="3-6m">3 to 6 months</option>
               <option value="6-12m">6 to 12 months</option>
@@ -138,7 +197,7 @@
             </select>
           </div>
           <div class="form-field">
-            <label for="select-pain">Current Joint / Muscle Pain Level</label>
+            <label for="select-pain">Current joint / muscle pain</label>
             <select id="select-pain">
               <option value="none">🟢 None (No pain)</option>
               <option value="mild">🟡 Mild (Comfortable to exercise)</option>
@@ -147,16 +206,43 @@
             </select>
           </div>
         </div>
-        <div class="form-field" style="margin-top:14px;">
-          <label for="input-goal">Personal Rehabilitation Recovery Goal</label>
-          <textarea id="input-goal" rows="2" placeholder="e.g., Hold a cup without spilling, lift my arm above shoulder level, walk independently..."></textarea>
+
+        <div class="form-row-2">
+          <div class="form-field">
+            <label for="select-therapy">Currently receiving therapy</label>
+            <select id="select-therapy">
+              <option value="">Not specified</option>
+              <option value="physio">Physiotherapy</option>
+              <option value="occupational">Occupational therapy</option>
+              <option value="speech">Speech therapy</option>
+              <option value="none">Not currently in therapy</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label>Daily priorities <span class="field-hint-inline">from onboarding</span></label>
+            <div class="pf-struggle-list" id="disp-struggles">
+              <span class="pf-struggle-empty">None recorded</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-field form-field-wide">
+          <label for="input-goal">Personal rehabilitation goal</label>
+          <textarea id="input-goal" rows="3" maxlength="500"
+            placeholder="e.g. Hold a cup without spilling, lift my arm above shoulder level, walk independently…"></textarea>
+          <span class="field-hint"><span id="goal-count">0</span> / 500 characters</span>
         </div>
       </section>
 
-      <!-- Section 3: App Theme Personalization -->
+      <!-- Appearance -->
       <section class="prof-card">
-        <h3 class="prof-card-title"><span class="pct-icon">🎨</span> Personal Theme Color</h3>
-        <p class="prof-card-desc">Choose an accent color that feels energizing and comfortable for your daily sessions.</p>
+        <div class="prof-card-head">
+          <span class="pct-icon">🎨</span>
+          <div>
+            <h3 class="prof-card-title">App appearance</h3>
+            <p class="prof-card-desc">Pick the accent colour used by buttons, targets and progress rings across every session.</p>
+          </div>
+        </div>
         <div class="color-picker-grid">
           <button type="button" class="color-swatch active" data-color="#10B981" style="background:#10B981;" title="Emerald Recovery (Default)"></button>
           <button type="button" class="color-swatch" data-color="#059669" style="background:#059669;" title="Clinical Sage"></button>
@@ -165,19 +251,64 @@
           <button type="button" class="color-swatch" data-color="#EC4899" style="background:#EC4899;" title="Rose Energy"></button>
           <button type="button" class="color-swatch" data-color="#FF6A00" style="background:#FF6A00;" title="Neuro Orange"></button>
         </div>
+        <p class="color-preview-line" id="color-preview-line">Selected: <b>Emerald Recovery</b> — saved instantly.</p>
       </section>
 
-      <!-- Bottom Action Bar -->
-      <div class="profile-bottom-bar">
-        <button id="save-profile-btn-bottom" class="clin-btn clin-btn-primary" style="padding: 12px 28px; font-size: 15px;">
-          💾 Save All Changes
-        </button>
+      <!-- Action bar -->
+      <div class="profile-action-bar">
+        <span class="dirty-indicator" id="dirty-indicator" hidden>
+          <span class="pf-dot"></span>Unsaved changes
+        </span>
+        <button id="btn-discard" class="clin-btn clin-btn-ghost" type="button">↺ Discard</button>
+        <button id="save-profile-btn-bottom" class="clin-btn clin-btn-primary" type="button">💾 Save all changes</button>
       </div>
     </main>
+
+    <!-- Side column -->
+    <aside class="profile-side-col">
+      <section class="prof-card pf-side-card">
+        <h3 class="prof-card-title">Account</h3>
+        <div class="account-meta">
+          <div class="meta-row">
+            <span class="mr-label">Status</span>
+            <span class="mr-val active">● Active Patient</span>
+          </div>
+          <div class="meta-row">
+            <span class="mr-label">Patient ID</span>
+            <span class="mr-val" id="disp-meta-id">—</span>
+          </div>
+          <div class="meta-row">
+            <span class="mr-label">Login</span>
+            <span class="mr-val" id="disp-email">—</span>
+          </div>
+          <div class="meta-row">
+            <span class="mr-label">Member since</span>
+            <span class="mr-val" id="disp-created-meta">—</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="prof-card pf-side-card">
+        <h3 class="prof-card-title">Quick access</h3>
+        <div class="pf-quick-links">
+          <a href="/report" class="pf-quick-link"><span>📋</span><div><b>Clinical report</b><small>Session history &amp; scores</small></div></a>
+          <a href="/therapy" class="pf-quick-link"><span>🦾</span><div><b>Exercise drills</b><small>Today's matched exercises</small></div></a>
+          <a href="/dashboard" class="pf-quick-link"><span>🏥</span><div><b>Dashboard</b><small>All sessions</small></div></a>
+        </div>
+      </section>
+
+      <section class="prof-card pf-side-card pf-tip-card">
+        <h3 class="prof-card-title">Note</h3>
+        <p class="pf-tip-text">
+          Changing your stroke category re-matches your exercise list and game difficulty on the next session start.
+          Past sessions always keep the score they were recorded with.
+        </p>
+      </section>
+    </aside>
   </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
-  <script src="/static/js/profile.js"></script>
+  <script src="/static/js/profile.js?v=20261026c"></script>
 {% endblock %}

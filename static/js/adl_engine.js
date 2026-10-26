@@ -262,10 +262,6 @@ if (typeof document !== "undefined") {
     if (rangeEl) rangeEl.textContent = `Range: ${cfg.min} – ${cfg.max} ${cfg.unit}`;
     renderSetupValue();
     popup.classList.add("show");
-
-    if (window.RehabBio) {
-      window.RehabBio.speak(`${cfg.prompt} Currently ${cfg.def} ${cfg.unit}.`);
-    }
   }
 
   (function wireSetupPopup() {
@@ -999,9 +995,6 @@ if (typeof document !== "undefined") {
     repsCompleted++;
     perf.addRep(taskRepQuality());
     if (repsEl) repsEl.textContent = `${repsCompleted} / ${targetReps}`;
-    if (window.RehabBio) {
-      window.RehabBio.speak(`Repetition ${repsCompleted} complete! Excellent!`);
-    }
 
     if (repsCompleted >= targetReps) {
       tasksCompleted++;
@@ -1029,7 +1022,6 @@ if (typeof document !== "undefined") {
     if (repsEl) repsEl.textContent = `${repsCompleted} / ${targetReps}`;
     if (window.RehabBio) {
       window.RehabBio.playRepChime();
-      window.RehabBio.speak(`Task complete! ${repsCompleted} of ${targetReps} finished.`);
     }
     suppressStopLog = true;   // the celebration exit must not log the session twice
     logSession();             // log the measured score once
@@ -1159,10 +1151,6 @@ if (typeof document !== "undefined") {
     document.getElementById("agp-tip").textContent = guide.tip;
 
     popup.classList.add("show");
-
-    if (window.RehabBio) {
-      window.RehabBio.speak(`${guide.title}. ${guide.how}`);
-    }
 
     if (adlGuidanceInterval) clearInterval(adlGuidanceInterval);
 
@@ -1454,7 +1442,6 @@ if (typeof document !== "undefined") {
         currentStepIndex = 4; // Step 5: 5s Caution Hold
         updateStepCardsUI();
         if (window.RehabBio) {
-          window.RehabBio.speak("Super! Target zone reached! Hold steady for 5 seconds!");
           window.RehabBio.playRepChime();
         }
         showToast("🎉 Target zone! Hold steady 5s — DO NOT over-pump!", "warning");
@@ -1498,7 +1485,6 @@ if (typeof document !== "undefined") {
 
     if (window.RehabBio) {
       window.RehabBio.playBuzz();
-      window.RehabBio.speak("That's okay! Take a breath and tap Try Again!");
     }
     showToast("💥 Balloon popped! That's okay — tap Try Again below.", "danger");
 
@@ -1540,7 +1526,6 @@ if (typeof document !== "undefined") {
 
     if (window.RehabBio) {
       window.RehabBio.playBeep(880, 0.08, 0.35);
-      window.RehabBio.speak("Tank secured!");
     }
     showToast(`✅ Tank ${activeTankIndex + 1} shut in ${reactionMs}ms! (${tanksSecuredCount}/4)`, "success");
 
@@ -1550,9 +1535,6 @@ if (typeof document !== "undefined") {
       const otherIndices = [0, 1, 2, 3].filter((idx) => idx !== activeTankIndex);
       activeTankIndex = otherIndices[Math.floor(Math.random() * otherIndices.length)];
       tankActivationTime = performance.now();
-      if (window.RehabBio) {
-        window.RehabBio.speak(`Tank ${activeTankIndex + 1} filling!`);
-      }
     }
   }
 
@@ -1699,18 +1681,15 @@ if (typeof document !== "undefined") {
     labEl.textContent = label;
     numEl.textContent = remaining;
     overlay.classList.add("show");
-    if (window.RehabBio) window.RehabBio.speak(`${label}. ${remaining}`);
 
     adlCountdownTimer = setInterval(() => {
       remaining--;
       if (remaining > 0) {
         numEl.textContent = remaining;
-        if (window.RehabBio) window.RehabBio.speak(`${remaining}`);
       } else {
         clearInterval(adlCountdownTimer);
         adlCountdownTimer = null;
         numEl.textContent = "GO!";
-        if (window.RehabBio) window.RehabBio.speak("Go!");
         setTimeout(() => {
           overlay.classList.remove("show");
           if (onComplete) onComplete();
@@ -1726,7 +1705,6 @@ if (typeof document !== "undefined") {
     document.getElementById("adl-pause").style.display = "none";
     document.getElementById("adl-resume").style.display = "inline-flex";
     document.getElementById("adl-paused-overlay").classList.add("show");
-    if (window.RehabBio) window.RehabBio.speak("Task paused");
   }
 
   function resumeAdl() {
@@ -2140,9 +2118,6 @@ if (typeof document !== "undefined") {
       if (elapsed >= 5000) {
         balloonFullStartTime = null;
         advanceStep();
-        if (window.RehabBio) {
-          window.RehabBio.speak("Super! You held steady without popping the balloon!");
-        }
         showToast("🌟 Repetition complete! Balloon securely held without popping!", "success");
       }
     } else if (balloonPopped) {
@@ -2638,7 +2613,6 @@ if (typeof document !== "undefined") {
       tanksCompletedAnnounced = true;
       if (window.RehabBio) {
         window.RehabBio.playRepChime();
-        window.RehabBio.speak("Outstanding! All 4 water tanks are 100% filled!");
       }
       showToast("🎉 All 4 tanks 100% full! Outstanding job!", "success");
       completeRep();
@@ -2723,7 +2697,6 @@ if (typeof document !== "undefined") {
       lightFlips++;
       if (window.RehabBio) {
         window.RehabBio.playBeep(switchOn ? 880 : 440, 0.08, 0.3);
-        window.RehabBio.speak(switchOn ? "Light on!" : "Light off!");
       }
       showToast(switchOn ? "💡 Light ON (rocker pushed UP)" : "🔌 Light OFF (rocker pushed DOWN)", "success");
     }
@@ -2833,12 +2806,9 @@ if (typeof document !== "undefined") {
       ? randomPin[currentStepIndex - 1]
       : null;
 
-    // Speak prompt whenever a new target digit becomes active
+    // Highlight the newly active target digit
     if (currentTargetDigit !== null && lastAnnouncedDigit !== currentTargetDigit) {
       lastAnnouncedDigit = currentTargetDigit;
-      if (window.RehabBio) {
-        window.RehabBio.speak(`Tap digit ${currentTargetDigit} with your index finger`);
-      }
       showToast(`👉 Tap digit ${currentTargetDigit} using your index finger`, "info");
     }
 
@@ -3071,7 +3041,6 @@ if (typeof document !== "undefined") {
               pinConfirmDwellStart = 0;
               if (window.RehabBio) {
                 window.RehabBio.playRepChime();
-                window.RehabBio.speak("PIN code confirmed!");
               }
               showToast("🎉 PIN Confirmed! Set complete!", "success");
               advanceStep();
@@ -3293,7 +3262,6 @@ if (typeof document !== "undefined") {
       }
       if (window.RehabBio) {
         window.RehabBio.playRepChime();
-        window.RehabBio.speak("Window is sparkling clean! Excellent shoulder and arm reach!");
       }
       showToast("🎉 Window is sparkling clean (≥90%)! Outstanding work!", "success");
       completeRep();
@@ -3366,7 +3334,6 @@ if (typeof document !== "undefined") {
       perf.spills++;
       if (window.RehabBio) {
         window.RehabBio.playBuzz();
-        window.RehabBio.speak("Careful! Glass is overflowing! Level the pitcher upright!");
       }
       showToast("⚠️ Glass is overflowing! Level pitcher back upright!", "warning");
     }
@@ -3375,7 +3342,6 @@ if (typeof document !== "undefined") {
       pourTargetReached = true;
       if (window.RehabBio) {
         window.RehabBio.playBeep(784, 0.08, 0.3);
-        window.RehabBio.speak("Target reached! The glass is filled — task complete!");
       }
       showToast("🎉 Perfect fill! Glass reached the green zone — task complete!", "success");
       completeRep();
@@ -3626,7 +3592,6 @@ if (typeof document !== "undefined") {
         }
         if (window.RehabBio) {
           window.RehabBio.playBeep(520, 0.08, 0.3);
-          window.RehabBio.speak("Cup grabbed with thumb and index! Lift upward against gravity.");
         }
         showToast("🤏 Cup grabbed with thumb & index! Now lift toward the shelf.", "info");
       }
@@ -3682,7 +3647,6 @@ if (typeof document !== "undefined") {
 
           if (window.RehabBio) {
             window.RehabBio.playRepChime();
-            window.RehabBio.speak(`Cup ${shelfPlacedCups.length} of ${targetReps} placed on the shelf.`);
           }
           showToast(`🎉 Cup ${shelfPlacedCups.length}/${targetReps} placed on the shelf!`, "success");
           completeRep();
@@ -3871,7 +3835,6 @@ if (typeof document !== "undefined") {
           Math.abs(py - confirmBox2.y) <= confirmBox2.h / 2) {
         if (window.RehabBio) {
           window.RehabBio.playRepChime();
-          window.RehabBio.speak("PIN code confirmed!");
         }
         showToast("🎉 PIN Confirmed! Set complete!", "success");
         advanceStep();  // Completes 6-step cycle -> rep++ and returns to Step 1 cleanly
@@ -4043,7 +4006,7 @@ if (typeof document !== "undefined") {
     const subEl = document.getElementById("acm-sub");
     const taskElx = document.getElementById("acm-task");
     if (!popup || !bigEl || !subEl) {
-      // Template fallback: speak + toast, still exit cleanly
+      // Template fallback: toast only, still exit cleanly
       if (window.RehabBio) {
         window.RehabBio.playWorkoutFanfare();
       }
@@ -4072,8 +4035,6 @@ if (typeof document !== "undefined") {
 
     if (window.RehabBio) {
       window.RehabBio.playWorkoutFanfare();
-      const spoken = customPhrase || `${m.big.replace(/[^A-Za-z]/g, "")} Fantastic session complete!`;
-      window.RehabBio.speak(spoken);
     }
 
     if (celebrationTimer) clearTimeout(celebrationTimer);

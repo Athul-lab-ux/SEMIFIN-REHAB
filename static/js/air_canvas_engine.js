@@ -258,18 +258,15 @@ document.addEventListener("DOMContentLoaded", async () => {
     labEl.textContent = label;
     numEl.textContent = remaining;
     overlay.classList.add("show");
-    if (window.RehabBio) window.RehabBio.speak(`${label}. ${remaining}`);
 
     canvasCountdownTimer = setInterval(() => {
       remaining--;
       if (remaining > 0) {
         numEl.textContent = remaining;
-        if (window.RehabBio) window.RehabBio.speak(`${remaining}`);
       } else {
         clearInterval(canvasCountdownTimer);
         canvasCountdownTimer = null;
         numEl.textContent = "DRAW!";
-        if (window.RehabBio) window.RehabBio.speak("Draw!");
         setTimeout(() => {
           overlay.classList.remove("show");
           if (onComplete) onComplete();
@@ -332,7 +329,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     panLastPoint = null;
     document.getElementById("aircanvas-paused-overlay").classList.add("show");
     updateSessionButtons("paused");
-    if (window.RehabBio) window.RehabBio.speak("Drawing paused");
   }
 
   function resumeDrawingSession() {

@@ -1004,18 +1004,15 @@ document.addEventListener("DOMContentLoaded", async () => {
     labEl.textContent = label;
     numEl.textContent = remaining;
     overlay.classList.add("show");
-    if (window.RehabBio) window.RehabBio.speak(`${label}. ${remaining}`);
 
     arcadeCountdownTimer = setInterval(() => {
       remaining--;
       if (remaining > 0) {
         numEl.textContent = remaining;
-        if (window.RehabBio) window.RehabBio.speak(`${remaining}`);
       } else {
         clearInterval(arcadeCountdownTimer);
         arcadeCountdownTimer = null;
         numEl.textContent = "GO!";
-        if (window.RehabBio) window.RehabBio.speak("Go!");
         setTimeout(() => {
           overlay.classList.remove("show");
           if (onComplete) onComplete();
@@ -1030,7 +1027,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     document.getElementById("btn-pause").style.display = "none";
     document.getElementById("btn-resume").style.display = "inline-flex";
     document.getElementById("arcade-paused-overlay").classList.add("show");
-    if (window.RehabBio) window.RehabBio.speak("Game paused");
   }
 
   function resumeGame() {

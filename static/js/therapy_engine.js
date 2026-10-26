@@ -686,14 +686,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     popup.classList.add("show");
 
-    if (window.RehabBio) {
-      if (isStuckAlert) {
-        window.RehabBio.speak(`Step assistance: ${S.ex.steps[curIdx]?.label || 'Follow the step'}`);
-      } else {
-        window.RehabBio.speak(`${S.ex.name}. Step ${curIdx + 1}: ${S.ex.steps[curIdx]?.label || ''}`);
-      }
-    }
-
     if (guidanceTimer) clearTimeout(guidanceTimer);
     if (guidanceInterval) clearInterval(guidanceInterval);
 
@@ -1025,11 +1017,10 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  function speakStep(ex, idx) {
+  function setStepLabel(ex, idx) {
     const st = ex.steps[idx];
     if (!st) return;
     $("current-step-name").textContent = st.label;
-    if (window.RehabBio) window.RehabBio.speak(`Step ${idx + 1}. ${st.label}`);
   }
 
   function handleWorkoutFrame(res) {
@@ -1055,7 +1046,6 @@ document.addEventListener("DOMContentLoaded", () => {
             if (window.RehabBio) {
               window.RehabBio.stopRomTone();
               window.RehabBio.playCheatBuzz();
-              window.RehabBio.speak("Posture cheat detected: keep your shoulders level.", { priority: true });
             }
           }
           if (Date.now() - S.tiltCheatStart > 800) {
@@ -1141,9 +1131,8 @@ document.addEventListener("DOMContentLoaded", () => {
           if (S.step === 1 && S.ex.steps.length === 2) {
             $("rep-display").textContent = `${S.rep + 0.5} / ${S.repsTarget}`;
             $("feedback-line").textContent = `⭐ Half Rep (0.5) Complete! Next: ${S.ex.steps[1].label}`;
-            if (window.RehabBio) window.RehabBio.speak("Half rep complete! Now follow step 2.");
           } else {
-            speakStep(S.ex, S.step);
+            setStepLabel(S.ex, S.step);
           }
           renderSteps(S.ex, S.step);
         }
@@ -1158,7 +1147,6 @@ document.addEventListener("DOMContentLoaded", () => {
         if (now - S.stuckAt > 2200 && !S.hintOn) {
           S.hintOn = true;
           $("hint-line").textContent = `💡 Try: ${step.label}`;
-          if (window.RehabBio) window.RehabBio.speak(`Try: ${step.label}`);
         }
         // 10s Inactivity / Stuck Guidance Alert
         if (now - S.stuckAt >= 10000 && !S.guidanceShowing) {
@@ -1186,7 +1174,6 @@ document.addEventListener("DOMContentLoaded", () => {
     $("feedback-line").textContent = `${praise[(S.rep - 1) % praise.length]} Rep ${S.rep}/${S.repsTarget} ✅`;
 
     if (window.RehabBio) window.RehabBio.playRepChime();
-    if (window.RehabBio) window.RehabBio.speak(`Repetition ${S.rep} complete.`);
 
     if (S.rep >= S.repsTarget) {
       // Set finished
@@ -1243,7 +1230,7 @@ document.addEventListener("DOMContentLoaded", () => {
     renderSteps(S.ex, 0);
     S.phase = "workout";
     showScreen("workout");
-    speakStep(S.ex, 0);
+    setStepLabel(S.ex, 0);
     showGuidancePopup(4);
   }
 
@@ -1348,18 +1335,15 @@ document.addEventListener("DOMContentLoaded", () => {
     labEl.textContent = label;
     numEl.textContent = remaining;
     overlay.classList.add("show");
-    if (window.RehabBio) window.RehabBio.speak(`${label}. ${remaining}`);
 
     countdownTimer = setInterval(() => {
       remaining--;
       if (remaining > 0) {
         numEl.textContent = remaining;
-        if (window.RehabBio) window.RehabBio.speak(`${remaining}`);
       } else {
         clearInterval(countdownTimer);
         countdownTimer = null;
         numEl.textContent = "GO!";
-        if (window.RehabBio) window.RehabBio.speak("Go!");
         setTimeout(() => {
           overlay.classList.remove("show");
           if (onComplete) onComplete();
@@ -1377,7 +1361,6 @@ document.addEventListener("DOMContentLoaded", () => {
     $("therapy-paused-overlay").classList.add("show");
     if (window.RehabBio) {
       window.RehabBio.stopRomTone();
-      window.RehabBio.speak("Session paused");
     }
   }
 
@@ -1471,7 +1454,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // Run 4s countdown overlay directly over the live camera feed
     runStageCountdown("GET READY", 4, () => {
       S.lastActionTime = Date.now();
-      speakStep(S.ex, 0);
+      setStepLabel(S.ex, 0);
       showGuidancePopup(4);
     });
   }
