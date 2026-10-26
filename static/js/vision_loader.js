@@ -111,6 +111,7 @@ const VisionLoader = (() => {
               for (let i = 0; i < src.length; i++) {
                 cachedHand[i] = { x: mapX(src[i].x), y: src[i].y, z: src[i].z || 0 };
               }
+              cachedHand.length = src.length;
               if (cachedHand[17] && cachedHand[5]) {
                 cachedHandSide = cachedHand[17].x < cachedHand[5].x ? "right" : "left";
               }
@@ -147,6 +148,7 @@ const VisionLoader = (() => {
               for (let i = 0; i < src.length; i++) {
                 cachedPose[i] = { x: mapX(src[i].x), y: src[i].y, z: src[i].z || 0 };
               }
+              cachedPose.length = src.length;
               if (cachedPose[23] && cachedPose[25] && cachedPose[27] &&
                   cachedPose[24] && cachedPose[26] && cachedPose[28]) {
                 cachedLegs = {

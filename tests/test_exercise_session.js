@@ -190,7 +190,197 @@ EXERCISES.forEach((ex) => {
 });
 console.log("  ✅ [PASS] End-to-End Rep and Half-Rep counting cycle verified across all 9 exercises");
 
+// Test 14: VisionLoader payload compatibility (Object with length vs Array) in computeMetrics
+const therapyCode = fs.readFileSync(path.join(__dirname, "../static/js/therapy_engine.js"), "utf-8");
+const ctxMock = {
+  beginPath: () => {},
+  arc: () => {},
+  fill: () => {},
+  stroke: () => {},
+  moveTo: () => {},
+  lineTo: () => {},
+  setLineDash: () => {},
+  clearRect: () => {},
+  fillText: () => {},
+  measureText: () => ({ width: 50 }),
+  save: () => {},
+  restore: () => {},
+  createRadialGradient: () => ({ addColorStop: () => {} }),
+};
+
+const domMock = {
+  elements: {},
+  getElementById(id) {
+    if (!this.elements[id]) {
+      this.elements[id] = {
+        textContent: "",
+        innerHTML: "",
+        value: "10",
+        width: 640,
+        height: 480,
+        style: {},
+        classList: { add: () => {}, remove: () => {}, contains: () => false },
+        addEventListener: () => {},
+        appendChild: () => {},
+        prepend: () => {},
+        querySelectorAll: () => [],
+        querySelector: () => null,
+        getContext: () => ctxMock,
+      };
+    }
+    return this.elements[id];
+  },
+  createElement() {
+    return {
+      className: "",
+      innerHTML: "",
+      appendChild: () => {},
+      prepend: () => {},
+      addEventListener: () => {},
+      querySelectorAll: () => [],
+      querySelector: () => null,
+      style: {},
+      getContext: () => ctxMock,
+    };
+  },
+  querySelectorAll: () => [],
+  addEventListener(event, cb) {
+    if (event === "DOMContentLoaded") cb();
+  },
+};
+
+const visionMock = {
+  isMirrored: () => false,
+  start: () => {},
+  stop: () => {},
+  getVideoSize: () => ({ width: 640, height: 480 }),
+};
+
+const fullSandbox = {
+  window: {
+    addEventListener: () => {},
+    removeEventListener: () => {},
+  },
+  document: domMock,
+  VisionLoader: visionMock,
+  Math: Math,
+  Date: Date,
+  setTimeout: (fn) => fn(),
+  clearTimeout: () => {},
+  setInterval: () => 1,
+  clearInterval: () => {},
+  requestAnimationFrame: () => {},
+  cancelAnimationFrame: () => {},
+  localStorage: { getItem: () => null, setItem: () => {} },
+  console: console,
+};
+fullSandbox.window.window = fullSandbox.window;
+fullSandbox.window.document = domMock;
+fullSandbox.window.VisionLoader = visionMock;
+fullSandbox.window.Math = Math;
+fullSandbox.window.Date = Date;
+fullSandbox.window.requestAnimationFrame = () => {};
+fullSandbox.window.cancelAnimationFrame = () => {};
+fullSandbox.window.localStorage = fullSandbox.localStorage;
+
+vm.createContext(fullSandbox);
+vm.runInContext(libCode, fullSandbox);
+vm.runInContext(therapyCode, fullSandbox);
+
+const TherapyTest = fullSandbox.window.TherapyEngineTest;
+assert.ok(TherapyTest, "TherapyEngineTest hook must be exposed");
+
+// Mock Hand Object matching VisionLoader output: cachedHand = {0:..., 20:..., length: 21}
+const mockHandObj = { length: 21 };
+for (let i = 0; i <= 20; i++) {
+  mockHandObj[i] = { x: 0.5, y: 0.5, z: 0 };
+}
+// Set thumb tip (4) and index tip (8) close together for pinch
+mockHandObj[0] = { x: 0.50, y: 0.60, z: 0 }; // wrist
+mockHandObj[9] = { x: 0.50, y: 0.45, z: 0 }; // middle MCP (scale ~ 0.15)
+mockHandObj[4] = { x: 0.49, y: 0.44, z: 0 }; // thumb tip
+mockHandObj[8] = { x: 0.51, y: 0.44, z: 0 }; // index tip
+
+const metricsFromObj = TherapyTest.computeMetrics({ hand: mockHandObj });
+assert.ok(metricsFromObj.pinchRatio != null, "Pinch ratio must be computed from VisionLoader object hand");
+assert.ok(metricsFromObj.pinchRatio <= 0.36, "Pinch ratio should be tight (<= 0.36)");
+console.log("  ✅ [PASS] VisionLoader landmark payload compatibility (Object {0..20, length: 21}) verified");
+
+// Test 15: Dual-Arm Isolation (Resting arm straight at 160°, Active arm flexed at 95°)
+const mockPoseDualArm = {
+  pose: {
+    11: { x: 0.40, y: 0.30 }, // Left shoulder
+    13: { x: 0.40, y: 0.50 }, // Left elbow
+    15: { x: 0.40, y: 0.70 }, // Left wrist (straight arm, ~180°)
+    12: { x: 0.60, y: 0.30 }, // Right shoulder
+    14: { x: 0.60, y: 0.50 }, // Right elbow
+    16: { x: 0.50, y: 0.45 }, // Right wrist (flexed elbow, ~90°)
+  },
+  chain: {
+    side: "right",
+    sh: { x: 0.60, y: 0.30 },
+    el: { x: 0.60, y: 0.50 },
+    wr: { x: 0.50, y: 0.45 },
+  }
+};
+
+const dualArmMetrics = TherapyTest.computeMetrics(mockPoseDualArm);
+assert.ok(dualArmMetrics.activeElbow != null, "Active elbow angle must be computed");
+assert.ok(dualArmMetrics.activeElbow < 125, `Active elbow should be flexed (<125°), got ${dualArmMetrics.activeElbow}`);
+// Verify Step 2 of elbow_ext succeeds on active elbow even though elbowMax is large
+assert.strictEqual(ex1.steps[1].test(dualArmMetrics), true, "Step 2 should pass for active arm flexion");
+console.log("  ✅ [PASS] Dual-arm isolation verified (active arm flexion satisfies Step 2 with resting opposite arm)");
+
+// Test 16: End-to-end full workout frame simulation: step 0 -> hold -> step 1 -> 1.0 rep complete
+TherapyTest.resetState({
+  phase: "workout",
+  ex: ex1,
+  repsTarget: 3,
+  step: 0,
+  rep: 0,
+});
+
+// Frame 1: Arm reaches extension target >= 135°
+const extFrame = {
+  chain: {
+    side: "right",
+    sh: { x: 0.60, y: 0.40 },
+    el: { x: 0.70, y: 0.30 },
+    wr: { x: 0.80, y: 0.20 }, // Corner hit + straight angle
+  },
+  hand: mockHandObj,
+};
+
+// Simulate frames for hold duration (0.4s)
+const baseTime = Date.now();
+TherapyTest.handleWorkoutFrame(extFrame); // first frame registers ok, starts hold
+// Advance time 500ms
+const realDateNow = Date.now;
+try {
+  Date.now = () => baseTime + 500;
+  TherapyTest.handleWorkoutFrame(extFrame); // hold duration satisfied -> step increments to 1
+  assert.strictEqual(TherapyTest.getState().step, 1, "State should advance to Step 1 (Half Rep)");
+
+  // Frame 2: Arm bends back in (< 125°)
+  const flexFrame = {
+    chain: {
+      side: "right",
+      sh: { x: 0.60, y: 0.40 },
+      el: { x: 0.60, y: 0.55 },
+      wr: { x: 0.55, y: 0.45 }, // Flexed in
+    },
+    hand: mockHandObj,
+  };
+  Date.now = () => baseTime + 700;
+  TherapyTest.handleWorkoutFrame(flexFrame); // step 1 satisfied -> rep increments to 1, step resets to 0
+  assert.strictEqual(TherapyTest.getState().rep, 1, "Rep count should increment to 1");
+  assert.strictEqual(TherapyTest.getState().step, 0, "Step index should reset to 0 for next rep");
+} finally {
+  Date.now = realDateNow;
+}
+console.log("  ✅ [PASS] Real-time workout frame simulation: 0.5 Half Rep -> 1.0 Full Rep cycle verified");
+
 console.log("-------------------------------------------------");
-console.log("SUMMARY: 13 / 13 EXERCISE TESTS PASSED (100%)");
+console.log("SUMMARY: 16 / 16 EXERCISE TESTS PASSED (100%)");
 console.log("-------------------------------------------------");
 console.log("🎉 ALL 9 CLINICAL EXERCISES VERIFIED PERFECTLY!");

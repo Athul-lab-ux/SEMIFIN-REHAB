@@ -330,19 +330,21 @@ document.addEventListener("DOMContentLoaded", () => {
           const r = 52;
 
           if (S.step === 0) {
-            // Step 1: Reach up to top corner target (>= 140° or Corner Hit)
+            // Step 1: Reach up to top corner target (>= 135° or Corner Hit)
             const cx = (isLeft ? 0.20 : 0.80) * W;
             const cy = 0.20 * H;
-            const isHit = (M.cornerHit || (M.elbowMax != null && M.elbowMax >= 140));
-            const held = (isHit && S.holdStart > 0) ? Math.min(0.6, (now - S.holdStart) / 1000) : 0;
-            const centerText = held > 0 ? `${Math.max(0, 0.6 - held).toFixed(1)}s` : (M.elbowMax != null ? `${Math.round(M.elbowMax)}°` : "≥140°");
-            drawTargetCircle(cx, cy, r, "🎯 STEP 1: EXTEND ARM TO CORNER TARGET (≥140°)", "#38BDF8", isHit, (held / 0.6), centerText);
+            const isHit = (M.cornerHit || (M.activeElbow != null ? M.activeElbow >= 135 : (M.elbowMax != null && M.elbowMax >= 135)));
+            const held = (isHit && S.holdStart > 0) ? Math.min(0.4, (now - S.holdStart) / 1000) : 0;
+            const angDisp = M.activeElbow != null ? Math.round(M.activeElbow) : (M.elbowMax != null ? Math.round(M.elbowMax) : null);
+            const centerText = held > 0 ? `${Math.max(0, 0.4 - held).toFixed(1)}s` : (angDisp != null ? `${angDisp}°` : "≥135°");
+            drawTargetCircle(cx, cy, r, "🎯 STEP 1: EXTEND ARM TO CORNER TARGET (≥135°)", "#38BDF8", isHit, (held / 0.4), centerText);
           } else {
             // Step 2: Flex elbow back in (< 125°) toward chest
             const cxIn = (isLeft ? 0.42 : 0.58) * W;
             const cyIn = 0.55 * H;
-            const isFlexed = M.elbowMax != null && M.elbowMax < 125;
-            const centerText = M.elbowMax != null ? `${Math.round(M.elbowMax)}°` : "<125°";
+            const isFlexed = (M.activeElbow != null ? M.activeElbow < 125 : (M.elbowMin != null ? M.elbowMin < 125 : (M.elbowMax != null && M.elbowMax < 125)));
+            const angDisp = M.activeElbow != null ? Math.round(M.activeElbow) : (M.elbowMin != null ? Math.round(M.elbowMin) : (M.elbowMax != null ? Math.round(M.elbowMax) : null));
+            const centerText = angDisp != null ? `${angDisp}°` : "<125°";
             drawTargetCircle(cxIn, cyIn, r, "🎯 STEP 2: BEND ELBOW BACK IN (<125°)", "#FBBF24", isFlexed, 0, centerText);
           }
         }
@@ -356,9 +358,9 @@ document.addEventListener("DOMContentLoaded", () => {
           const r = 48;
 
           if (S.step === 0) {
-            const held = (M.shoulderShrugHit && S.holdStart > 0) ? Math.min(1.2, (now - S.holdStart) / 1000) : 0;
-            const centerText = held > 0 ? `${Math.max(0, 1.2 - held).toFixed(1)}s` : "SHRUG ⬆️";
-            drawTargetCircle(sx, targetY, r, "🎯 STEP 1: SHRUG SHOULDER UP & HOLD", "#FBBF24", M.shoulderShrugHit, (held / 1.2), centerText);
+            const held = (M.shoulderShrugHit && S.holdStart > 0) ? Math.min(0.5, (now - S.holdStart) / 1000) : 0;
+            const centerText = held > 0 ? `${Math.max(0, 0.5 - held).toFixed(1)}s` : "SHRUG ⬆️";
+            drawTargetCircle(sx, targetY, r, "🎯 STEP 1: SHRUG SHOULDER UP & HOLD", "#FBBF24", M.shoulderShrugHit, (held / 0.5), centerText);
           } else {
             drawTargetCircle(sx, baseY * H, r, "🎯 STEP 2: LOWER SHOULDER BACK TO REST", "#10B981", M.shoulderRelaxed, 0, "REST ⬇️");
           }
@@ -371,13 +373,13 @@ document.addEventListener("DOMContentLoaded", () => {
           const r = 56;
 
           if (S.step === 0) {
-            const held = (M.isFist && S.holdStart > 0) ? Math.min(0.4, (now - S.holdStart) / 1000) : 0;
-            const centerText = held > 0 ? `${Math.max(0, 0.4 - held).toFixed(1)}s` : "FIST ✊";
-            drawTargetCircle(hx, hy, r, "🎯 STEP 1: CURL FINGERS INTO FIST ✊", "#F59E0B", M.isFist, (held / 0.4), centerText);
+            const held = (M.isFist && S.holdStart > 0) ? Math.min(0.3, (now - S.holdStart) / 1000) : 0;
+            const centerText = held > 0 ? `${Math.max(0, 0.3 - held).toFixed(1)}s` : "FIST ✊";
+            drawTargetCircle(hx, hy, r, "🎯 STEP 1: CURL FINGERS INTO FIST ✊", "#F59E0B", M.isFist, (held / 0.3), centerText);
           } else {
-            const held = (M.isOpenPalm && S.holdStart > 0) ? Math.min(0.5, (now - S.holdStart) / 1000) : 0;
-            const centerText = held > 0 ? `${Math.max(0, 0.5 - held).toFixed(1)}s` : "OPEN 🖐️";
-            drawTargetCircle(hx, hy, r, "🎯 STEP 2: SPREAD ALL 5 FINGERS WIDE 🖐️", "#10B981", M.isOpenPalm, (held / 0.5), centerText);
+            const held = (M.isOpenPalm && S.holdStart > 0) ? Math.min(0.4, (now - S.holdStart) / 1000) : 0;
+            const centerText = held > 0 ? `${Math.max(0, 0.4 - held).toFixed(1)}s` : "OPEN 🖐️";
+            drawTargetCircle(hx, hy, r, "🎯 STEP 2: SPREAD ALL 5 FINGERS WIDE 🖐️", "#10B981", M.isOpenPalm, (held / 0.4), centerText);
           }
         }
 
@@ -388,15 +390,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
           if (S.step === 0) {
             const wyUp = 0.38 * H;
-            const isUp = (M.wristPitch != null && M.wristPitch >= 14) || (M.dev != null && M.dev >= 12);
-            const held = (isUp && S.holdStart > 0) ? Math.min(0.5, (now - S.holdStart) / 1000) : 0;
-            const centerText = held > 0 ? `${Math.max(0, 0.5 - held).toFixed(1)}s` : (M.wristPitch != null ? `${M.wristPitch}°` : "UP ⬆️");
-            drawTargetCircle(wx, wyUp, r, "🎯 STEP 1: TILT WRIST UP ⬆️ (≥14°)", "#38BDF8", isUp, (held / 0.5), centerText);
+            const isUp = (M.wristPitch != null && M.wristPitch >= 14) || (M.wristLift != null && M.wristLift >= 0.08) || (M.dev != null && M.dev >= 12);
+            const held = (isUp && S.holdStart > 0) ? Math.min(0.3, (now - S.holdStart) / 1000) : 0;
+            const centerText = held > 0 ? `${Math.max(0, 0.3 - held).toFixed(1)}s` : (M.wristPitch != null ? `${M.wristPitch}°` : "UP ⬆️");
+            drawTargetCircle(wx, wyUp, r, "🎯 STEP 1: TILT WRIST UP ⬆️ (≥14°)", "#38BDF8", isUp, (held / 0.3), centerText);
           } else {
             const wyLevel = 0.54 * H;
-            const isDown = (M.wristPitch != null && M.wristPitch <= 10) || (M.dev != null && M.dev <= 8);
+            const isDown = (M.wristPitch != null && M.wristPitch <= 12) || (M.wristLift != null && M.wristLift <= 0.04) || (M.dev != null && M.dev <= 10);
             const centerText = M.wristPitch != null ? `${M.wristPitch}°` : "LEVEL ↔️";
-            drawTargetCircle(wx, wyLevel, r, "🎯 STEP 2: RETURN WRIST DOWN TO LEVEL (≤10°)", "#10B981", isDown, 0, centerText);
+            drawTargetCircle(wx, wyLevel, r, "🎯 STEP 2: RETURN WRIST DOWN TO LEVEL (≤12°)", "#10B981", isDown, 0, centerText);
           }
         }
 
@@ -407,16 +409,16 @@ document.addEventListener("DOMContentLoaded", () => {
           const dy = 0.22 * H;
           const r = 54;
 
-          const held = (M.diagonalHit && S.holdStart > 0) ? Math.min(2.0, (now - S.holdStart) / 1000) : 0;
-          const centerText = held > 0 ? `${Math.max(0, 2.0 - held).toFixed(1)}s` : "HOLD 🎯";
-          drawTargetCircle(dx, dy, r, "🎯 TARGET: DIAGONAL STEADY HOLD (2s)", "#10B981", M.diagonalHit, (held / 2.0), centerText);
+          const held = (M.diagonalHit && S.holdStart > 0) ? Math.min(1.0, (now - S.holdStart) / 1000) : 0;
+          const centerText = held > 0 ? `${Math.max(0, 1.0 - held).toFixed(1)}s` : "HOLD 🎯";
+          drawTargetCircle(dx, dy, r, "🎯 TARGET: DIAGONAL STEADY HOLD (1s)", "#10B981", M.diagonalHit, (held / 1.0), centerText);
         }
 
         /* --- EXERCISE 6: Two-Target Horizontal Glide --- */
         else if (exKey === "ataxia_push") {
-          const s1x = 0.28 * W, s1y = 0.55 * H;
-          const s2x = 0.72 * W, s2y = 0.55 * H;
-          const r = 46;
+          const s1x = 0.32 * W, s1y = 0.52 * H;
+          const s2x = 0.68 * W, s2y = 0.52 * H;
+          const r = 48;
 
           // Horizontal guide rail
           oCtx.beginPath();
@@ -429,12 +431,12 @@ document.addEventListener("DOMContentLoaded", () => {
           oCtx.setLineDash([]);
 
           // Station 1 (Left Target Circle)
-          const s1Held = (S.step === 1 && M.s1Hit && S.holdStart > 0) ? Math.min(0.6, (now - S.holdStart) / 1000) : 0;
-          drawTargetCircle(s1x, s1y, r, S.step === 1 ? "🎯 STEP 2: RETURN TO S1" : "STATION 1 (LEFT)", "#38BDF8", M.s1Hit, (s1Held / 0.6), "S1");
+          const s1Held = (S.step === 1 && M.s1Hit && S.holdStart > 0) ? Math.min(0.4, (now - S.holdStart) / 1000) : 0;
+          drawTargetCircle(s1x, s1y, r, S.step === 1 ? "🎯 STEP 2: RETURN TO S1" : "STATION 1 (LEFT)", "#38BDF8", M.s1Hit, (s1Held / 0.4), "S1");
 
           // Station 2 (Right Target Circle)
-          const s2Held = (S.step === 0 && M.s2Hit && S.holdStart > 0) ? Math.min(0.6, (now - S.holdStart) / 1000) : 0;
-          drawTargetCircle(s2x, s2y, r, S.step === 0 ? "🎯 STEP 1: GLIDE TO S2" : "STATION 2 (RIGHT)", "#FBBF24", M.s2Hit, (s2Held / 0.6), "S2");
+          const s2Held = (S.step === 0 && M.s2Hit && S.holdStart > 0) ? Math.min(0.4, (now - S.holdStart) / 1000) : 0;
+          drawTargetCircle(s2x, s2y, r, S.step === 0 ? "🎯 STEP 1: GLIDE TO S2" : "STATION 2 (RIGHT)", "#FBBF24", M.s2Hit, (s2Held / 0.4), "S2");
         }
 
         /* --- EXERCISE 7: Open Palm Left & Right Rotation --- */
@@ -444,12 +446,12 @@ document.addEventListener("DOMContentLoaded", () => {
           const r = 46;
 
           // Left Rotational Target Circle
-          const lHeld = (S.step === 0 && M.rotateLeftHit && S.holdStart > 0) ? Math.min(0.4, (now - S.holdStart) / 1000) : 0;
-          drawTargetCircle(cx - 120, cy, r, "🎯 STEP 1: ROTATE LEFT ⬅️", "#38BDF8", M.rotateLeftHit, (lHeld / 0.4), "LEFT ⬅️");
+          const lHeld = (S.step === 0 && M.rotateLeftHit && S.holdStart > 0) ? Math.min(0.3, (now - S.holdStart) / 1000) : 0;
+          drawTargetCircle(cx - 120, cy, r, "🎯 STEP 1: ROTATE LEFT ⬅️", "#38BDF8", M.rotateLeftHit, (lHeld / 0.3), "LEFT ⬅️");
 
           // Right Rotational Target Circle
-          const rHeld = (S.step === 1 && M.rotateRightHit && S.holdStart > 0) ? Math.min(0.4, (now - S.holdStart) / 1000) : 0;
-          drawTargetCircle(cx + 120, cy, r, "🎯 STEP 2: ROTATE RIGHT ➡️", "#FBBF24", M.rotateRightHit, (rHeld / 0.4), "RIGHT ➡️");
+          const rHeld = (S.step === 1 && M.rotateRightHit && S.holdStart > 0) ? Math.min(0.3, (now - S.holdStart) / 1000) : 0;
+          drawTargetCircle(cx + 120, cy, r, "🎯 STEP 2: ROTATE RIGHT ➡️", "#FBBF24", M.rotateRightHit, (rHeld / 0.3), "RIGHT ➡️");
         }
 
         /* --- EXERCISE 8: Dynamic Moving Target Pursuit --- */
@@ -473,10 +475,10 @@ document.addEventListener("DOMContentLoaded", () => {
             oCtx.fill();
           }
 
-          const rem = M.pursuitRemaining != null ? M.pursuitRemaining : 10.0;
+          const rem = M.pursuitRemaining != null ? M.pursuitRemaining : 6.0;
           const centerText = `${rem.toFixed(1)}s`;
-          const heldProgress = (10.0 - rem) / 10.0;
-          const label = M.movingTargetHit ? "🎯 WRIST IN TARGET — COUNTING DOWN!" : "⚠️ KEEP WRIST INSIDE TARGET (10s)";
+          const heldProgress = (6.0 - rem) / 6.0;
+          const label = M.movingTargetHit ? "🎯 WRIST IN TARGET — COUNTING DOWN!" : "⚠️ KEEP WRIST INSIDE TARGET (6s)";
 
           drawTargetCircle(tx, ty, r, label, M.movingTargetHit ? "#00FF66" : "#F59E0B", M.movingTargetHit, heldProgress, centerText);
         }
@@ -488,12 +490,12 @@ document.addEventListener("DOMContentLoaded", () => {
           const r = 50;
 
           if (S.step === 0) {
-            const isPinched = (M.pinchRatio != null && M.pinchRatio <= 0.32) || (M.pinch != null && M.pinch <= 0.05);
-            const held = (isPinched && S.holdStart > 0) ? Math.min(0.5, (now - S.holdStart) / 1000) : 0;
-            const centerText = held > 0 ? `${Math.max(0, 0.5 - held).toFixed(1)}s` : "PINCH 🤏";
-            drawTargetCircle(px, py, r, "🎯 STEP 1: PINCH THUMB & INDEX 🤏", "#10B981", isPinched, (held / 0.5), centerText);
+            const isPinched = (M.pinchRatio != null && M.pinchRatio <= 0.36) || (M.pinch != null && M.pinch <= 0.065);
+            const held = (isPinched && S.holdStart > 0) ? Math.min(0.4, (now - S.holdStart) / 1000) : 0;
+            const centerText = held > 0 ? `${Math.max(0, 0.4 - held).toFixed(1)}s` : "PINCH 🤏";
+            drawTargetCircle(px, py, r, "🎯 STEP 1: PINCH THUMB & INDEX 🤏", "#10B981", isPinched, (held / 0.4), centerText);
           } else {
-            const isReleased = (M.pinchRatio != null && M.pinchRatio >= 0.40) || (M.pinch != null && M.pinch >= 0.08);
+            const isReleased = (M.pinchRatio != null && M.pinchRatio >= 0.38) || (M.pinch != null && M.pinch >= 0.075) || !!M.isOpenPalm;
             drawTargetCircle(px, py, r + 6, "🎯 STEP 2: RELEASE FINGERS WIDE 🖐️", "#38BDF8", isReleased, 0, "OPEN 🖐️");
           }
         }
@@ -601,7 +603,7 @@ document.addEventListener("DOMContentLoaded", () => {
     hintOn: false, secTick: 0,
     lastActionTime: Date.now(), guidanceShowing: false,
     shoulderBaselineY: null,
-    pursuitRemaining: 10.0,
+    pursuitRemaining: 6.0,
     pursuitLastTime: Date.now(),
   };
 
@@ -688,12 +690,13 @@ document.addEventListener("DOMContentLoaded", () => {
     const M = {
       elbowMax: null, elbowMin: null, elevMax: null, reach: 0, tilt: 0,
       spread: null, pinch: null, fan: null, dev: null, wristPitch: null,
-      wristVerticalAngle: null, tipX: null, tipY: null, speed: 0,
+      wristVerticalAngle: null, wristLift: null, activeElbow: null,
+      tipX: null, tipY: null, speed: 0,
       wristX: null, wristY: null, cornerHit: false, shoulderShrugHit: false,
       shoulderRelaxed: false, isFist: false, isOpenPalm: false, tipDistRatio: null,
       diagonalHit: false, s1Hit: false, s2Hit: false, rotateLeftHit: false,
       rotateRightHit: false, wristRotX: 0, movingTargetHit: false,
-      movingPursuitComplete: false, pursuitRemaining: 10.0, pinchRatio: null,
+      movingPursuitComplete: false, pursuitRemaining: 6.0, pinchRatio: null,
     };
 
     // Dynamic Moving Target Pursuit kinematics (ALWAYS calculated every frame)
@@ -748,22 +751,44 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       }
 
+      // Active single arm angle (avoids resting arm lockout)
+      if (c && c.sh && c.el && c.wr && (c.sh.x !== 0 || c.sh.y !== 0)) {
+        try {
+          let ang = null;
+          if (window.Kinematics && typeof Kinematics.calculateJointAngle === "function") {
+            ang = Kinematics.calculateJointAngle(c.sh, c.el, c.wr);
+          } else {
+            const v1x = c.sh.x - c.el.x, v1y = c.sh.y - c.el.y;
+            const v2x = c.wr.x - c.el.x, v2y = c.wr.y - c.el.y;
+            const dot = v1x * v2x + v1y * v2y;
+            const mag = Math.hypot(v1x, v1y) * Math.hypot(v2x, v2y);
+            if (mag > 0.0001) ang = (Math.acos(Math.max(-1, Math.min(1, dot / mag))) * 180) / Math.PI;
+          }
+          if (ang != null && !isNaN(ang)) {
+            M.activeElbow = ang;
+          }
+        } catch (e) {}
+      }
+
       // Active shoulder tracking for Shoulder Elevation / Shrug
       if (c && c.sh && (c.sh.x !== 0 || c.sh.y !== 0)) {
         M.sh = c.sh;
         if (S.shoulderBaselineY == null && c.sh.y > 0) {
           S.shoulderBaselineY = c.sh.y;
+        } else if (c.sh.y > S.shoulderBaselineY + 0.01) {
+          // Patient relaxed lower into chair
+          S.shoulderBaselineY = c.sh.y;
         }
         if (S.shoulderBaselineY != null) {
-          // Shrug target achieved when shoulder lifts up by >= 0.035
-          M.shoulderShrugHit = (c.sh.y <= S.shoulderBaselineY - 0.035);
+          // Shrug target achieved when shoulder lifts up by >= 0.025
+          M.shoulderShrugHit = (c.sh.y <= S.shoulderBaselineY - 0.025);
           // Shoulder lowered back down to resting baseline
-          M.shoulderRelaxed = (c.sh.y >= S.shoulderBaselineY - 0.015);
+          M.shoulderRelaxed = (c.sh.y >= S.shoulderBaselineY - 0.018);
         }
       }
 
       // 2. Active wrist point tracking
-      const wrist = (res.hand && res.hand[0]) || (c && c.wr) || (res.pose && (res.pose[16] || res.pose[15]));
+      const wrist = (res.hand && res.hand[0]) || (res.handAll && res.handAll[0]) || (c && c.wr) || (res.pose && (res.pose[16] || res.pose[15]));
       if (wrist) {
         M.wrist = wrist;
         M.wristX = wrist.x;
@@ -783,8 +808,8 @@ document.addEventListener("DOMContentLoaded", () => {
         M.diagonalHit = (dDiag <= 0.20);
 
         // Two-target horizontal stations (S1 & S2) for Ataxia Push
-        M.s1Hit = Math.hypot(wrist.x - 0.28, (wrist.y - 0.55) * 0.75) <= 0.18;
-        M.s2Hit = Math.hypot(wrist.x - 0.72, (wrist.y - 0.55) * 0.75) <= 0.18;
+        M.s1Hit = Math.hypot(wrist.x - 0.32, (wrist.y - 0.52) * 0.75) <= 0.20;
+        M.s2Hit = Math.hypot(wrist.x - 0.68, (wrist.y - 0.52) * 0.75) <= 0.20;
 
         // Moving pursuit hit check
         const dMov = Math.hypot(wrist.x - movX, (wrist.y - movY) * 0.75);
@@ -799,6 +824,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       // Moving pursuit reverse timer
       if (S.ex && S.ex.key === "moving_target_pursuit" && S.phase === "workout" && !S.paused) {
+        if (S.pursuitRemaining == null) S.pursuitRemaining = 6.0;
         const now = Date.now();
         const dt = Math.min(0.2, (now - (S.pursuitLastTime || now)) / 1000);
         S.pursuitLastTime = now;
@@ -806,26 +832,22 @@ document.addEventListener("DOMContentLoaded", () => {
         if (M.movingTargetHit) {
           S.pursuitInsideTime = now;
           S.pursuitRemaining = Math.max(0, S.pursuitRemaining - dt);
-        } else {
-          // If wrist is outside target for more than 450ms, reset countdown back to 10.0s
-          if (now - (S.pursuitInsideTime || 0) > 450) {
-            S.pursuitRemaining = 10.0;
-          }
         }
         M.pursuitRemaining = S.pursuitRemaining;
         M.movingPursuitComplete = (S.pursuitRemaining <= 0.05);
       }
 
-      // 3. Hand 21 Landmark Biometrics
-      if (res.hand && res.hand.length >= 21) {
+      // 3. Hand 21 Landmark Biometrics (supports array or indexed cache)
+      const hand = res.handAll || res.hand;
+      if (hand && (hand.length >= 21 || (hand[0] && hand[20]))) {
         // Palm scale (wrist 0 to middle MCP 9)
-        const palmScale = Math.max(0.04, Math.hypot(res.hand[9].x - res.hand[0].x, res.hand[9].y - res.hand[0].y));
-        const palmCenter = { x: (res.hand[0].x + res.hand[9].x) / 2, y: (res.hand[0].y + res.hand[9].y) / 2 };
+        const palmScale = Math.max(0.04, Math.hypot(hand[9].x - hand[0].x, hand[9].y - hand[0].y));
+        const palmCenter = { x: (hand[0].x + hand[9].x) / 2, y: (hand[0].y + hand[9].y) / 2 };
 
         // Scale-invariant finger extension ratio
         let sumDist = 0;
         [4, 8, 12, 16, 20].forEach((idx) => {
-          if (res.hand[idx]) sumDist += Math.hypot(res.hand[idx].x - palmCenter.x, res.hand[idx].y - palmCenter.y);
+          if (hand[idx]) sumDist += Math.hypot(hand[idx].x - palmCenter.x, hand[idx].y - palmCenter.y);
         });
         const tipDistRatio = (sumDist / 5) / palmScale;
         M.tipDistRatio = tipDistRatio;
@@ -835,49 +857,50 @@ document.addEventListener("DOMContentLoaded", () => {
         let curledFingers = 0;
         let openFingers = 0;
         [[8, 6], [12, 10], [16, 14], [20, 18]].forEach(([tipIdx, pipIdx]) => {
-          if (res.hand[tipIdx] && res.hand[pipIdx]) {
-            const distTip = Math.hypot(res.hand[tipIdx].x - palmCenter.x, res.hand[tipIdx].y - palmCenter.y);
-            const distPip = Math.hypot(res.hand[pipIdx].x - palmCenter.x, res.hand[pipIdx].y - palmCenter.y);
+          if (hand[tipIdx] && hand[pipIdx]) {
+            const distTip = Math.hypot(hand[tipIdx].x - palmCenter.x, hand[tipIdx].y - palmCenter.y);
+            const distPip = Math.hypot(hand[pipIdx].x - palmCenter.x, hand[pipIdx].y - palmCenter.y);
             if (distTip < distPip * 1.1) curledFingers++;
             else openFingers++;
           }
         });
 
-        M.isFist = (tipDistRatio <= 0.95) || (curledFingers >= 3);
-        M.isOpenPalm = (tipDistRatio >= 1.05) || (openFingers >= 3);
+        M.isFist = (tipDistRatio <= 0.96) || (curledFingers >= 3);
+        M.isOpenPalm = (tipDistRatio >= 1.04) || (openFingers >= 3);
 
         // Horizontal Wrist Up & Down (Pitch angle: wrist 0 vs middle knuckle 9)
-        if (res.hand[0] && (res.hand[9] || res.hand[12])) {
-          const wr = res.hand[0];
-          const kn = res.hand[9] || res.hand[12];
+        if (hand[0] && (hand[9] || hand[12])) {
+          const wr = hand[0];
+          const kn = hand[9] || hand[12];
           const dy = wr.y - kn.y;
           const dx = Math.abs(kn.x - wr.x);
           const pitch = (Math.atan2(dy, Math.max(0.02, dx)) * 180) / Math.PI;
           M.wristPitch = Math.round(pitch);
           M.wristVerticalAngle = M.wristPitch;
           M.dev = M.wristPitch;
+          M.wristLift = dy;
         }
 
         // Open Palm Left & Right Rotation (Knuckle lateral offset vs wrist)
-        if (res.hand[0] && (res.hand[9] || res.hand[12])) {
-          const wr = res.hand[0];
-          const kn = res.hand[9] || res.hand[12];
+        if (hand[0] && (hand[9] || hand[12])) {
+          const wr = hand[0];
+          const kn = hand[9] || hand[12];
           const rotX = kn.x - wr.x;
           M.wristRotX = rotX;
-          const isPalmOpen = (M.isOpenPalm || tipDistRatio >= 0.98);
-          M.rotateLeftHit = isPalmOpen && (rotX < -0.035);
-          M.rotateRightHit = isPalmOpen && (rotX > 0.035);
+          const isHandActive = (M.isOpenPalm || tipDistRatio >= 0.88 || curledFingers <= 2);
+          M.rotateLeftHit = isHandActive && (rotX < -0.028);
+          M.rotateRightHit = isHandActive && (rotX > 0.028);
         }
 
         // Scale-invariant Virtual Pincer Grasp (Thumb 4 to Index 8 / palmScale)
-        if (res.hand[4] && res.hand[8]) {
-          const pinchDist = Math.hypot(res.hand[4].x - res.hand[8].x, res.hand[4].y - res.hand[8].y);
+        if (hand[4] && hand[8]) {
+          const pinchDist = Math.hypot(hand[4].x - hand[8].x, hand[4].y - hand[8].y);
           M.pinch = pinchDist;
           M.pinchRatio = pinchDist / palmScale;
         }
 
         // Speed calculation
-        const tip = res.hand[8];
+        const tip = hand[8];
         if (tip) {
           M.tipX = tip.x; M.tipY = tip.y;
           const now = Date.now(), dt = (now - S.lastT) / 1000;
@@ -898,8 +921,10 @@ document.addEventListener("DOMContentLoaded", () => {
   function metricReadout(ex, M) {
     if (!ex || !M) return "—";
     switch (ex.key) {
-      case "elbow_ext":
-        return M.elbowMax != null ? `${Math.round(M.elbowMax)}° ${M.cornerHit ? "🎯 HIT" : ""}` : "—";
+      case "elbow_ext": {
+        const val = M.activeElbow != null ? M.activeElbow : M.elbowMax;
+        return val != null ? `${Math.round(val)}° ${M.cornerHit ? "🎯 HIT" : ""}` : "—";
+      }
       case "shoulder_raise":
         return M.shoulderShrugHit ? "SHRUG REACHED ⭐" : (M.shoulderRelaxed ? "REST BASELINE" : "LIFT SHOULDER");
       case "palm_open":
@@ -908,8 +933,8 @@ document.addEventListener("DOMContentLoaded", () => {
         return "MOVING...";
       case "wrist_stretch":
         if (M.wristPitch == null) return "—";
-        if (M.wristPitch >= 14) return `${M.wristPitch}° UP ⬆️`;
-        if (M.wristPitch <= 10) return `${M.wristPitch}° LEVEL ↔️`;
+        if (M.wristPitch >= 14 || (M.wristLift != null && M.wristLift >= 0.08)) return `${M.wristPitch}° UP ⬆️`;
+        if (M.wristPitch <= 12 || (M.wristLift != null && M.wristLift <= 0.04)) return `${M.wristPitch}° LEVEL ↔️`;
         return `${M.wristPitch}°`;
       case "ataxia_hold":
         return M.diagonalHit ? "LOCKED IN TARGET 🎯" : "REACH TARGET";
@@ -922,10 +947,10 @@ document.addEventListener("DOMContentLoaded", () => {
         if (M.rotateRightHit) return "ROTATED RIGHT ➡️";
         return "ROTATE HAND 🔄";
       case "moving_target_pursuit":
-        return M.movingTargetHit ? `${M.pursuitRemaining.toFixed(1)}s INSIDE 🛸` : "OUTSIDE (RESET) ⚠️";
+        return M.movingTargetHit ? `${M.pursuitRemaining.toFixed(1)}s INSIDE 🛸` : "REACH TARGET ⚠️";
       case "apraxia_pinch":
-        if ((M.pinchRatio != null && M.pinchRatio <= 0.32) || (M.pinch != null && M.pinch <= 0.05)) return "PINCH LOCKED 🤏";
-        if ((M.pinchRatio != null && M.pinchRatio >= 0.40) || (M.pinch != null && M.pinch >= 0.08)) return "OPEN WIDE 🖐️";
+        if ((M.pinchRatio != null && M.pinchRatio <= 0.36) || (M.pinch != null && M.pinch <= 0.065)) return "PINCH LOCKED 🤏";
+        if ((M.pinchRatio != null && M.pinchRatio >= 0.38) || (M.pinch != null && M.pinch >= 0.075) || M.isOpenPalm) return "OPEN WIDE 🖐️";
         return "PINCHING...";
       default:
         return M.elbowMax != null ? `${Math.round(M.elbowMax)}°` : "—";
@@ -976,27 +1001,30 @@ document.addEventListener("DOMContentLoaded", () => {
         "parm_rotate", "moving_target_pursuit", "apraxia_pinch"
       ].includes(S.ex.key);
 
-      const tiltThreshold = 25; // Clinical compensation threshold
+      const tiltThreshold = 28; // Clinical compensation threshold
       if (!isHandOrShoulderEx && M.tilt > tiltThreshold) {
-        if (!S.cheat) {
-          S.cheat = true;
-          $("cheat-banner").classList.add("show");
-          if (window.RehabBio) {
-            window.RehabBio.stopRomTone();
-            window.RehabBio.playCheatBuzz();
-            window.RehabBio.speak("Posture cheat detected: keep your shoulders level.", { priority: true });
-          }
-        }
         if (!S.tiltCheatStart) S.tiltCheatStart = Date.now();
-        if (Date.now() - S.tiltCheatStart > 400) {
-          S.holdStart = 0;
+        if (Date.now() - S.tiltCheatStart > 500) {
+          if (!S.cheat) {
+            S.cheat = true;
+            $("cheat-banner").classList.add("show");
+            if (window.RehabBio) {
+              window.RehabBio.stopRomTone();
+              window.RehabBio.playCheatBuzz();
+              window.RehabBio.speak("Posture cheat detected: keep your shoulders level.", { priority: true });
+            }
+          }
+          if (Date.now() - S.tiltCheatStart > 800) {
+            S.holdStart = 0;
+          }
+          return;
         }
-        return;
-      }
-      S.tiltCheatStart = 0;
-      if (S.cheat) {
-        S.cheat = false;
-        $("cheat-banner").classList.remove("show");
+      } else {
+        S.tiltCheatStart = 0;
+        if (S.cheat) {
+          S.cheat = false;
+          $("cheat-banner").classList.remove("show");
+        }
       }
 
       if (!S.ex || !S.ex.steps) return;
@@ -1010,7 +1038,7 @@ document.addEventListener("DOMContentLoaded", () => {
       // Update hold timer display on HUD
       if (S.ex.key === "moving_target_pursuit") {
         $("hold-display").textContent = `${Math.max(0, S.pursuitRemaining).toFixed(1)}s`;
-      } else if (step.hold > 0 && (ok || (S.holdStart > 0 && now - (S.lastOkTime || 0) < 300))) {
+      } else if (step.hold > 0 && (ok || (S.holdStart > 0 && now - (S.lastOkTime || 0) < 800))) {
         if (!S.holdStart) S.holdStart = now;
         const held = (now - S.holdStart) / 1000;
         $("hold-display").textContent = `${Math.max(0, step.hold - held).toFixed(1)}s`;
@@ -1025,8 +1053,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
         // Pitch-tone sonification for elbow ROM
         if (window.RehabBio) {
-          if (S.ex.metric && S.ex.metric.indexOf("ELBOW") === 0 && M.elbowMax != null) {
-            window.RehabBio.setRomTone(M.elbowMax, { minAngle: 40, maxAngle: 160 });
+          if (S.ex.metric && S.ex.metric.indexOf("ELBOW") === 0 && (M.activeElbow != null || M.elbowMax != null)) {
+            window.RehabBio.setRomTone(M.activeElbow != null ? M.activeElbow : M.elbowMax, { minAngle: 40, maxAngle: 160 });
           } else {
             window.RehabBio.stopRomTone();
           }
@@ -1065,8 +1093,8 @@ document.addEventListener("DOMContentLoaded", () => {
       } else {
         // Step condition not yet satisfied
         if (window.RehabBio) window.RehabBio.stopRomTone();
-        // 300ms Grace window before wiping holdStart to tolerate camera dropped frames
-        if (now - (S.lastOkTime || 0) > 300) {
+        // 800ms Grace window before wiping holdStart to tolerate camera dropped frames
+        if (now - (S.lastOkTime || 0) > 800) {
           S.holdStart = 0;
         }
         if (!S.stuckAt) S.stuckAt = now;
@@ -1090,7 +1118,7 @@ document.addEventListener("DOMContentLoaded", () => {
     S.rep++;
     S.step = 0;
     S.stuckAt = 0;
-    S.pursuitRemaining = 10.0;
+    S.pursuitRemaining = 6.0;
     S.lastActionTime = Date.now();
     renderSteps(S.ex, 0);
     $("rep-display").textContent = `${S.rep} / ${S.repsTarget}`;
@@ -1144,7 +1172,7 @@ document.addEventListener("DOMContentLoaded", () => {
     S.ex = S.queue[S.qi];
     S.set = 1; S.rep = 0; S.step = 0; S.holdStart = 0; S.stuckAt = 0;
     S.shoulderBaselineY = null;
-    S.pursuitRemaining = 10.0;
+    S.pursuitRemaining = 6.0;
     S.pursuitLastTime = Date.now();
     S.exStart = Date.now();
     S.lastActionTime = Date.now();
@@ -1352,7 +1380,7 @@ document.addEventListener("DOMContentLoaded", () => {
     S.ex = S.queue[S.qi];
     S.set = 1; S.rep = 0; S.step = 0; S.holdStart = 0; S.stuckAt = 0;
     S.shoulderBaselineY = null;
-    S.pursuitRemaining = 10.0;
+    S.pursuitRemaining = 6.0;
     S.pursuitLastTime = Date.now();
     S.exStart = Date.now();
     S.lastActionTime = Date.now();
@@ -1503,6 +1531,26 @@ document.addEventListener("DOMContentLoaded", () => {
       <div><b>${totalReps}</b><span>Total reps</span></div>
       <div><b>${Math.max(1, Math.round(totalSec / 60))}m</b><span>Active Movement</span></div></div>
       ${list}`;
+  }
+
+  // ---------- Test Hook --------------------------------------------------
+  if (typeof window !== "undefined") {
+    window.TherapyEngineTest = {
+      computeMetrics,
+      handleWorkoutFrame,
+      completeRep,
+      getState: () => S,
+      resetState: (initial = {}) => {
+        Object.assign(S, {
+          phase: "workout", queue: [], qi: 0, ex: null,
+          set: 1, rep: 0, step: 0, holdStart: 0,
+          repsTarget: 10, setsTarget: 3, restSec: 35, breakSec: 60,
+          paused: false, cheat: false, stuckAt: 0,
+          shoulderBaselineY: null, pursuitRemaining: 6.0,
+          lastActionTime: Date.now(),
+        }, initial);
+      },
+    };
   }
 
   // ---------- Boot -------------------------------------------------------
