@@ -580,7 +580,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function currentSelection() {
-    return [...selected].filter((k) => EXERCISES.some((e) => e.key === k));
+    return [...selected].map((k) => EXERCISES.find((e) => e.key === k)).filter(Boolean);
   }
 
   function updateSummary() {
@@ -1027,6 +1027,9 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       }
 
+      if (S.ex && typeof S.ex === "string") {
+        S.ex = EXERCISES.find((e) => e.key === S.ex);
+      }
       if (!S.ex || !S.ex.steps) return;
       const step = S.ex.steps[S.step];
       if (!step || typeof step.test !== "function") return;
@@ -1359,7 +1362,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   async function launchWorkout(isInitial = false) {
-    let queue = currentSelection();
+    let queue = currentSelection().map((e) => typeof e === "string" ? EXERCISES.find((x) => x.key === e) : e).filter(Boolean);
     if (!queue.length) {
       const exs = EXERCISES;
       if (exs.length) queue = [exs[0]];
@@ -1377,7 +1380,7 @@ document.addEventListener("DOMContentLoaded", () => {
     S.results = []; S.timerStart = 0; S.activeTimeMs = 0;
 
     // Load first exercise into state and HUD
-    S.ex = S.queue[S.qi];
+    S.ex = typeof S.queue[S.qi] === "string" ? EXERCISES.find((x) => x.key === S.queue[S.qi]) : S.queue[S.qi];
     S.set = 1; S.rep = 0; S.step = 0; S.holdStart = 0; S.stuckAt = 0;
     S.shoulderBaselineY = null;
     S.pursuitRemaining = 6.0;
