@@ -1,0 +1,585 @@
+\documentclass[aspectratio=169,11pt]{beamer}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{array}
+
+\usetheme{Madrid}
+\usecolortheme{default}
+
+%------------------------------------------------------------
+% Layout & Margins: Generous Widescreen Padding (No edge clipping)
+%------------------------------------------------------------
+\setbeamersize{text margin left=8mm, text margin right=8mm}
+
+%------------------------------------------------------------
+% Medical-Grade Light-Medium Green Theme (Pure White Background)
+%------------------------------------------------------------
+\definecolor{MedGreen}{RGB}{14, 148, 112}       % Primary Clinical Green
+\definecolor{DarkGreen}{RGB}{8, 84, 64}         % Dark Green Accent
+\definecolor{LightMint}{RGB}{242, 250, 247}     % Soft Light-Mint Card Fill
+\definecolor{BorderGreen}{RGB}{170, 222, 206}   % Delicate Card Border
+\definecolor{TextDark}{RGB}{20, 32, 48}         % High-contrast Body Text
+\definecolor{AlertRed}{RGB}{220, 38, 38}        % Clinical Alert Red
+
+% Canvas background
+\setbeamercolor{background canvas}{bg=white}
+\setbeamercolor{normal text}{fg=TextDark}
+
+% Slide Title & Structure
+\setbeamercolor{structure}{fg=DarkGreen}
+\setbeamercolor{frametitle}{fg=white,bg=MedGreen}
+\setbeamerfont{frametitle}{size=\Large,series=\bfseries}
+
+% Clean, Readable Blocks (Light Mint body with Green Title)
+\setbeamercolor{block title}{bg=MedGreen,fg=white}
+\setbeamercolor{block body}{bg=LightMint,fg=TextDark}
+\setbeamerfont{block title}{size=\small,series=\bfseries}
+\setbeamerfont{block body}{size=\footnotesize}
+
+% Alert Block (Posture Cheat / Gaps)
+\setbeamercolor{block title alerted}{bg=AlertRed,fg=white}
+\setbeamercolor{block body alerted}{bg=AlertRed!6,fg=TextDark}
+\setbeamerfont{block title alerted}{size=\small,series=\bfseries}
+\setbeamerfont{block body alerted}{size=\footnotesize}
+
+% Example Block
+\setbeamercolor{block title example}{bg=DarkGreen,fg=white}
+\setbeamercolor{block body example}{bg=LightMint,fg=TextDark}
+\setbeamerfont{block title example}{size=\small,series=\bfseries}
+\setbeamerfont{block body example}{size=\footnotesize}
+
+% Bullet points styling
+\setbeamercolor{itemize item}{fg=MedGreen}
+\setbeamercolor{itemize subitem}{fg=DarkGreen}
+\setbeamercolor{enumerate item}{fg=MedGreen}
+\setbeamertemplate{navigation symbols}{}
+
+%------------------------------------------------------------
+% Highly Visible Bottom Status Bar
+%------------------------------------------------------------
+\setbeamertemplate{footline}{
+  \leavevmode%
+  \hbox{%
+  \begin{beamercolorbox}[wd=.36\paperwidth,ht=3.2ex,dp=1.2ex,left,leftskip=5mm]{footL}%
+    \usebeamerfont{author in head/foot}\textcolor{white}{\textbf{Group A-12 · Dept of AI}}
+  \end{beamercolorbox}%
+  \begin{beamercolorbox}[wd=.40\paperwidth,ht=3.2ex,dp=1.2ex,center]{footC}%
+    \usebeamerfont{title in head/foot}\textcolor{white}{\textbf{RehabOpt-AR · Final Review}}
+  \end{beamercolorbox}%
+  \begin{beamercolorbox}[wd=.24\paperwidth,ht=3.2ex,dp=1.2ex,right,rightskip=5mm]{footR}%
+    \usebeamerfont{date in head/foot}\textcolor{white}{\textbf{Slide \insertframenumber{} / \inserttotalframenumber}}
+  \end{beamercolorbox}}%
+  \vskip0pt%
+}
+\setbeamercolor{footL}{bg=MedGreen}
+\setbeamercolor{footC}{bg=DarkGreen}
+\setbeamercolor{footR}{bg=MedGreen}
+
+%------------------------------------------------------------
+% Title Configuration (Clean Project Name in Heading)
+%------------------------------------------------------------
+\title[\textbf{RehabOpt-AR}]{\Huge \textbf{RehabOpt-AR}}
+\subtitle{\Large Vision-Based AR Telerehabilitation Suite for Stroke Recovery}
+\author[\textbf{Group A-12}]{\textbf{Department of Artificial Intelligence}}
+\institute[Amrita Vishwa Vidyapeetham]
+{
+  \textbf{Instructor: Dr. Suman Dutta}\\
+  \vspace{1mm}
+  \textbf{Group A-12} · Amrita School of Artificial Intelligence, Coimbatore
+}
+\date{\textbf{Final Project Review · October 2026}}
+
+%------------------------------------------------------------
+\begin{document}
+
+% ==================== SLIDE 1 ====================
+\begin{frame}[plain]
+\titlepage
+\end{frame}
+
+% ==================== SLIDE 2 ====================
+\begin{frame}{Project Team · Group A-12}
+\vspace{-1mm}
+\begin{center}
+\textbf{\large Department of Artificial Intelligence · Course Instructor: Dr. Suman Dutta}
+\end{center}
+\vspace{2mm}
+
+\begin{columns}[T]
+\column{0.48\textwidth}
+\begin{block}{ATHUL.V.R}
+\textbf{Roll No}: CB.AI.U4AID25005\\
+\textit{Core Kinematics, AR Visual Overlays \& Two-Phase Rep Logic}
+\end{block}
+
+\vspace{3mm}
+\begin{block}{TVSS PHANINDRA GUPTA}
+\textbf{Roll No}: CB.AI.U4AID25055\\
+\textit{Anti-Cheat Posture Lockout \& ADL Motor Task Engine}
+\end{block}
+
+\column{0.48\textwidth}
+\begin{block}{M VITTAL}
+\textbf{Roll No}: CB.AI.U4AID25033\\
+\textit{Arcade Neuro-Games Arena \& Parametric Air-Canvas Drawing}
+\end{block}
+
+\vspace{3mm}
+\begin{block}{K NANDA KISHORE}
+\textbf{Roll No}: CB.AI.U4AID25027\\
+\textit{Clinical Telemetry Reports, Backend API \& Testing Verification}
+\end{block}
+\end{columns}
+\end{frame}
+
+% ==================== SLIDE 3 ====================
+\begin{frame}{Table of Contents}
+\vspace{-2mm}
+\begin{columns}[T]
+\column{0.48\textwidth}
+\begin{block}{Phase I: Motivation \& Literature}
+\begin{itemize}
+    \item \textbf{01} · Project Overview \& Clinical Challenge
+    \item \textbf{02} · System Architecture \& 4 Unified Sessions
+    \item \textbf{03} · Literature Review (4 Benchmark Works)
+    \item \textbf{04} · Research Gap \& Proposed Solution
+    \item \textbf{05} · Project Objectives
+    \item \textbf{06} · Methodology \& Modular Pipeline
+    \item \textbf{07} · Mathematical Foundation: Real-Time Layer (I)
+\end{itemize}
+\end{block}
+
+\column{0.48\textwidth}
+\begin{block}{Phase II: Implementation \& Validation}
+\begin{itemize}
+    \item \textbf{08} · Mathematical Foundation: Real-Time Layer (II)
+    \item \textbf{09} · Analytical \& Clinical Math Extensions
+    \item \textbf{10} · The 9 Clinical Stroke Exercise Protocol
+    \item \textbf{11} · Anti-Cheat Engine \& 60 FPS AR Canvas
+    \item \textbf{12} · ADL Lab: 7 Functional Daily Living Tasks
+    \item \textbf{13} · Experimental Validation \& 49/49 Unit Tests
+    \item \textbf{14} · Conclusion \& Demonstration
+\end{itemize}
+\end{block}
+\end{columns}
+\end{frame}
+
+% ==================== SLIDE 4 ====================
+\begin{frame}{01 · Project Overview \& Clinical Challenge}
+\begin{columns}[T]
+\column{0.48\textwidth}
+\begin{alertblock}{The Clinical Problem}
+\begin{itemize}
+    \item \textbf{Stroke Burden}: Leading cause of adult motor disability; over 80\% of acute survivors suffer upper-limb hemiparesis.
+    \item \textbf{Neuroplasticity}: Effective recovery demands high-repetition, consistent, goal-oriented daily training.
+    \item \textbf{Clinic Barriers}: Clinic visits are expensive, require transport, and home paper-sheet adherence is $<30\%$.
+\end{itemize}
+\end{alertblock}
+
+\column{0.48\textwidth}
+\begin{block}{The RehabOpt-AR Solution}
+\begin{itemize}
+    \item \textbf{Zero-Cost Hardware}: 100\% markerless tele-rehabilitation using standard laptop webcams.
+    \item \textbf{Full Upper-Limb Chain}: Tracks shoulders, elbows, wrists, and all 21 hand joints simultaneously.
+    \item \textbf{Explainable Motion-Math}: Deterministic goniometry replaces uninterpretable black-box models.
+\end{itemize}
+\end{block}
+\end{columns}
+\end{frame}
+
+% ==================== SLIDE 5 ====================
+\begin{frame}{02 · System Architecture \& 4 Unified Sessions}
+\begin{columns}[T]
+\column{0.48\textwidth}
+\begin{block}{Session 1: Authentication \& Security}
+\begin{itemize}
+    \item Auto-generated Patient IDs (\texttt{SP-00000000X}).
+    \item SQLite database with password hashing \& streaks (🔥).
+\end{itemize}
+\end{block}
+
+\vspace{2mm}
+\begin{block}{Session 2: Clinical Dashboard}
+\begin{itemize}
+    \item One-click therapy launch for daily prescribed routines.
+    \item Multimodal medical report parsing assistant.
+\end{itemize}
+\end{block}
+
+\column{0.48\textwidth}
+\begin{block}{Session 3: Interactive Therapy Arena}
+\begin{itemize}
+    \item \textbf{9 Clinical Exercises} with two-phase rep counting.
+    \item \textbf{7 ADL Daily Tasks} \& \textbf{4 Arcade Games}.
+    \item 3D Air-Canvas neon finger drawing therapy.
+\end{itemize}
+\end{block}
+
+\vspace{2mm}
+\begin{block}{Session 4: Telemetry \& Clinical Reports}
+\begin{itemize}
+    \item Live ROM goniometry \& 0–100 smoothness index.
+    \item FFT tremor spectrum (4–12 Hz) \& exportable PDF report.
+\end{itemize}
+\end{block}
+\end{columns}
+\end{frame}
+
+% ==================== SLIDE 6 ====================
+\begin{frame}{03 · Literature Review (4 Benchmark Works)}
+\small
+\begin{table}[]
+\centering
+\begin{tabular}{p{2.6cm}p{3.2cm}p{4.2cm}p{3.8cm}}
+\toprule
+\textbf{Paper \& Author} & \textbf{Dataset / Topic} & \textbf{Methodology \& Reported Results} & \textbf{Identified Limitations} \\
+\midrule
+\textbf{UI-PRMD}\newline Vakanski (2018)\newline \textit{IEEE Access} & Upper-body rehab exercise classification & 10 healthy + 10 stroke subjects, Kinect v2, DTW classification (100\% acc) & Requires Kinect hardware; body-only (no fingers); no live quality scoring. \\
+\midrule
+\textbf{KIMORE}\newline Capecci (2019)\newline \textit{IEEE TNSRE} & Kinematic features for stroke rehab & 5 exercises across 77 subjects using Kinect; extracted angles \& ROM correlations & Offline analysis only; sensor dependent; lacks real-time biofeedback. \\
+\midrule
+\textbf{MediaPipe}\newline Lugaresi (2019)\newline \textit{arXiv:1906.08172} & On-device perception framework & Real-time graph pipeline for synchronized pose, hand, and face tracking & Perception framework only; lacks clinical logic and rep state machines. \\
+\midrule
+\textbf{Organizing Principle}\newline Hogan, N. (1984)\newline \textit{J. Neuroscience} & Mathematical model of smooth movement & Derived minimum-jerk trajectory by minimizing squared jerk integral & Planar theoretical model; lacks vision integration and joint constraints. \\
+\bottomrule
+\end{tabular}
+\end{table}
+\end{frame}
+
+% ==================== SLIDE 7 ====================
+\begin{frame}{04 · Research Gap \& Proposed Solution}
+\begin{columns}[T]
+\column{0.48\textwidth}
+\begin{alertblock}{Identified Research Gaps}
+\begin{itemize}
+    \item \textbf{Cost Barrier}: Dedicated sensor suits ($>\$1000$) or Kinect hardware prevent home deployment.
+    \item \textbf{Torso-Only Limitations}: Tools ignore fine-motor wrist pitch and pincer finger articulation.
+    \item \textbf{Unchecked Cheating}: Patients lean body sideways instead of moving paretic arm.
+    \item \textbf{Therapy Fatigue}: Monotonous exercise causes rapid patient abandonment.
+\end{itemize}
+\end{alertblock}
+
+\column{0.48\textwidth}
+\begin{block}{RehabOpt-AR Novelty}
+\begin{itemize}
+    \item \textbf{Zero Hardware Barrier}: Standard RGB laptop webcam; 0 ms server network latency.
+    \item \textbf{Full Kinematic Chain}: Shoulder, elbow, wrist + 21-point hand skeleton mesh.
+    \item \textbf{Anti-Cheat Posture Lock}: Real-time trunk tilt compensation filter ($>25^\circ$).
+    \item \textbf{Dual Gamification}: Functional ADL tasks + 4 arcade games + 3D air-canvas.
+\end{itemize}
+\end{block}
+\end{columns}
+\end{frame}
+
+% ==================== SLIDE 8 ====================
+\begin{frame}{05 · Project Objectives}
+\begin{block}{Primary Engineering \& Clinical Goals}
+\begin{itemize}
+    \item \textbf{▶ Synchronous Edge Vision}: Real-time 60 FPS tracking of upper-limb and hand joints in-browser without external hardware.
+    \item \textbf{▶ 9 Clinical Stroke Protocols}: Fully validated protocols covering shoulder, elbow, wrist, and fine-motor finger grasp.
+    \item \textbf{▶ Anti-Cheat Trunk Posture Engine}: Mathematical slope filter that freezes exercise when body lean exceeds $25^\circ$.
+    \item \textbf{▶ Two-Phase State Machines}: Milestone-locked half-reps (0.5) and full-reps (1.0) preventing shallow or dropped swings.
+    \item \textbf{▶ Deterministic Motion-Math Core}: Verifiable vector goniometry, jerk smoothness scoring, and FFT tremor isolation.
+    \item \textbf{▶ Functional ADL Task Simulation}: 7 simulated real-world daily tasks for practical motor independence.
+    \item \textbf{▶ Closed-Loop Biofeedback}: Auditory pitch-tone sonification and visual AR target progress indicators.
+\end{itemize}
+\end{block}
+\end{frame}
+
+% ==================== SLIDE 9 ====================
+\begin{frame}{06 · Methodology \& Modular Pipeline}
+\begin{columns}[T]
+\column{0.48\textwidth}
+\begin{block}{1. Video Ingestion \& Vision Layer}
+\begin{itemize}
+    \item 30/60 FPS webcam frame capture.
+    \item MediaPipe Holistic pipeline extracts 33 Pose + 21 Hand mesh landmarks in local WebAssembly worker.
+\end{itemize}
+\end{block}
+
+\vspace{2mm}
+\begin{block}{2. The Motion-Math Kinematic Core}
+\begin{itemize}
+    \item Vector dot products calculate real-time joint angles ($\theta$).
+    \item Anti-cheat engine continuously checks shoulder slope.
+\end{itemize}
+\end{block}
+
+\column{0.48\textwidth}
+\begin{block}{3. Two-Phase Repetition Engine}
+\begin{itemize}
+    \item \textbf{Phase 1}: Target reach + isometric hold (0.4s–1.2s) $\rightarrow$ \textbf{Half Rep (0.5)}.
+    \item \textbf{Phase 2}: Eccentric return to baseline $\rightarrow$ \textbf{Full Rep (1.0)}.
+    \item 300ms grace window absorbs camera dropped frames.
+\end{itemize}
+\end{block}
+
+\vspace{2mm}
+\begin{block}{4. Feedback \& Clinical Reporting}
+\begin{itemize}
+    \item Web Audio API continuous ROM pitch-tone sonification.
+    \item Session telemetry compiled into exportable clinical reports.
+\end{itemize}
+\end{block}
+\end{columns}
+\end{frame}
+
+% ==================== SLIDE 10 ====================
+\begin{frame}{07 · Mathematical Foundation: Real-Time Layer (Part 1)}
+\begin{columns}[T]
+\column{0.48\textwidth}
+\begin{block}{$C_1$ · Joint Goniometry (Elbow \& Shoulder)}
+$$\theta = \arccos\left(\frac{\vec{a} \cdot \vec{b}}{\|\vec{a}\| \|\vec{b}\|}\right) \times \frac{180^\circ}{\pi}$$
+\begin{itemize}
+    \item $\vec{a} = \vec{P}_{\text{sh}} - \vec{P}_{\text{el}}$, $\vec{b} = \vec{P}_{\text{wr}} - \vec{P}_{\text{el}}$.
+    \item Evaluates real-time elbow angle for extension ($\ge 140^\circ$) and flexion return ($< 125^\circ$).
+\end{itemize}
+\end{block}
+
+\column{0.48\textwidth}
+\begin{block}{$C_2$ · Target Interception Collision}
+$$d = \sqrt{(\Delta x)^2 + (\Delta y)^2} \le r_{\text{target}}$$
+\begin{itemize}
+    \item Evaluates when patient's wrist or fingertip reaches target.
+    \item Drives collision detection in arcade arena and AR targets.
+\end{itemize}
+\end{block}
+\end{columns}
+
+\vspace{2mm}
+\begin{block}{$C_3$ · Scale-Invariant Palm Dispersion (Fist vs. Spread)}
+$$\text{Spread Ratio} = \frac{\frac{1}{5}\sum_{i \in \{4,8,12,16,20\}} \|\vec{P}_i - \vec{P}_{\text{palmCenter}}\|}{\|\vec{P}_9 - \vec{P}_0\|}$$
+\begin{itemize}
+    \item Normalized against palm scale ($\|\vec{P}_9 - \vec{P}_0\|$) for size-invariant tracking.
+    \item Deterministic gating: $\text{Ratio} \le 0.95 \implies \text{Closed Fist ✊}$; $\text{Ratio} \ge 1.05 \implies \text{Open Palm 🖐️}$.
+\end{itemize}
+\end{block}
+\end{frame}
+
+% ==================== SLIDE 11 ====================
+\begin{frame}{08 · Mathematical Foundation: Real-Time Layer (Part 2)}
+\begin{columns}[T]
+\column{0.48\textwidth}
+\begin{alertblock}{$E_1$ · Anti-Cheat Trunk Lateral Tilt Angle}
+$$\text{Tilt} = \left|\arctan2(\Delta y_{\text{sh}}, \Delta x_{\text{sh}})\right| \times \frac{180^\circ}{\pi}$$
+\begin{itemize}
+    \item Evaluates inter-shoulder line slope.
+    \item If $\text{Tilt} > 25^\circ$, session locks out and buzzes: \textit{"Posture cheat detected: keep shoulders level."}
+    \item Contextually exempted for shoulder shrugs.
+\end{itemize}
+\end{alertblock}
+
+\column{0.48\textwidth}
+\begin{block}{$E_2$ · Scale-Invariant Pincer Grasp Ratio}
+$$\text{Pinch Ratio} = \frac{\|\vec{P}_4 - \vec{P}_8\|}{\|\vec{P}_9 - \vec{P}_0\|}$$
+\begin{itemize}
+    \item Distance between thumb tip (4) and index tip (8).
+    \item Step 1: Ratio $\le 0.32$ (Pinch locked 🤏).
+    \item Step 2: Ratio $\ge 0.40$ (Release wide 🖐️).
+    \item Independent of patient hand size.
+\end{itemize}
+\end{block}
+\end{columns}
+
+\vspace{2mm}
+\begin{block}{$C_4$ · Fast Fourier Transform (Tremor Isolation)}
+$$X[k] = \sum_{n=0}^{N-1} x[n] \cdot e^{-j \frac{2\pi kn}{N}}$$
+\begin{itemize}
+    \item Converts wrist position buffer time-series into frequency domain.
+    \item Detects pathological frequency spikes in the clinical 4–12 Hz tremor spectrum.
+\end{itemize}
+\end{block}
+\end{frame}
+
+% ==================== SLIDE 12 ====================
+\begin{frame}{09 · Analytical \& Clinical Math Extensions}
+\begin{columns}[T]
+\column{0.48\textwidth}
+\begin{block}{$S_1$ · Movement Smoothness Index (0–100)}
+$$\text{Score} = 100 - \min\left(100, 20\log_{10}\left(\frac{\frac{1}{2}\int \text{Jerk}^2 dt \cdot T^5}{D^2}\right)\right)$$
+\begin{itemize}
+    \item Jerk computed via discrete finite differences.
+    \item Normalizes dimensionless jerk into 0–100 clinical score.
+\end{itemize}
+\end{block}
+
+\begin{block}{$E_3$ · Signed Wrist Pitch Angle}
+$$\text{Pitch} = \arctan2(\Delta y_{\text{hand}}, \Delta x_{\text{hand}}) \times \frac{180^\circ}{\pi}$$
+\begin{itemize}
+    \item Upward cocking $\ge 14^\circ \rightarrow$ level return $\le 10^\circ$.
+\end{itemize}
+\end{block}
+
+\column{0.48\textwidth}
+\begin{block}{$P_1$ · Harmonic Pursuit Trajectory}
+$$\begin{cases} X_{\text{orb}}(t) = 0.50 + 0.28\sin(0.65t) \\ Y_{\text{orb}}(t) = 0.48 + 0.08\sin(1.30t) \end{cases}$$
+\begin{itemize}
+    \item Generates smooth sinusoidal gliding target orb.
+    \item Live reverse countdown; resets if wrist leaves $>450$ ms.
+\end{itemize}
+\end{block}
+
+\begin{block}{$B_1$ · Auditory Biofeedback Sonification}
+$$f(\theta) = f_{\min} + \left(\frac{\theta - \theta_{\min}}{\theta_{\max} - \theta_{\min}}\right)(f_{\max} - f_{\min})$$
+\begin{itemize}
+    \item Live ROM mapped continuously from 220 Hz to 880 Hz.
+\end{itemize}
+\end{block}
+\end{columns}
+\end{frame}
+
+% ==================== SLIDE 13 ====================
+\begin{frame}{10 · Final Implementation: 9 Clinical Exercises Protocol}
+\small
+\begin{table}[]
+\centering
+\begin{tabular}{lp{4.2cm}p{4.2cm}c}
+\toprule
+\textbf{Ex} & \textbf{Exercise Name} & \textbf{Clinical Thresholds} & \textbf{Hold} \\
+\midrule
+\textbf{1} & Elbow Extension \& Flexion & Angle $\ge 140^\circ$ / Corner $\rightarrow$ Flex $< 125^\circ$ & 0.6s \\
+\textbf{2} & Shoulder Elevation (Shrug) & Shrug lift $\ge 3.5\%$ screen $\rightarrow$ Return baseline & 1.2s \\
+\textbf{3} & Hand Open \& Close & Tight fist $\le 0.95$ $\rightarrow$ Open palm $\ge 1.05$ & 0.4s / 0.5s \\
+\textbf{4} & Horizontal Wrist Up/Down & Cock wrist UP $\ge 14^\circ$ $\rightarrow$ Level return $\le 10^\circ$ & 0.5s \\
+\textbf{5} & Diagonal Reach \& Hold & Reach diagonal target + maintain steady hold & 2.0s \\
+\textbf{6} & Two-Target Horizontal Glide & Glide to Station 2 $\rightarrow$ Glide to Station 1 & 0.6s / 0.6s \\
+\textbf{7} & Open Palm L/R Rotation & Knuckle lateral shift $<-0.035 \rightarrow >0.035$ & 0.4s / 0.4s \\
+\textbf{8} & Dynamic Moving Pursuit & Harmonic orb pursuit with 10s countdown & 10.0s \\
+\textbf{9} & Virtual Pincer Grasp & Pinch Thumb-Index $\le 0.32 \rightarrow$ Release $\ge 0.40$ & 0.5s \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{block}{Two-Phase Repetition Architecture}
+\textbf{Phase 1}: Target reach + isometric hold $\rightarrow$ \textbf{Half Rep (0.5)}. \hspace{4mm}
+\textbf{Phase 2}: Controlled return $\rightarrow$ \textbf{Full Rep (1.0)}.
+\end{block}
+\end{frame}
+
+% ==================== SLIDE 14 ====================
+\begin{frame}{11 · Anti-Cheat Engine \& 60 FPS AR Canvas}
+\begin{columns}[T]
+\column{0.48\textwidth}
+\begin{block}{High-Visibility AR Overlay}
+\begin{itemize}
+    \item \textbf{Concentric Target Rings}: Bullseye center dot, crosshairs, and outer pulsating radar waves.
+    \item \textbf{Circular Hold Gauge}: Radial green progress arc fills smoothly as hold duration advances.
+    \item \textbf{Live Skeletal Overlay}: Green bones (\#00C853) with yellow joint tags and floating live degree readout.
+    \item \textbf{21 Hand Landmarks}: Red joint dots with index fingertip targeting halo.
+\end{itemize}
+\end{block}
+
+\column{0.48\textwidth}
+\begin{block}{Jitter Protection \& Anti-Cheat}
+\begin{itemize}
+    \item \textbf{Trunk Tilt Lockout ($>25^\circ$)}: Enforces true arm movement; stops torso lean cheating.
+    \item \textbf{300ms Hold Grace Window}: Brief camera frame drops do not erase patient hold progress.
+    \item \textbf{Non-Blocking Bottom Card}: Guidance instructions docked at bottom leave video workspace 100\% visible.
+\end{itemize}
+\end{block}
+\end{columns}
+\end{frame}
+
+% ==================== SLIDE 15 ====================
+\begin{frame}{12 · ADL Lab: 7 Functional Daily Living Simulations}
+\begin{columns}[T]
+\column{0.48\textwidth}
+\begin{block}{Functional Task Simulations}
+\begin{enumerate}
+    \item \textbf{Balloon Pump}: Open hand grasp + closed fist pumping action to inflate and pop balloon.
+    \item \textbf{Water Reservoir}: Transfer water between 4 tanks with cupped palm.
+    \item \textbf{Light Switch}: Ballistic upward wrist flick to illuminate virtual room.
+    \item \textbf{ATM PIN Pad}: Index fingertip targeting with 90px sticky hit-boxes.
+\end{enumerate}
+\end{block}
+
+\column{0.48\textwidth}
+\begin{block}{Fine-Motor \& Elevation Tasks}
+\begin{enumerate}
+    \setcounter{enumi}{4}
+    \item \textbf{Pour the Water}: Forearm pronation tilt tracking liquid flow volume into glass.
+    \item \textbf{Cup Shelf Lift}: Grasp cup, anti-gravity vertical elevation, placement on shelf.
+    \item \textbf{Clean Window Dust}: Index scrubbing coverage reaching $\ge 90\%$ surface dust removal.
+\end{enumerate}
+\end{block}
+
+\vspace{1mm}
+\begin{exampleblock}{Arcade Arena \& 3D Air-Canvas}
+4 neuro-arcade reflex games + 3D neon air-canvas drawing.
+\end{exampleblock}
+\end{columns}
+\end{frame}
+
+% ==================== SLIDE 16 ====================
+\begin{frame}{13 · Experimental Validation \& Test Results}
+\small
+\begin{table}[]
+\centering
+\begin{tabular}{lccc}
+\toprule
+\textbf{Verification Suite} & \textbf{Tests Executed} & \textbf{Pass Rate} & \textbf{Status} \\
+\midrule
+\textbf{Clinical Exercises (Phase 1/2 Reps)} & 13 & 100\% (13 / 13) & \textbf{PASSED} \\
+\textbf{ADL Kinematic Motor Engine} & 12 & 100\% (12 / 12) & \textbf{PASSED} \\
+\textbf{Backend Security \& Telemetry API} & 24 & 100\% (24 / 24) & \textbf{PASSED} \\
+\midrule
+\textbf{Total System Validations} & \textbf{49} & \textbf{100\% (49 / 49)} & \textbf{PASSED} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\vspace{1mm}
+\begin{columns}[T]
+\column{0.48\textwidth}
+\begin{block}{System Performance Telemetry}
+\begin{itemize}
+    \item \textbf{AR Render Rate}: Sustained 60 FPS.
+    \item \textbf{CV Latency}: 0 ms network lag (runs completely in browser via WebAssembly).
+    \item \textbf{Cheating Rate}: 0\% unpenalized cheat.
+\end{itemize}
+\end{block}
+
+\column{0.48\textwidth}
+\begin{block}{Platform Reliability Verified}
+\begin{itemize}
+    \item All 7 core web routes return HTTP 200 OK.
+    \item Zero NaN coordinates or math overflow errors.
+    \item Automated session export to clinical PDF report.
+\end{itemize}
+\end{block}
+\end{columns}
+\end{frame}
+
+% ==================== SLIDE 17 ====================
+\begin{frame}{14 · Conclusion \& Clinical Impact}
+\begin{block}{Key Contributions \& Takeaways}
+\begin{itemize}
+    \item \textbf{▶ Hardware Democratization}: Eliminates expensive $\$1000+$ sensor suits; full upper-limb tele-rehabilitation runs on standard laptop webcams.
+    \item \textbf{▶ Complete Kinematic Chain}: Synchronous tracking of shoulders, elbows, wrists, and all 21 hand landmarks.
+    \item \textbf{▶ 100\% Explainable Math Core}: Replaces opaque black-box deep learning with verifiable vector geometry, convex formulations, and the 10 core formulas.
+    \item \textbf{▶ Repetition Integrity}: Milestone-locked half-reps (0.5) and full-reps (1.0) with anti-cheat trunk tilt prevention guarantee genuine therapeutic progress.
+    \item \textbf{▶ Maximized Engagement}: Combines 9 clinical exercises, 7 functional ADL tasks, 4 arcade games, 3D air-canvas, and real-time audio biofeedback.
+\end{itemize}
+\end{block}
+\end{frame}
+
+% ==================== SLIDE 18 ====================
+\begin{frame}[plain]
+\begin{center}
+    \vspace{8mm}
+    \Huge \textbf{\textcolor{DarkGreen}{RehabOpt-AR}}\\
+    \vspace{3mm}
+    \Large \textit{Autonomous Vision-Based AR Tele-Rehabilitation Suite for Stroke Recovery}\\
+    \vspace{8mm}
+    \huge \textbf{\textcolor{MedGreen}{Thank You!}}\\
+    \vspace{6mm}
+    \large \textbf{Questions \& Live Demonstration}\\
+    \vspace{4mm}
+    \normalsize
+    Department of Artificial Intelligence · Group A-12\\
+    Amrita Vishwa Vidyapeetham
+\end{center}
+\end{frame}
+
+\end{document}
