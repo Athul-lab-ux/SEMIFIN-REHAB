@@ -456,19 +456,23 @@ document.addEventListener("DOMContentLoaded", () => {
 
         /* --- EXERCISE 8: Dynamic Moving Target Pursuit --- */
         else if (exKey === "moving_target_pursuit") {
-          // Dynamic trajectory computed continuously
+          // Single source of truth: computeMetrics() tests the wrist against this
+          // exact curve, so the drawn orb must use identical constants. It used to
+          // be drawn on a different path (0.28/0.65 vs 0.26/0.75), meaning the
+          // patient chased an orb that was not the orb being counted.
           const t = (now - S.exStart) / 1000;
-          const movX = 0.50 + 0.28 * Math.sin(t * 0.65);
-          const movY = 0.48 + 0.08 * Math.sin(t * 1.3);
-          const tx = movX * W;
-          const ty = movY * H;
+          const orbX = (tt) => 0.50 + 0.26 * Math.sin(tt * 0.75);
+          const orbY = (tt) => 0.45 + 0.10 * Math.sin(tt * 1.5);
+          const mt = M.movingTarget || { x: orbX(t), y: orbY(t) };
+          const tx = (Number.isFinite(mt.x) ? mt.x : orbX(t)) * W;
+          const ty = (Number.isFinite(mt.y) ? mt.y : orbY(t)) * H;
           const r = 54;
 
           // Motion tail trail behind the moving target
           for (let trail = 1; trail <= 4; trail++) {
             const trailT = t - trail * 0.12;
-            const trX = (0.50 + 0.28 * Math.sin(trailT * 0.65)) * W;
-            const trY = (0.48 + 0.08 * Math.sin(trailT * 1.3)) * H;
+            const trX = orbX(trailT) * W;
+            const trY = orbY(trailT) * H;
             oCtx.beginPath();
             oCtx.arc(trX, trY, r * (1 - trail * 0.18), 0, Math.PI * 2);
             oCtx.fillStyle = M.movingTargetHit ? `rgba(0, 255, 102, ${0.25 / trail})` : `rgba(245, 158, 11, ${0.25 / trail})`;
@@ -483,20 +487,60 @@ document.addEventListener("DOMContentLoaded", () => {
           drawTargetCircle(tx, ty, r, label, M.movingTargetHit ? "#00FF66" : "#F59E0B", M.movingTargetHit, heldProgress, centerText);
         }
 
-        /* --- EXERCISE 9: Virtual Pincer Grasp & Release --- */
+        /* --- EXERCISE 9: Virtual Pincer Grasp & Release (Precision Caliper) --- */
         else if (exKey === "apraxia_pinch") {
-          const px = 0.58 * W;
-          const py = 0.50 * H;
-          const r = 50;
+          // Clinical spec: a caliper circle bracketing thumb tip (4) and index tip (8).
+          const hand = res && ((res.hand && res.hand[0]) ? res.hand : ((res.handAll && res.handAll[0]) ? res.handAll : null));
+          const thumbTip = hand && hand[4];
+          const indexTip = hand && hand[8];
+
+          let px = 0.58 * W;
+          let py = 0.50 * H;
+          let r = 50;
+          let caliper = null;
+
+          if (thumbTip && indexTip && Number.isFinite(thumbTip.x) && Number.isFinite(indexTip.x)) {
+            const t1 = { x: X(thumbTip), y: Y(thumbTip) };
+            const t2 = { x: X(indexTip), y: Y(indexTip) };
+            px = (t1.x + t2.x) / 2;
+            py = (t1.y + t2.y) / 2;
+            const gap = Math.hypot(t2.x - t1.x, t2.y - t1.y);
+            r = Math.max(34, Math.min(96, gap / 2 + 26));
+            caliper = [t1, t2];
+          }
+
+          const isPinched = (M.pinchRatio != null && M.pinchRatio <= 0.36) || (M.pinch != null && M.pinch <= 0.065);
 
           if (S.step === 0) {
-            const isPinched = (M.pinchRatio != null && M.pinchRatio <= 0.36) || (M.pinch != null && M.pinch <= 0.065);
             const held = (isPinched && S.holdStart > 0) ? Math.min(0.4, (now - S.holdStart) / 1000) : 0;
             const centerText = held > 0 ? `${Math.max(0, 0.4 - held).toFixed(1)}s` : "PINCH 🤏";
             drawTargetCircle(px, py, r, "🎯 STEP 1: PINCH THUMB & INDEX 🤏", "#10B981", isPinched, (held / 0.4), centerText);
           } else {
             const isReleased = (M.pinchRatio != null && M.pinchRatio >= 0.38) || (M.pinch != null && M.pinch >= 0.075) || !!M.isOpenPalm;
             drawTargetCircle(px, py, r + 6, "🎯 STEP 2: RELEASE FINGERS WIDE 🖐️", "#38BDF8", isReleased, 0, "OPEN 🖐️");
+          }
+
+          // Caliper jaws on thumb tip + index tip (drawn last so it stays visible)
+          if (caliper) {
+            oCtx.save();
+            oCtx.setLineDash([6, 5]);
+            oCtx.strokeStyle = isPinched ? "rgba(0, 255, 102, 0.95)" : "rgba(16, 185, 129, 0.9)";
+            oCtx.lineWidth = 2.5;
+            oCtx.beginPath();
+            oCtx.moveTo(caliper[0].x, caliper[0].y);
+            oCtx.lineTo(caliper[1].x, caliper[1].y);
+            oCtx.stroke();
+            oCtx.setLineDash([]);
+            caliper.forEach((pt) => {
+              oCtx.beginPath();
+              oCtx.arc(pt.x, pt.y, 8, 0, Math.PI * 2);
+              oCtx.fillStyle = "#10B981";
+              oCtx.fill();
+              oCtx.strokeStyle = "#FFFFFF";
+              oCtx.lineWidth = 2;
+              oCtx.stroke();
+            });
+            oCtx.restore();
           }
         }
       }
@@ -1055,12 +1099,22 @@ document.addEventListener("DOMContentLoaded", () => {
         S.lastOkTime = now;
 
         // Pitch-tone sonification for elbow ROM
-        if (window.RehabBio) {
-          if (S.ex.metric && S.ex.metric.indexOf("ELBOW") === 0 && (M.activeElbow != null || M.elbowMax != null)) {
-            window.RehabBio.setRomTone(M.activeElbow != null ? M.activeElbow : M.elbowMax, { minAngle: 40, maxAngle: 160 });
-          } else {
-            window.RehabBio.stopRomTone();
+        // NOTE: this cue must never be able to abort the step engine. A Web Audio
+        // exception thrown here used to escape before S.step++, which froze rep
+        // counting for good (the hold bar reached 0.0s but no rep was awarded).
+        try {
+          const romAngle = M.activeElbow != null ? M.activeElbow : M.elbowMax;
+          if (window.RehabBio) {
+            if (S.ex.metric && S.ex.metric.indexOf("ELBOW") === 0 && Number.isFinite(romAngle)) {
+              window.RehabBio.setRomTone(romAngle, {
+                minAngle: 40, maxAngle: 160, minHz: 220, maxHz: 880,
+              });
+            } else {
+              window.RehabBio.stopRomTone();
+            }
           }
+        } catch (bioErr) {
+          console.warn("[Therapy] ROM tone skipped:", bioErr && bioErr.message);
         }
 
         if (step.hold > 0) {

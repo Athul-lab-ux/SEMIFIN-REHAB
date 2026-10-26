@@ -1,6 +1,7 @@
 {% extends "app_shell.html" %}
 {% block extra_head %}
-  <link rel="stylesheet" href="/static/css/therapy.css" />
+  <!-- ?v= busts the 24h browser cache set on /static/* so fixed exercise engines load immediately -->
+  <link rel="stylesheet" href="/static/css/therapy.css?v=20261026b" />
 {% endblock %}
 {% block content %}
   <!-- ============ SCREEN 1 · PROGRAM CONFIGURATOR ============ -->
@@ -218,11 +219,11 @@
 {% endblock %}
 
 {% block scripts %}
-  <script src="/static/js/kinematics.js"></script>
-  <script src="/static/js/qa_watchdog.js"></script>
-  <script src="/static/js/biofeedback.js"></script>
-  <script src="/static/js/clinical_ui.js"></script>
-  <script src="/static/js/vision_loader.js"></script>
-  <script src="/static/js/exercise_library.js"></script>
-  <script src="/static/js/therapy_engine.js"></script>
+  <script src="/static/js/kinematics.js?v=20261026b"></script>
+  <script src="/static/js/qa_watchdog.js?v=20261026b"></script>
+  <script src="/static/js/biofeedback.js?v=20261026b"></script>
+  <script src="/static/js/clinical_ui.js?v=20261026b"></script>
+  <script src="/static/js/vision_loader.js?v=20261026b"></script>
+  <script src="/static/js/exercise_library.js?v=20261026b"></script>
+  <script src="/static/js/therapy_engine.js?v=20261026b"></script>
 {% endblock %}
